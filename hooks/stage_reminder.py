@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: validate stage outputs and remind orchestrator of next stage.
+"""PreToolUse hook: validate role completion outputs and remind of next role.
 
-When the orchestrator writes .godotmaker/stage.json (recording stage completion),
+When a gm-* skill appends to .godotmaker/stage.jsonl (recording role completion),
 this hook:
-  1. VALIDATES that the completed stage's required outputs exist. Blocks if not.
-  2. Injects an additionalContext reminder pointing to the next stage's detail file.
-
-Only the path is injected — the orchestrator decides whether to read it (it may
-have already loaded the file).
+  1. VALIDATES that the completed role's required outputs exist. Blocks if not.
+  2. Injects an additionalContext reminder pointing to the next role's command.
 """
 import json
 import os
@@ -15,149 +12,120 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from metrics import record_event, EventType
+from metrics import (
+    record_event, EventType, PIPELINE_ROLES,
+    load_stage_schemas, validate_schema_files,
+)
 
-STAGE_FILES = {
-    1: "stages/stage1_requirements.md",
-    2: "stages/stage2_architecture.md",
-    3: "stages/stage3_scaffold.md",
-    4: "stages/stage4_assets.md",
-    5: "stages/stage5_risk_impl.md",
-    6: "stages/stage6_main_impl.md",
-    7: "stages/stage7_integration.md",
-    8: "stages/stage8_final.md",
+ROLE_NEXT = {
+    "setup": "/gm-build",
+    "build": "/gm-verify",
+    "verify": "/gm-evaluate",
+    "evaluate": "/gm-accept (if approved) or /gm-fixgap (if rejected)",
+    "fixgap": "/gm-verify",
+    "accept": "/gm-finalize",
+    "finalize": None,
 }
 
-MAX_STAGE = 8
-
-
-SCHEMA_PATH = os.path.join(".godotmaker", "stage_schemas.json")
-
-
-def load_schemas() -> dict | None:
-    if not os.path.isfile(SCHEMA_PATH):
-        return None
-    with open(SCHEMA_PATH, encoding="utf-8") as f:
-        return json.load(f)
+# Sanity check: ROLE_NEXT must cover every pipeline role. Catches drift at
+# import time when a new role is added to PIPELINE_ROLES without updating the
+# next-step mapping here.
+assert set(ROLE_NEXT) == set(PIPELINE_ROLES), (
+    f"ROLE_NEXT keys {sorted(ROLE_NEXT)} must equal "
+    f"PIPELINE_ROLES {sorted(PIPELINE_ROLES)}"
+)
 
 
 # ---------------------------------------------------------------------------
 # Programmatic check functions
 # ---------------------------------------------------------------------------
 
-def check_references_has_images() -> str | None:
-    """Stage 4: references/ must have at least 1 .png file."""
-    refs_dir = "references"
-    if not os.path.isdir(refs_dir):
-        return "references/ directory not found"
-    pngs = [f for f in os.listdir(refs_dir) if f.lower().endswith(".png")]
-    if not pngs:
-        return "references/ has no .png files — generate scene reference images first"
+def check_plan_all_verified() -> str | None:
+    """Build role: PLAN.md must have all tasks marked `verified`."""
+    return _check_task_table_all_verified("PLAN.md")
+
+
+def check_gap_archived() -> str | None:
+    """Fixgap role: GAP.md must be archived (moved out of project root).
+
+    The orchestrator's When Done step archives the completed GAP.md to
+    `.godotmaker/gaps/<iteration>/GAP.md`. If GAP.md is still at root
+    when the fixgap event is recorded, the orchestrator skipped the archive.
+    """
+    if os.path.isfile("GAP.md"):
+        return ("GAP.md is still at project root — it must be archived to "
+                ".godotmaker/gaps/<iteration>/GAP.md before completing fixgap.")
     return None
 
 
-def check_metrics_has_worker_done() -> str | None:
-    """Stage 5/6: metrics must have at least 1 worker_done event."""
-    from metrics import read_current_events
-    events = read_current_events()
-    worker_dones = [e for e in events if e.get("event") == "worker_done"]
-    if not worker_dones:
-        return "No worker_done events in metrics — no workers completed successfully"
-    return None
-
-
-def check_plan_has_non_pending() -> str | None:
-    """Stage 5: PLAN.md must have at least one non-pending task."""
-    if not os.path.isfile("PLAN.md"):
-        return "PLAN.md not found"
-    with open("PLAN.md", encoding="utf-8", errors="replace") as f:
-        content = f.read()
-    # Look for task status table rows with non-pending status
-    statuses = re.findall(r"\|\s*(?:completed|in_progress|failed)\s*\|", content, re.IGNORECASE)
-    if not statuses:
-        return "PLAN.md has no tasks marked as completed/in_progress — no work done"
-    return None
-
-
-def check_plan_no_pending() -> str | None:
-    """Stage 6: PLAN.md must have no pending tasks."""
-    if not os.path.isfile("PLAN.md"):
-        return "PLAN.md not found"
-    with open("PLAN.md", encoding="utf-8", errors="replace") as f:
+def _check_task_table_all_verified(path: str) -> str | None:
+    """Shared: a task table at `path` must have no non-verified tasks."""
+    if not os.path.isfile(path):
+        return f"{path} not found"
+    with open(path, encoding="utf-8", errors="replace") as f:
         content = f.read()
     pending = re.findall(r"\|\s*pending\s*\|", content, re.IGNORECASE)
+    in_progress = re.findall(r"\|\s*in_progress\s*\|", content, re.IGNORECASE)
+    completed = re.findall(r"\|\s*completed\s*\|", content, re.IGNORECASE)
+    leftover = []
     if pending:
-        return f"PLAN.md still has {len(pending)} pending task(s) — all tasks must be completed"
-    return None
-
-
-def check_metrics_has_verifier() -> str | None:
-    """Stage 7: metrics must have at least 1 verifier event."""
-    from metrics import read_current_events
-    events = read_current_events()
-    verifier_events = [e for e in events
-                       if e.get("event") in ("verifier_pass", "verifier_fail", "verifier_partial")]
-    if not verifier_events:
-        return "No verifier events in metrics — no verification was performed"
-    return None
-
-
-def check_screenshots_match_scenes() -> str | None:
-    """Stage 8: screenshots/ must have >= N .png files where N = scene count in SCENES.md."""
-    if not os.path.isfile("SCENES.md"):
-        return "SCENES.md not found — cannot verify screenshot coverage"
-    with open("SCENES.md", encoding="utf-8", errors="replace") as f:
-        content = f.read()
-    scene_count = len(re.findall(r"^## Scene:", content, re.MULTILINE))
-    if scene_count == 0:
-        return None  # No scenes defined, skip check
-
-    # Check screenshots/ directory
-    ss_dir = "screenshots"
-    if not os.path.isdir(ss_dir):
-        return (
-            f"screenshots/ directory not found — need {scene_count} screenshots "
-            f"for {scene_count} scenes"
-        )
-    pngs = [f for f in os.listdir(ss_dir) if f.lower().endswith(".png")]
-    if len(pngs) < scene_count:
-        return (
-            f"screenshots/ has {len(pngs)} images but SCENES.md defines {scene_count} scenes "
-            f"— each scene needs a screenshot"
-        )
+        leftover.append(f"{len(pending)} pending")
+    if in_progress:
+        leftover.append(f"{len(in_progress)} in_progress")
+    if completed:
+        leftover.append(f"{len(completed)} completed (not yet verified)")
+    if leftover:
+        return f"{path} has tasks not yet verified: {', '.join(leftover)}"
     return None
 
 
 PROGRAMMATIC_CHECKS = {
-    "references_has_images": check_references_has_images,
-    "metrics_has_worker_done": check_metrics_has_worker_done,
-    "plan_has_non_pending": check_plan_has_non_pending,
-    "metrics_has_new_worker_done": check_metrics_has_worker_done,
-    "plan_no_pending": check_plan_no_pending,
-    "metrics_has_verifier": check_metrics_has_verifier,
-    "screenshots_match_scenes": check_screenshots_match_scenes,
+    "plan_all_verified": check_plan_all_verified,
+    "gap_archived": check_gap_archived,
 }
+
+
+# ---------------------------------------------------------------------------
+# Role extraction
+# ---------------------------------------------------------------------------
+
+def extract_latest_role(tool_input: dict) -> str | None:
+    """Extract the role of the LAST event in a Write/Edit tool input.
+
+    The hook runs when a gm-* skill writes/edits .godotmaker/stage.jsonl.
+    The relevant event is the one being added — i.e. the last valid
+    {"role": X, "ts": Y} line in the payload. Returns None if no such
+    event is found.
+    """
+    content = tool_input.get("content") or tool_input.get("new_string", "")
+    if not content:
+        return None
+
+    latest = None
+    for line in content.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        role = entry.get("role")
+        ts = entry.get("ts")
+        if role and ts and role in PIPELINE_ROLES:
+            latest = role
+    return latest
 
 
 # ---------------------------------------------------------------------------
 # Reminder helper
 # ---------------------------------------------------------------------------
 
-def get_next_stage_reminder(completed_stage: int) -> str | None:
-    """Return a reminder string for the next stage, or None if pipeline is done."""
-    next_stage = completed_stage + 1
-    if next_stage > MAX_STAGE:
+def get_next_role_reminder(completed_role: str) -> str | None:
+    next_step = ROLE_NEXT.get(completed_role)
+    if not next_step:
         return None
-
-    stage_file = STAGE_FILES.get(next_stage)
-    if not stage_file:
-        return None
-
-    return (
-        f"[Stage {completed_stage} complete] "
-        f"Next: Stage {next_stage}. "
-        f"Read the detail file before proceeding: {stage_file}"
-    )
+    return f"[Role '{completed_role}' complete] Next: {next_step}"
 
 
 # ---------------------------------------------------------------------------
@@ -180,49 +148,23 @@ def main():
     tool_input = data.get("tool_input", {})
     file_path = tool_input.get("file_path", "")
 
-    # Normalize path separators for cross-platform
     normalized = file_path.replace("\\", "/")
-    if not normalized.endswith(".godotmaker/stage.json"):
+    if not normalized.endswith(".godotmaker/stage.jsonl"):
         sys.exit(0)
 
-    # Parse the content being written to extract completed_stage
-    content = tool_input.get("content", "")
-    if not content:
-        # Edit tool uses old_string/new_string, try new_string
-        content = tool_input.get("new_string", "")
-
-    try:
-        stage_data = json.loads(content)
-    except (json.JSONDecodeError, TypeError):
-        sys.exit(0)
-
-    # Support both formats:
-    # Old: {"completed_stage": N}
-    # New: {"completed_stages": {"1": "...", "2": "..."}}
-    completed_stage = stage_data.get("completed_stage")
-    if completed_stage is None:
-        stages = stage_data.get("completed_stages", {})
-        if stages:
-            completed_stage = max(int(k) for k in stages)
-    if not isinstance(completed_stage, int):
+    completed_role = extract_latest_role(tool_input)
+    if not completed_role:
         sys.exit(0)
 
     # -----------------------------------------------------------------------
-    # Validate stage outputs before allowing completion
+    # Validate role outputs before allowing completion
     # -----------------------------------------------------------------------
-    schemas = load_schemas()
+    schemas = load_stage_schemas()
     if schemas:
-        stage_key = str(completed_stage)
-        stage_schema = schemas.get(stage_key, {})
-        issues = []
+        role_schema = schemas.get(completed_role, {})
+        issues = validate_schema_files(role_schema)
 
-        # Check file existence
-        for filepath in stage_schema.get("files", []):
-            if not os.path.exists(filepath):
-                issues.append(f"Required file missing: {filepath}")
-
-        # Run programmatic checks
-        for check_name in stage_schema.get("checks", []):
+        for check_name in role_schema.get("checks", []):
             check_fn = PROGRAMMATIC_CHECKS.get(check_name)
             if check_fn:
                 result = check_fn()
@@ -231,10 +173,10 @@ def main():
 
         if issues:
             reason = (
-                f"Cannot mark Stage {completed_stage} as complete — validation failed:\n"
+                f"Cannot mark role '{completed_role}' as complete — validation failed:\n"
                 + "\n".join(f"  - {i}" for i in issues)
             )
-            record_event(EventType.GATE_CHECK, gate=f"stage_{completed_stage}",
+            record_event(EventType.GATE_CHECK, gate=f"role_{completed_role}",
                          result="fail", issues=issues)
             print(json.dumps({"hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
@@ -243,13 +185,10 @@ def main():
             }}))
             sys.exit(0)
 
-    # -----------------------------------------------------------------------
-    # Validation passed — record completion and inject next-stage reminder
-    # -----------------------------------------------------------------------
-    record_event(EventType.GATE_CHECK, gate=f"stage_{completed_stage}",
+    record_event(EventType.GATE_CHECK, gate=f"role_{completed_role}",
                  result="complete")
 
-    reminder = get_next_stage_reminder(completed_stage)
+    reminder = get_next_role_reminder(completed_role)
     if reminder:
         result = {
             "hookSpecificOutput": {

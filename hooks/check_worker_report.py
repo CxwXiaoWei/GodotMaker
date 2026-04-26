@@ -242,7 +242,7 @@ def check_test_substance(message: str) -> str | None:
     if not has_e2e:
         return (
             "Tests section missing e2e test results — every worker must write AND run e2e tests. "
-            "Include the e2e test file path and run output (e.g., 'tests/e2e/test_movement.py: 2 passed in 1.5s'). "
+            "Include the e2e test file path and run output (e.g., 'e2e/test_movement.py: 2 passed in 1.5s'). "
             "If this task genuinely has no e2e component, state 'E2E: N/A — [reason]' explicitly."
         )
 

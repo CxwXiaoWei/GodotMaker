@@ -1,25 +1,35 @@
 #!/usr/bin/env python3
-"""PreToolUse hook (Agent tool): verify stage prerequisites before worker dispatch.
+"""PreToolUse hook (Agent tool): verify role prerequisites before worker dispatch.
 
-Reads config/stage_schemas.json to determine what files each completed stage
-should have produced. Blocks if any are missing.
+Only enforces for roles that dispatch workers:
+  - build → requires setup completed + its files present
+  - fixgap → requires evaluate completed + evaluation.json present
+
+Other roles (setup, verify, evaluate, accept, finalize) don't dispatch workers
+and skip this check.
 """
 import json
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from metrics import record_event, EventType, get_current_stage
+from metrics import (
+    record_event, EventType,
+    get_current_role, get_completed_roles,
+    load_stage_schemas, WORKER_DISPATCH_ROLES,
+)
 
 
-SCHEMA_PATH = os.path.join(".godotmaker", "stage_schemas.json")
+PREREQ_ROLE = {
+    "build": "setup",
+    "fixgap": "evaluate",
+}
 
-
-def load_schemas() -> dict | None:
-    if not os.path.isfile(SCHEMA_PATH):
-        return None
-    with open(SCHEMA_PATH, encoding="utf-8") as f:
-        return json.load(f)
+# Sanity check: PREREQ_ROLE must cover exactly the worker-dispatching roles.
+assert frozenset(PREREQ_ROLE) == WORKER_DISPATCH_ROLES, (
+    f"PREREQ_ROLE keys {sorted(PREREQ_ROLE)} must equal "
+    f"WORKER_DISPATCH_ROLES {sorted(WORKER_DISPATCH_ROLES)}"
+)
 
 
 def main():
@@ -31,32 +41,37 @@ def main():
     if data.get("tool_name") != "Agent":
         sys.exit(0)
 
-    # Only check main agent (orchestrator)
+    # Only check main agent (the gm-* skill orchestrating dispatch)
     if data.get("agent_id", ""):
         sys.exit(0)
 
-    schemas = load_schemas()
-    if not schemas:
-        sys.exit(0)  # No schema file, can't check
+    role = get_current_role()
+    prereq = PREREQ_ROLE.get(role)
+    if not prereq:
+        sys.exit(0)  # No worker-dispatch role active, nothing to enforce
 
-    completed = get_current_stage()
+    completed = get_completed_roles()
+    issues = []
 
-    missing = []
-    for stage_num in range(1, completed + 1):
-        stage_key = str(stage_num)
-        stage_schema = schemas.get(stage_key, {})
-        for filepath in stage_schema.get("files", []):
+    if prereq not in completed:
+        issues.append(f"Role '{prereq}' has not completed yet — run /gm-{prereq} first")
+
+    schemas = load_stage_schemas()
+    if schemas:
+        prereq_schema = schemas.get(prereq, {})
+        # Inline existence check here (not validate_schema_files) to keep the
+        # role-aware "{prereq} output missing: X" message style.
+        for filepath in prereq_schema.get("files", []):
             if not os.path.exists(filepath):
-                missing.append(f"Stage {stage_num}: {filepath} not found")
+                issues.append(f"{prereq} output missing: {filepath}")
 
-    if missing:
+    if issues:
         reason = (
-            "Cannot dispatch worker — prerequisite stage outputs missing:\n"
-            + "\n".join(f"  - {m}" for m in missing)
-            + "\nComplete earlier stages first. See SKILL.md Mandatory Pipeline."
+            f"Cannot dispatch worker — '{role}' role prerequisites missing:\n"
+            + "\n".join(f"  - {m}" for m in issues)
         )
         record_event(EventType.HOOK_BLOCK, hook="check_stage_prerequisites",
-                     missing=[m.split(": ", 1)[1] for m in missing])
+                     role=role, missing=issues)
         print(json.dumps({"hookSpecificOutput": {
             "hookEventName": "PreToolUse",
             "permissionDecision": "deny",
@@ -64,7 +79,7 @@ def main():
         }}))
         sys.exit(0)
 
-    record_event(EventType.HOOK_ALLOW, hook="check_stage_prerequisites")
+    record_event(EventType.HOOK_ALLOW, hook="check_stage_prerequisites", role=role)
 
 
 if __name__ == "__main__":

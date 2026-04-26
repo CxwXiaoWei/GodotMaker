@@ -130,7 +130,7 @@ Report: total passed / failed / skipped. Each failure: test name, expected vs ac
 ### E2E Tests
 ```bash
 # Read godot-e2e skill for project-specific commands
-godot-e2e tests/e2e/ -v
+godot-e2e e2e/ -v
 ```
 Report: scenarios passed / failed. Each failure: scenario name, step that failed.
 

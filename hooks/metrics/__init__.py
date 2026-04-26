@@ -23,20 +23,98 @@ from .schema import (
 from . import state
 
 
-def get_current_stage() -> int:
-    """Read the highest completed stage from .godotmaker/stage.json."""
-    stage_file = os.path.join(".godotmaker", "stage.json")
-    if not os.path.isfile(stage_file):
-        return 0
+PIPELINE_ROLES = ("setup", "build", "verify", "evaluate", "fixgap", "accept", "finalize")
+
+# Roles that dispatch worker subagents (and therefore must satisfy the
+# prerequisite/file-permission rules around worker dispatch).
+WORKER_DISPATCH_ROLES = frozenset({"build", "fixgap"})
+
+STAGE_SCHEMAS_PATH = os.path.join(".godotmaker", "stage_schemas.json")
+
+
+def load_stage_schemas() -> dict | None:
+    """Load .godotmaker/stage_schemas.json. Returns None if missing or malformed."""
     try:
-        with open(stage_file, encoding="utf-8") as f:
-            data = json.load(f)
-        stages = data.get("completed_stages", {})
-        if stages:
-            return max(int(k) for k in stages)
-    except (json.JSONDecodeError, ValueError, OSError):
+        with open(STAGE_SCHEMAS_PATH, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, FileNotFoundError, json.JSONDecodeError, ValueError):
+        return None
+
+
+def validate_schema_files(role_schema: dict) -> list[str]:
+    """Return ["Required file missing: <path>", ...] for each missing file in
+    role_schema['files']. Empty list if every file is present.
+    """
+    issues = []
+    for filepath in role_schema.get("files", []):
+        if not os.path.exists(filepath):
+            issues.append(f"Required file missing: {filepath}")
+    return issues
+
+
+def get_completed_roles() -> dict:
+    """Read role-completion log from .godotmaker/stage.jsonl.
+
+    Returns dict mapping role name → latest ISO timestamp string.
+    Empty dict if file missing or malformed. Roles that completed multiple
+    times (e.g. fixgap) appear once with their most-recent timestamp.
+    """
+    roles = {}
+    try:
+        with open(os.path.join(".godotmaker", "stage.jsonl"), encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except (json.JSONDecodeError, ValueError):
+                    continue
+                role = entry.get("role")
+                ts = entry.get("ts")
+                if role and ts:
+                    roles[role] = ts  # latest wins (file is in chronological order)
+    except (OSError, FileNotFoundError):
         pass
-    return 0
+    return roles
+
+
+def get_role_events() -> list[dict]:
+    """Return the full role-completion event log as a list of {role, ts} dicts."""
+    events = []
+    try:
+        with open(os.path.join(".godotmaker", "stage.jsonl"), encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except (json.JSONDecodeError, ValueError):
+                    continue
+                if entry.get("role") and entry.get("ts"):
+                    events.append(entry)
+    except (OSError, FileNotFoundError):
+        pass
+    return events
+
+
+def is_role_completed(role: str) -> bool:
+    """Check if a specific pipeline role has completed at least once."""
+    return role in get_completed_roles()
+
+
+def get_current_role() -> str:
+    """Read the active pipeline role from .godotmaker/current_role.
+
+    Returns the role name (lowercased) or "" if no role lock is set.
+    """
+    role_file = os.path.join(".godotmaker", "current_role")
+    try:
+        with open(role_file, encoding="utf-8") as f:
+            return f.read().strip().lower()
+    except (OSError, FileNotFoundError):
+        return ""
 
 
 __all__ = [
@@ -46,5 +124,13 @@ __all__ = [
     "ROLE_WORKER", "ROLE_VERIFIER", "ROLE_REVIEWER", "ROLE_ANALYST", "ROLE_UNKNOWN",
     "KNOWN_ROLES",
     "state",
-    "get_current_stage",
+    "PIPELINE_ROLES",
+    "WORKER_DISPATCH_ROLES",
+    "STAGE_SCHEMAS_PATH",
+    "load_stage_schemas",
+    "validate_schema_files",
+    "get_completed_roles",
+    "get_role_events",
+    "is_role_completed",
+    "get_current_role",
 ]

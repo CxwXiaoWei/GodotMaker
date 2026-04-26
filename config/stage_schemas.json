@@ -1,26 +1,19 @@
 {
-  "1": {
-    "files": ["GDD.md", "PLAN.md", "ASSETS.md", "SCENES.md", "TOC.md"]
+  "setup": {
+    "files": ["GDD.md", "PLAN.md", "STRUCTURE.md"]
   },
-  "2": {
-    "files": ["STRUCTURE.md"]
+  "build": {
+    "checks": ["plan_all_verified"]
   },
-  "3": {
-    "files": ["project.godot", "addons/gecs/"]
+  "verify": {},
+  "evaluate": {
+    "files": [".godotmaker/evaluation.json"]
   },
-  "4": {
-    "checks": ["references_has_images"]
+  "fixgap": {
+    "checks": ["gap_archived"]
   },
-  "5": {
-    "checks": ["metrics_has_worker_done", "plan_has_non_pending"]
-  },
-  "6": {
-    "checks": ["metrics_has_new_worker_done", "plan_no_pending"]
-  },
-  "7": {
-    "checks": ["metrics_has_verifier"]
-  },
-  "8": {
-    "checks": ["screenshots_match_scenes"]
+  "accept": {},
+  "finalize": {
+    "files": [".godotmaker/final_report.json"]
   }
 }

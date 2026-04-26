@@ -1,9 +1,15 @@
-"""Tests for stage_reminder.py hook."""
+"""Tests for stage_reminder.py hook (role-based pipeline)."""
 import json
 import os
+import shutil
 import pytest
 import tempfile
-from .helpers import run_hook, cleanup_metrics
+from .helpers import run_hook, is_blocked, cleanup_metrics
+
+SCHEMA_SRC = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "config", "stage_schemas.json"
+)
 
 HOOK = "stage_reminder.py"
 
@@ -19,8 +25,16 @@ def project_dir():
     original = os.getcwd()
     with tempfile.TemporaryDirectory() as tmpdir:
         os.chdir(tmpdir)
+        # Always provide a schema so validation can run
+        os.makedirs(".godotmaker", exist_ok=True)
+        shutil.copy(SCHEMA_SRC, ".godotmaker/stage_schemas.json")
         yield tmpdir
         os.chdir(original)
+
+
+def stage_jsonl(events: list[dict]) -> str:
+    """events is a list of {"role": X, "ts": Y} dicts."""
+    return "\n".join(json.dumps(e) for e in events) + "\n"
 
 
 class TestNonStageWrites:
@@ -28,7 +42,7 @@ class TestNonStageWrites:
         _, code, parsed = run_hook(HOOK, {
             "hook_event_name": "PreToolUse",
             "tool_name": "Read",
-            "tool_input": {"file_path": ".godotmaker/stage.json"},
+            "tool_input": {"file_path": ".godotmaker/stage.jsonl"},
         })
         assert code == 0
         assert parsed is None
@@ -37,10 +51,7 @@ class TestNonStageWrites:
         _, code, parsed = run_hook(HOOK, {
             "hook_event_name": "PreToolUse",
             "tool_name": "Write",
-            "tool_input": {
-                "file_path": "src/main.gd",
-                "content": "extends Node",
-            },
+            "tool_input": {"file_path": "src/main.gd", "content": "extends Node"},
         })
         assert code == 0
         assert parsed is None
@@ -50,157 +61,165 @@ class TestNonStageWrites:
             "hook_event_name": "SubagentStop",
             "tool_name": "Write",
             "tool_input": {
-                "file_path": ".godotmaker/stage.json",
-                "content": '{"completed_stage": 1}',
+                "file_path": ".godotmaker/stage.jsonl",
+                "content": stage_jsonl([{"role": "setup", "ts": "2026-01-01T00:00:00Z"}]),
             },
         })
         assert code == 0
         assert parsed is None
 
 
-class TestStageReminder:
-    def test_stage1_complete_reminds_stage2(self, project_dir):
+class TestRoleReminder:
+    def test_setup_complete_reminds_build(self, project_dir):
+        for f in ["GDD.md", "PLAN.md", "STRUCTURE.md"]:
+            open(f, "w").close()
         _, code, parsed = run_hook(HOOK, {
             "hook_event_name": "PreToolUse",
             "tool_name": "Write",
             "tool_input": {
-                "file_path": ".godotmaker/stage.json",
-                "content": '{"completed_stage": 1}',
+                "file_path": ".godotmaker/stage.jsonl",
+                "content": stage_jsonl([{"role": "setup", "ts": "2026-01-01T00:00:00Z"}]),
             },
         })
         assert code == 0
         assert parsed is not None
         ctx = parsed["hookSpecificOutput"]["additionalContext"]
-        assert "Stage 2" in ctx
-        assert "stage2_architecture.md" in ctx
+        assert "/gm-build" in ctx
+        assert "setup" in ctx
 
-    def test_stage6_complete_reminds_stage7(self, project_dir):
+    def test_evaluate_complete_reminds_accept_or_fixgap(self, project_dir):
+        with open(".godotmaker/evaluation.json", "w") as f:
+            f.write('{"result": "approve"}')
         _, code, parsed = run_hook(HOOK, {
             "hook_event_name": "PreToolUse",
             "tool_name": "Write",
             "tool_input": {
-                "file_path": ".godotmaker/stage.json",
-                "content": '{"completed_stage": 6}',
+                "file_path": ".godotmaker/stage.jsonl",
+                "content": stage_jsonl([
+                    {"role": "setup", "ts": "2026-01-01T00:00:00Z"},
+                    {"role": "evaluate", "ts": "2026-01-01T05:00:00Z"},
+                ]),
             },
         })
         assert code == 0
         ctx = parsed["hookSpecificOutput"]["additionalContext"]
-        assert "Stage 7" in ctx
-        assert "stage7_integration.md" in ctx
+        assert "/gm-accept" in ctx and "/gm-fixgap" in ctx
 
-    def test_stage8_complete_no_reminder(self, project_dir):
+    def test_finalize_complete_no_reminder(self, project_dir):
+        with open(".godotmaker/final_report.json", "w") as f:
+            f.write('{"status": "completed"}')
         _, code, parsed = run_hook(HOOK, {
             "hook_event_name": "PreToolUse",
             "tool_name": "Write",
             "tool_input": {
-                "file_path": ".godotmaker/stage.json",
-                "content": '{"completed_stage": 8}',
+                "file_path": ".godotmaker/stage.jsonl",
+                "content": stage_jsonl([{"role": "finalize", "ts": "2026-01-01T07:00:00Z"}]),
             },
         })
         assert code == 0
-        # No next stage, no output
-        assert parsed is None
+        # No next role after finalize → no additionalContext
+        assert parsed is None or "additionalContext" not in parsed.get("hookSpecificOutput", {})
 
     def test_windows_path(self, project_dir):
+        for f in ["GDD.md", "PLAN.md", "STRUCTURE.md"]:
+            open(f, "w").close()
         _, code, parsed = run_hook(HOOK, {
             "hook_event_name": "PreToolUse",
             "tool_name": "Write",
             "tool_input": {
-                "file_path": "D:\\Games\\MyGame\\.godotmaker\\stage.json",
-                "content": '{"completed_stage": 3}',
+                "file_path": "D:\\Games\\MyGame\\.godotmaker\\stage.jsonl",
+                "content": stage_jsonl([{"role": "setup", "ts": "2026-01-01T00:00:00Z"}]),
             },
         })
         assert code == 0
         assert parsed is not None
         ctx = parsed["hookSpecificOutput"]["additionalContext"]
-        assert "stage4_assets.md" in ctx
+        assert "/gm-build" in ctx
 
     def test_edit_tool(self, project_dir):
+        for f in ["GDD.md", "PLAN.md", "STRUCTURE.md"]:
+            open(f, "w").close()
         _, code, parsed = run_hook(HOOK, {
             "hook_event_name": "PreToolUse",
             "tool_name": "Edit",
             "tool_input": {
-                "file_path": ".godotmaker/stage.json",
-                "old_string": '{"completed_stage": 2}',
-                "new_string": '{"completed_stage": 3}',
+                "file_path": ".godotmaker/stage.jsonl",
+                "old_string": '',
+                "new_string": '{"role": "setup", "ts": "2026-01-01T00:00:00Z"}\n',
             },
         })
         assert code == 0
         assert parsed is not None
         ctx = parsed["hookSpecificOutput"]["additionalContext"]
-        assert "stage4_assets.md" in ctx
+        assert "/gm-build" in ctx
 
+
+class TestValidation:
+    def test_missing_required_files_blocked(self, project_dir):
+        # No GDD/PLAN/STRUCTURE files
+        _, _, parsed = run_hook(HOOK, {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Write",
+            "tool_input": {
+                "file_path": ".godotmaker/stage.jsonl",
+                "content": stage_jsonl([{"role": "setup", "ts": "2026-01-01T00:00:00Z"}]),
+            },
+        })
+        assert is_blocked(parsed)
+        reason = parsed["hookSpecificOutput"]["permissionDecisionReason"]
+        assert "GDD.md" in reason or "PLAN.md" in reason
+
+    def test_build_blocked_when_plan_has_pending(self, project_dir):
+        with open("PLAN.md", "w") as f:
+            f.write("# Plan\n| 1 | move | pending |\n")
+        _, _, parsed = run_hook(HOOK, {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Write",
+            "tool_input": {
+                "file_path": ".godotmaker/stage.jsonl",
+                "content": stage_jsonl([{"role": "build", "ts": "2026-01-01T01:00:00Z"}]),
+            },
+        })
+        assert is_blocked(parsed)
+
+    def test_build_passes_when_plan_all_verified(self, project_dir):
+        with open("PLAN.md", "w") as f:
+            f.write("# Plan\n| 1 | move | verified |\n")
+        _, code, parsed = run_hook(HOOK, {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Write",
+            "tool_input": {
+                "file_path": ".godotmaker/stage.jsonl",
+                "content": stage_jsonl([{"role": "build", "ts": "2026-01-01T01:00:00Z"}]),
+            },
+        })
+        assert code == 0
+        # Should produce a reminder, not block
+        assert not is_blocked(parsed)
+
+
+class TestEdgeCases:
     def test_invalid_json_content(self, project_dir):
         _, code, parsed = run_hook(HOOK, {
             "hook_event_name": "PreToolUse",
             "tool_name": "Write",
             "tool_input": {
-                "file_path": ".godotmaker/stage.json",
+                "file_path": ".godotmaker/stage.jsonl",
                 "content": "not json",
-            },
-        })
-        assert code == 0
-        assert parsed is None  # Silently ignores
-
-    def test_missing_completed_stage(self, project_dir):
-        _, code, parsed = run_hook(HOOK, {
-            "hook_event_name": "PreToolUse",
-            "tool_name": "Write",
-            "tool_input": {
-                "file_path": ".godotmaker/stage.json",
-                "content": '{"other_field": 1}',
             },
         })
         assert code == 0
         assert parsed is None
 
-    def test_never_blocks(self, project_dir):
-        """Stage reminder should ALWAYS allow, never block."""
+    def test_lines_without_role_or_ts_ignored(self, project_dir):
+        """JSONL lines that lack role/ts fields should be skipped (no reminder)."""
         _, code, parsed = run_hook(HOOK, {
             "hook_event_name": "PreToolUse",
             "tool_name": "Write",
             "tool_input": {
-                "file_path": ".godotmaker/stage.json",
-                "content": '{"completed_stage": 5}',
+                "file_path": ".godotmaker/stage.jsonl",
+                "content": '{"other_field": 1}\n{"only_role": "setup"}\n',
             },
         })
         assert code == 0
-        if parsed:
-            assert "decision" not in parsed or parsed.get("decision") != "block"
-
-
-class TestProgressReminder:
-    def test_check_worker_report_includes_progress(self, project_dir):
-        """check_worker_report.py should include progress via hookSpecificOutput."""
-        # Create metrics with some worker events
-        os.makedirs(".godotmaker", exist_ok=True)
-        with open(".godotmaker/metrics_current.jsonl", "w") as f:
-            f.write(json.dumps({
-                "event": "subagent_stop", "report_type": "worker",
-                "status": "DONE"
-            }) + "\n")
-            f.write(json.dumps({
-                "event": "subagent_stop", "report_type": "verifier",
-                "status": "PASS"
-            }) + "\n")
-
-        worker_report = (
-            "## Report: Movement\n"
-            "### Status: DONE\n"
-            "### Files Changed\n- systems/move.gd\n- e2e/test_move.py\n"
-            "### Tests\n#### Unit Tests\ntest_move.gd: 3 passed, 0 failed\n"
-            "#### E2E Tests\ne2e/test_move.py: e2e 1 scenario passed, 0 failed\n"
-            "### Build\ngodot --headless --quit: OK\n"
-            "### Memory Entry\nMovement uses velocity component.\n"
-        )
-
-        _, code, parsed = run_hook("check_worker_report.py", {
-            "hook_event_name": "SubagentStop",
-            "last_assistant_message": worker_report,
-        })
-        assert code == 0
-        if parsed:
-            hso = parsed.get("hookSpecificOutput", {})
-            ctx = hso.get("additionalContext", "")
-            assert "Workers:" in ctx
-            assert "Verifiers:" in ctx
+        assert parsed is None

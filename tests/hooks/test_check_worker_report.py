@@ -15,7 +15,7 @@ COMPLETE_WORKER = (
     "### Tests\n#### Unit Tests\n- test/test_player.gd: 3 tests, 3 passed\n"
     "- Commands run: godot --headless\n"
     "#### E2E Tests\n- e2e/test_player_e2e.gd: e2e scenario 1 passed, 0 failed\n"
-    "- Commands run: godot-e2e tests/e2e/\n\n"
+    "- Commands run: godot-e2e e2e/\n\n"
     "### Build\n- Status: PASS\n\n"
     "### Memory Entry\nLearned about movement"
 )
@@ -73,7 +73,7 @@ class TestWorkerReport:
             "#### Unit Tests\n- test/test_player.gd: 3 tests, 3 passed\n"
             "- Commands run: godot --headless\n"
             "#### E2E Tests\n- e2e/test_player_e2e.gd: e2e scenario 1 passed, 0 failed\n"
-            "- Commands run: godot-e2e tests/e2e/",
+            "- Commands run: godot-e2e e2e/",
             "Nothing here"
         )
         _, _, parsed = run_hook(HOOK, {
@@ -86,7 +86,7 @@ class TestWorkerReport:
     def test_missing_e2e_blocked(self):
         msg = COMPLETE_WORKER.replace(
             "#### E2E Tests\n- e2e/test_player_e2e.gd: e2e scenario 1 passed, 0 failed\n"
-            "- Commands run: godot-e2e tests/e2e/",
+            "- Commands run: godot-e2e e2e/",
             ""
         )
         _, _, parsed = run_hook(HOOK, {
@@ -226,7 +226,7 @@ class TestFlexibleMarkerDetection:
             "### Tests\n#### Unit Tests\n- test/test_player.gd: 3 tests, 3 passed\n"
             "- Commands run: godot --headless\n"
             "#### E2E Tests\n- e2e/test_player_e2e.gd: e2e scenario 1 passed, 0 failed\n"
-            "- Commands run: godot-e2e tests/e2e/\n\n"
+            "- Commands run: godot-e2e e2e/\n\n"
             "### Build\n- Status: PASS\n\n"
             "### Memory Entry\nLearned about movement"
         )
@@ -359,16 +359,16 @@ class TestWorktreeFileResolution:
 
     def test_e2e_file_found_in_worktree(self):
         """e2e file only in worktree should be found and pass check."""
-        # The report references tests/e2e/test_spawn.py which only exists in worktree
+        # The report references e2e/test_spawn.py which only exists in worktree
         msg = (
             "## Report: SpawnSystem\n\n"
             "### Status: DONE\n\n"
             "### Files Changed\n"
             "- `src/systems/s_spawn.gd`: created\n"
-            "- `tests/e2e/test_spawn.py`: created\n\n"
+            "- `e2e/test_spawn.py`: created\n\n"
             "### Tests\n"
             "#### Unit Tests\n- test/test_spawn.gd: 3 tests, 3 passed\n"
-            "#### E2E Tests\n- tests/e2e/test_spawn.py: e2e scenario 1 passed\n\n"
+            "#### E2E Tests\n- e2e/test_spawn.py: e2e scenario 1 passed\n\n"
             "### Build\n- Status: PASS\n\n"
             "### Memory Entry\nSpawn system done"
         )

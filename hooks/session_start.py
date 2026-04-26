@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """SessionStart hook: initialize metrics for new session.
 
-Clears current session metrics log and resets runtime state.
+Clears current session metrics log, resets runtime state, and removes any
+stale .godotmaker/current_role left from a previous session. Each gm-* skill
+will write its own role on first action.
+
 Displays deployed GodotMaker version.
 Never blocks.
 """
@@ -13,13 +16,18 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from metrics import start_session, state
 
 
+def clear_stale_role() -> None:
+    """Remove .godotmaker/current_role so the next skill writes a fresh value."""
+    try:
+        os.remove(os.path.join(".godotmaker", "current_role"))
+    except OSError:
+        pass
+
+
 def read_deployed_version() -> str | None:
     """Read the deployed GodotMaker version from .godotmaker/version."""
-    version_file = os.path.join(".godotmaker", "version")
-    if not os.path.isfile(version_file):
-        return None
     try:
-        with open(version_file, encoding="utf-8") as f:
+        with open(os.path.join(".godotmaker", "version"), encoding="utf-8") as f:
             return f.read().strip()
     except OSError:
         return None
@@ -28,6 +36,7 @@ def read_deployed_version() -> str | None:
 def main():
     start_session()
     state.reset()
+    clear_stale_role()
 
     version = read_deployed_version()
     if version:

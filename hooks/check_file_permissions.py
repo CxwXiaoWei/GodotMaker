@@ -1,22 +1,122 @@
 #!/usr/bin/env python3
-"""PreToolUse hook: enforce file write permissions.
+"""PreToolUse hook: enforce file write permissions per pipeline role.
 
-Rules:
-- Main agent (orchestrator) MUST NOT write .gd/.tscn/.tres files.
-- Subagents (workers) MUST NOT write planning docs (PLAN.md, STRUCTURE.md, ASSETS.md).
+Uses .godotmaker/current_role to determine the active role, then applies
+role-specific write rules. The role file is set by each gm-* skill at
+session start.
 
-Receives: JSON on stdin with tool_name, tool_input, agent_id (if subagent).
-Blocks: JSON with decision: "block" on stdout.
+Main-agent rules (per role):
+  - setup:    may scaffold code/docs; e2e/ blocked (Evaluator-owned)
+  - build:    may NOT write game code (must dispatch worker); e2e/ blocked
+  - verify:   read-only outside .godotmaker/ (state updates allowed)
+  - evaluate: may ONLY write e2e/ or .godotmaker/evaluation.json
+  - fixgap:   same as build
+  - accept:   may update planning docs; no game code; no e2e/
+  - finalize: may update planning docs; no game code; no e2e/
+
+Subagent rules (any role):
+  - never write planning docs (PLAN.md / STRUCTURE.md / ASSETS.md / GAP.md)
+  - never write to e2e/ (Evaluator-owned)
+  - may write game code (that is their job in build/fixgap)
+
+If no current_role is set (legacy/unknown), falls back to original rules:
+  - main agent: blocked from game code
+  - subagent: blocked from planning docs
 """
 import json
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from metrics import record_event, EventType
+from metrics import record_event, EventType, get_current_role, WORKER_DISPATCH_ROLES
 
 GAME_CODE_EXTENSIONS = {".gd", ".tscn", ".tres"}
-PLANNING_DOCS = {"plan.md", "structure.md", "assets.md"}
+PLANNING_DOCS = {"plan.md", "structure.md", "assets.md", "gap.md"}
+E2E_DIR_PREFIX = "e2e/"
+GODOTMAKER_DIR = ".godotmaker/"
+EVAL_FILE = ".godotmaker/evaluation.json"
+
+
+def _is_e2e_path(path_lower: str) -> bool:
+    return path_lower.startswith(E2E_DIR_PREFIX) or f"/{E2E_DIR_PREFIX}" in path_lower
+
+
+def _is_godotmaker_path(path_lower: str) -> bool:
+    return path_lower.startswith(GODOTMAKER_DIR) or f"/{GODOTMAKER_DIR}" in path_lower
+
+
+def _is_eval_file(path_lower: str) -> bool:
+    return path_lower.endswith(EVAL_FILE) or path_lower == EVAL_FILE
+
+
+def _block(reason: str, file_name: str, agent_id: str = "") -> None:
+    record_event(EventType.HOOK_BLOCK, hook="check_file_permissions",
+                 reason=reason, file=file_name, agent_id=agent_id or "main")
+    print(json.dumps({"hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "permissionDecision": "deny",
+        "permissionDecisionReason": reason,
+    }}))
+    sys.exit(0)
+
+
+def _check_main(role: str, path_lower: str, file_name: str, ext: str) -> None:
+    """Apply main-agent rules for the active role. Calls _block on violation."""
+    is_e2e = _is_e2e_path(path_lower)
+    is_code = ext in GAME_CODE_EXTENSIONS
+    is_eval = _is_eval_file(path_lower)
+    is_godotmaker = _is_godotmaker_path(path_lower)
+
+    if role == "evaluate":
+        # Strictest: only e2e/ and evaluation.json
+        if not (is_e2e or is_eval):
+            _block(f"Evaluator can only write to e2e/ or {EVAL_FILE} "
+                   f"(attempted: {file_name}).", file_name)
+        return
+
+    if role == "verify":
+        # Read-only except for .godotmaker/ runtime state (e.g., stage.jsonl)
+        if not is_godotmaker:
+            _block(f"Verify role is read-only — cannot write {file_name}.", file_name)
+        return
+
+    # setup / build / fixgap / accept / finalize: e2e/ always blocked for main
+    if is_e2e:
+        _block(f"{role.capitalize()} role cannot write to e2e/ ({file_name}). "
+               "E2E tests are owned by the Evaluator.", file_name)
+
+    # Only setup may scaffold game code directly. All other roles must dispatch
+    # a worker (build/fixgap) or simply not write code (accept/finalize).
+    if is_code and role != "setup":
+        if role in WORKER_DISPATCH_ROLES:
+            _block(f"{role.capitalize()} orchestrator cannot write game code directly "
+                   f"({file_name}). Dispatch a Worker subagent.", file_name)
+        else:
+            _block(f"{role.capitalize()} role cannot modify game code "
+                   f"({file_name}).", file_name)
+
+
+def _check_subagent(path_lower: str, file_name: str, agent_id: str) -> None:
+    """Apply subagent rules. Calls _block on violation."""
+    if _is_e2e_path(path_lower):
+        _block(f"Workers cannot write to e2e/ ({file_name}). "
+               "E2E tests are owned by the Evaluator.", file_name, agent_id)
+    if file_name in PLANNING_DOCS:
+        _block(f"Workers cannot modify planning documents ({file_name}). "
+               "Report changes in your Report Notes section.", file_name, agent_id)
+
+
+def _check_legacy(is_subagent: bool, path_lower: str, file_name: str,
+                  ext: str, agent_id: str) -> None:
+    """Fallback rules when no current_role is set."""
+    if is_subagent:
+        if file_name in PLANNING_DOCS:
+            _block(f"Workers cannot modify planning documents ({file_name}).",
+                   file_name, agent_id)
+    else:
+        if ext in GAME_CODE_EXTENSIONS:
+            _block(f"Orchestrator cannot write game code directly ({file_name}). "
+                   "Dispatch a Worker subagent.", file_name)
 
 
 def main():
@@ -34,54 +134,31 @@ def main():
     if not file_path:
         sys.exit(0)
 
-    file_path_lower = file_path.replace("\\", "/").lower()
-    file_name = os.path.basename(file_path_lower)
-    _, ext = os.path.splitext(file_path_lower)
+    path_lower = file_path.replace("\\", "/").lower()
+    file_name = os.path.basename(path_lower)
+    _, ext = os.path.splitext(path_lower)
 
     agent_id = data.get("agent_id", "")
     is_subagent = bool(agent_id)
 
-    # Record file operation metric
     record_event(
         EventType.FILE_WRITE if tool_name == "Write" else EventType.FILE_EDIT,
         file=file_name,
-        agent_id=agent_id or "orchestrator",
+        agent_id=agent_id or "main",
         is_subagent=is_subagent,
     )
 
-    if not is_subagent:
-        # Main agent (orchestrator) — block game code writes
-        if ext in GAME_CODE_EXTENSIONS:
-            reason = (
-                f"Orchestrator cannot write game code directly ({file_name}). "
-                "Dispatch a Worker subagent to implement this."
-            )
-            record_event(EventType.HOOK_BLOCK, hook="check_file_permissions",
-                         reason=reason, file=file_name)
-            print(json.dumps({"hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": reason,
-            }}))
-            sys.exit(0)
+    role = get_current_role()
+
+    if not role:
+        _check_legacy(is_subagent, path_lower, file_name, ext, agent_id)
+    elif is_subagent:
+        _check_subagent(path_lower, file_name, agent_id)
     else:
-        # Subagent (worker/verifier) — block planning doc writes
-        if file_name in PLANNING_DOCS:
-            reason = (
-                f"Workers cannot modify planning documents ({file_name}). "
-                "Report changes in your Report Notes section."
-            )
-            record_event(EventType.HOOK_BLOCK, hook="check_file_permissions",
-                         reason=reason, file=file_name, agent_id=agent_id)
-            print(json.dumps({"hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": reason,
-            }}))
-            sys.exit(0)
+        _check_main(role, path_lower, file_name, ext)
 
     record_event(EventType.HOOK_ALLOW, hook="check_file_permissions",
-                 file=file_name, agent_id=agent_id or "orchestrator")
+                 file=file_name, agent_id=agent_id or "main", role=role)
 
 
 if __name__ == "__main__":

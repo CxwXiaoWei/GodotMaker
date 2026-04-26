@@ -1,13 +1,21 @@
-"""Tests for check_stage_prerequisites.py hook.
+"""Tests for check_stage_prerequisites.py hook (role-based pipeline).
 
-The hook reads stage_schemas.json + .godotmaker/stage.json to determine
-which stages are completed, then checks that their output files exist.
+This hook only enforces for build/fixgap roles before Agent dispatch.
+It checks that the prerequisite role is completed and its outputs exist.
 """
-import json
 import os
+import shutil
 import pytest
 import tempfile
-from .helpers import run_hook, is_blocked, cleanup_metrics, write_stage_json
+from .helpers import (
+    run_hook, is_blocked, cleanup_metrics,
+    write_completed_roles, write_current_role,
+)
+
+SCHEMA_SRC = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "config", "stage_schemas.json"
+)
 
 HOOK = "check_stage_prerequisites.py"
 
@@ -26,92 +34,96 @@ def clean():
 
 @pytest.fixture
 def project_dir():
-    """Create a temp directory with stage_schemas.json and chdir to it."""
+    """Create a temp directory with role-based stage_schemas.json and chdir."""
     original = os.getcwd()
     with tempfile.TemporaryDirectory() as tmpdir:
         os.chdir(tmpdir)
-        # Create schema file where the hook can find it
-        config_dir = os.path.join(".godotmaker")
-        os.makedirs(config_dir, exist_ok=True)
-        schema = {
-            "1": {"files": ["GDD.md", "PLAN.md", "ASSETS.md", "SCENES.md", "TOC.md"]},
-            "2": {"files": ["STRUCTURE.md"]},
-            "3": {"files": ["project.godot", "addons/gecs/"]},
-        }
-        with open(os.path.join(config_dir, "stage_schemas.json"), "w") as f:
-
-            json.dump(schema, f)
+        os.makedirs(".godotmaker", exist_ok=True)
+        shutil.copy(SCHEMA_SRC, ".godotmaker/stage_schemas.json")
         yield tmpdir
         os.chdir(original)
 
 
-def mark_stage_complete(stage: int):
-    """Write stage.json marking stages 1..stage as complete."""
-    write_stage_json(stage)
+class TestRoleSkipping:
+    @pytest.mark.parametrize("role", ["setup", "verify", "evaluate", "accept", "finalize"])
+    def test_non_dispatch_roles_pass_through(self, project_dir, role):
+        write_current_role(role)
+        _, code, parsed = run_hook(HOOK, AGENT_INPUT)
+        assert code == 0
+        assert not is_blocked(parsed)
+
+    def test_no_role_passes_through(self, project_dir):
+        _, code, parsed = run_hook(HOOK, AGENT_INPUT)
+        assert code == 0
+        assert not is_blocked(parsed)
 
 
-class TestStagePrerequisites:
-    def test_allow_when_no_stages_completed(self, project_dir):
-        """No stage.json means completed=0, nothing to check."""
+class TestBuildPrerequisites:
+    def test_block_when_setup_not_complete(self, project_dir):
+        write_current_role("build")
+        # No completed roles
         _, _, parsed = run_hook(HOOK, AGENT_INPUT)
-        assert not is_blocked(parsed), "Should allow when no stages completed yet"
+        assert is_blocked(parsed)
+        assert "setup" in parsed.get(
+            "hookSpecificOutput", {}).get("permissionDecisionReason", "").lower()
 
-    def test_block_when_stage1_complete_but_files_missing(self, project_dir):
-        """Stage 1 marked complete but PLAN.md etc don't exist."""
-        mark_stage_complete(1)
+    def test_block_when_setup_complete_but_files_missing(self, project_dir):
+        write_current_role("build")
+        write_completed_roles(["setup"])
         _, _, parsed = run_hook(HOOK, AGENT_INPUT)
-        assert is_blocked(parsed), "Should block when stage 1 files missing"
+        assert is_blocked(parsed)
 
-    def test_block_when_partial_files(self, project_dir):
-        """Stage 1 complete, some files exist but not all."""
-        mark_stage_complete(1)
-        open("GDD.md", "w").close()
-        open("PLAN.md", "w").close()
-        # Missing: ASSETS.md, SCENES.md, TOC.md
-        _, _, parsed = run_hook(HOOK, AGENT_INPUT)
-        assert is_blocked(parsed), "Should block when some stage 1 files missing"
-
-    def test_allow_when_all_stage1_files_present(self, project_dir):
-        """Stage 1 complete with all files present."""
-        mark_stage_complete(1)
-        for f in ["GDD.md", "PLAN.md", "ASSETS.md", "SCENES.md", "TOC.md"]:
+    def test_allow_when_setup_files_present(self, project_dir):
+        write_current_role("build")
+        write_completed_roles(["setup"])
+        for f in ["GDD.md", "PLAN.md", "STRUCTURE.md"]:
             open(f, "w").close()
-        _, _, parsed = run_hook(HOOK, AGENT_INPUT)
-        assert not is_blocked(parsed), "Should allow when all stage 1 files present"
+        _, code, parsed = run_hook(HOOK, AGENT_INPUT)
+        assert code == 0
+        assert not is_blocked(parsed)
 
-    def test_block_when_stage2_file_missing(self, project_dir):
-        """Stages 1+2 complete, stage 2 file missing."""
-        mark_stage_complete(2)
-        for f in ["GDD.md", "PLAN.md", "ASSETS.md", "SCENES.md", "TOC.md"]:
-            open(f, "w").close()
-        # Missing: STRUCTURE.md
-        _, _, parsed = run_hook(HOOK, AGENT_INPUT)
-        assert is_blocked(parsed), "Should block when STRUCTURE.md missing"
 
-    def test_allow_all_stages_present(self, project_dir):
-        """Stages 1-3 complete with all files."""
-        mark_stage_complete(3)
-        for f in ["GDD.md", "PLAN.md", "ASSETS.md", "SCENES.md", "TOC.md",
-                   "STRUCTURE.md", "project.godot"]:
-            open(f, "w").close()
-        os.makedirs("addons/gecs", exist_ok=True)
+class TestFixgapPrerequisites:
+    def test_block_when_evaluate_not_complete(self, project_dir):
+        write_current_role("fixgap")
+        write_completed_roles(["setup", "build", "verify"])  # no evaluate
         _, _, parsed = run_hook(HOOK, AGENT_INPUT)
-        assert not is_blocked(parsed), "Should allow when all stage files present"
+        assert is_blocked(parsed)
 
-    def test_non_agent_tool_ignored(self, project_dir):
+    def test_block_when_evaluation_json_missing(self, project_dir):
+        write_current_role("fixgap")
+        write_completed_roles(["setup", "build", "verify", "evaluate"])
+        # but no evaluation.json
+        _, _, parsed = run_hook(HOOK, AGENT_INPUT)
+        assert is_blocked(parsed)
+
+    def test_allow_when_evaluation_complete(self, project_dir):
+        write_current_role("fixgap")
+        write_completed_roles(["setup", "build", "verify", "evaluate"])
+        with open(".godotmaker/evaluation.json", "w") as f:
+            f.write('{"result": "reject"}')
+        _, code, parsed = run_hook(HOOK, AGENT_INPUT)
+        assert code == 0
+        assert not is_blocked(parsed)
+
+
+class TestNonAgentTool:
+    def test_write_tool_ignored(self, project_dir):
+        write_current_role("build")
         _, code, parsed = run_hook(HOOK, {
             "tool_name": "Write",
             "tool_input": {"file_path": "foo.gd"},
             "agent_id": "",
         })
         assert code == 0
-        assert not is_blocked(parsed), "Non-Agent tools should pass through"
+        assert not is_blocked(parsed)
 
     def test_subagent_dispatch_ignored(self, project_dir):
+        write_current_role("build")
         _, code, parsed = run_hook(HOOK, {
             "tool_name": "Agent",
             "tool_input": {"prompt": "verify build"},
             "agent_id": "worker-123",
         })
         assert code == 0
-        assert not is_blocked(parsed), "Subagent dispatching sub-subagent should pass"
+        assert not is_blocked(parsed)

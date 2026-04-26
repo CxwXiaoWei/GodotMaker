@@ -55,12 +55,40 @@ def is_blocked(parsed: dict | None) -> bool:
     return False
 
 
-def write_stage_json(max_stage: int):
-    """Write .godotmaker/stage.json with completed stages up to max_stage."""
+def write_completed_roles(roles):
+    """Write .godotmaker/stage.jsonl with role-completion events.
+
+    Accepts:
+    - dict {role: ts}: written as one event per pair (order via dict iteration)
+    - list[str]: roles in order, timestamps auto-generated
+    - list[dict]: explicit list of {"role": X, "ts": Y} events written verbatim
+    """
     os.makedirs(".godotmaker", exist_ok=True)
-    stages = {str(i): f"2026-01-01T{i:02d}:00:00Z" for i in range(1, max_stage + 1)}
-    with open(os.path.join(".godotmaker", "stage.json"), "w") as f:
-        json.dump({"completed_stages": stages}, f)
+    if isinstance(roles, dict):
+        events = [{"role": r, "ts": ts} for r, ts in roles.items()]
+    elif roles and isinstance(roles[0], dict):
+        events = roles
+    else:
+        events = [{"role": r, "ts": f"2026-01-01T{i:02d}:00:00Z"}
+                  for i, r in enumerate(roles, start=1)]
+    with open(os.path.join(".godotmaker", "stage.jsonl"), "w") as f:
+        for e in events:
+            f.write(json.dumps(e) + "\n")
+
+
+def write_current_role(role: str):
+    """Write .godotmaker/current_role with the given role name."""
+    os.makedirs(".godotmaker", exist_ok=True)
+    with open(os.path.join(".godotmaker", "current_role"), "w") as f:
+        f.write(role)
+
+
+def write_metrics(events: list[dict]):
+    """Write .godotmaker/metrics_current.jsonl with the given events."""
+    os.makedirs(".godotmaker", exist_ok=True)
+    with open(".godotmaker/metrics_current.jsonl", "w") as f:
+        for e in events:
+            f.write(json.dumps(e) + "\n")
 
 
 def cleanup_metrics():
