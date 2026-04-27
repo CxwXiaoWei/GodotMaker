@@ -3,103 +3,92 @@
 [![License: BUSL 1.1](https://img.shields.io/badge/License-BUSL_1.1-orange.svg)](LICENSE)
 [![Godot 4.x](https://img.shields.io/badge/Godot-4.x-blue?logo=godotengine)](https://godotengine.org)
 [![CI](https://github.com/RandallLiuXin/GodotMaker/actions/workflows/ci.yml/badge.svg)](https://github.com/RandallLiuXin/GodotMaker/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-online-teal)](https://RandallLiuXin.github.io/GodotMaker/)
 
 **English** | [中文](README.zh-CN.md)
 
-**ECS-native text-to-game framework for Godot.**
+> **Describe your game. Play it. Own it.** — Source-available, local-first, and yours to build on.
 
-GodotMaker turns natural-language game descriptions into playable Godot projects. It combines an AI orchestrator (Claude Code skills) with an Entity Component System ([gecs](https://github.com/csprance/gecs)) to generate GDScript code, scenes, and assets — all inside the Godot editor.
+GodotMaker turns plain-language descriptions into real, playable Godot games. Type *"a Vampire Survivors-style game with three weapon types and a level-up system"* — wait a few minutes — open Godot and play it. No engine experience required, no subscription, no platform lock-in. The project lives on your disk and is yours to keep, edit, and ship.
 
-## Features
+## What you get
 
-- **Text-to-Game Pipeline** — Describe a game concept; GodotMaker scaffolds the project, generates ECS components/systems, and wires up scenes.
-- **ECS-First Architecture** — Built on gecs. Components hold pure data; Systems declare their queries. The scene tree stays reserved for UI/menus.
-- **Scene-as-Spawner** — Scenes hold marker nodes (metadata only); the runtime converts them to ECS entities at load time.
-- **Two-Layer Skill System** — Core skills (orchestrator, build, test, ECS, asset pipeline, e2e) and Reviewer skills (physics, animation, UI, audio, tilemap, navigation, shader, particles).
-- **Hook-Enforced Pipeline** — Eight hooks gate the build pipeline: file permissions, stage prerequisites, report validation, completion checks. The orchestrator cannot skip stages or self-certify.
-- **Automated Validation** — `godot --headless --quit` build, gdUnit4 unit tests, godot-e2e integration tests, screenshot-based visual checks.
+- **A real Godot project** on your computer. Open it in the Godot editor any time and change anything you want.
+- **Free** to use. Runs locally with the AI tools you already have. No platform fees, no usage caps.
+- **Source-available under BUSL 1.1.** No black box, no closed-platform resale.
+- **The full Godot ecosystem** is at your fingertips — addons, exporters, the editor itself. Your game can grow as far as you can take it.
 
-## Requirements
+## Who is this for?
 
-| Dependency | Version |
-|---|---|
-| [Godot Engine](https://godotengine.org) | 4.x |
-| [gecs](https://github.com/csprance/gecs) | latest |
-| [gdUnit4](https://github.com/MikeSchulze/gdUnit4) | latest (v5.x for Godot 4.4, v6.x for 4.5+) |
-| [Claude Code](https://claude.ai/code) | latest |
-| Python | 3.10+ |
-| .NET SDK | 8.0+ (optional, only for C# game projects) |
+- You have an idea for a game but you've never learned a game engine.
+- You're a designer, hobbyist, student, or creator who wants to see your idea actually run.
+- You want a working prototype fast — and you want to keep building on it long after the AI is done.
 
-## Quick Start
+GodotMaker is for the gap between *"I have an idea"* and *"I have a playable thing."* And from there, the whole Godot ecosystem is yours — keep iterating in the editor, plug in community addons, learn as you go, and grow your prototype into the game you actually want to ship.
+
+## How it works (in 30 seconds)
+
+1. You install GodotMaker into an empty folder. One command.
+2. You open Claude Code in that folder and type `/gm-gdd`. The AI interviews you about the game you want.
+3. You run the next eight commands one at a time. Between each, the AI does the work — writes the code, generates the art, builds the project, plays the game, takes screenshots, scores the result.
+4. When you're happy, you accept and finalise. Open the project in Godot and play.
+
+A small game typically takes about 30 minutes of *your* attention spread across the session — the AI runs in the background between commands.
+
+[Full walkthrough →](https://RandallLiuXin.github.io/GodotMaker/wiki/01-getting-started/first-game/)
+
+## Quick start
 
 ```bash
-# 1. Clone the repository
+# 1. Clone this repository
 git clone https://github.com/RandallLiuXin/GodotMaker.git
 cd GodotMaker
 
-# 2. Install Python dependencies
+# 2. Install dependencies and check your environment
 pip install -r tools/requirements.txt
+python tools/check_env.py
 
-# 3. Install git hooks (includes gitleaks secret scanning)
-bash scripts/install-hooks.sh
-
-# 4. Deploy GodotMaker skills into Claude Code
-python tools/publish.py
-
-# 5. Open a target Godot project and start using GodotMaker via Claude Code
+# 3. Deploy GodotMaker into a new folder for your game
+python tools/publish.py /path/to/my-game
+cd /path/to/my-game
+claude
 ```
 
-## Project Structure
+Then inside Claude Code, type the nine commands in order, starting with `/gm-scaffold`. See [Your first game](https://RandallLiuXin.github.io/GodotMaker/wiki/01-getting-started/first-game/) for a full walk-through.
 
-```
-skills/
-  core/         # orchestrator, godot-api, headless-build, gdunit-driver,
-                # gdtoolkit, gecs, game-planner, project-scaffold,
-                # visual-qa, screenshot, mcp-driver, godot-e2e
-  reviewer/     # physics, animation, ui, tilemap, navigation, shader, audio, particles
-  pattern/      # genre templates (planned)
-shell/          # publish.sh / publish.ps1, _read_config.sh
-tools/          # publish.py, check_env.py, asset_gen, rembg, check_project
-templates/      # PLAN / STRUCTURE / ASSETS / MEMORY document templates
-docs/           # getting-started.md, wiki/, reference/
-```
+## What you'll need
 
-## Architecture Overview
+| Tool | Why |
+|---|---|
+| [Godot 4.x](https://godotengine.org) | The game engine your project runs in |
+| [Claude Code](https://claude.ai/code) | The AI you talk to |
+| Python 3.10+ | Runs the helper scripts |
+| `GOOGLE_API_KEY` | Free tier; used to generate art for your game |
 
-```
-Natural Language Description
-        |
-        v
-  Game Planner  ──>  Project Scaffold  ──>  ECS Code Generation
-        |                                          |
-        v                                          v
-  Asset Generation                         Headless Build + Tests
-        |                                          |
-        v                                          v
-  Scene Assembly  ──────────────────────>  E2E + Visual Checks
-        |                                          |
-        v                                          v
-  Playable Godot Project  <──  MCP Debug (escalation path)
-```
+Optional: .NET SDK 8.0+ if you want a C# game project instead of GDScript.
 
-**Roadmap and design notes** live in [`ROADMAP.md`](ROADMAP.md) and the [wiki](docs/wiki/).
+## Documentation
 
-## Testing
+- [**Get started in 30 minutes**](https://RandallLiuXin.github.io/GodotMaker/wiki/01-getting-started/first-game/) — your first game, step by step
+- [How it works](https://RandallLiuXin.github.io/GodotMaker/wiki/02-concepts/how-it-works/) — what each command does and why
+- [Common problems](https://RandallLiuXin.github.io/GodotMaker/wiki/04-troubleshooting/common-problems/) — when something goes wrong
+- [Full wiki](https://RandallLiuXin.github.io/GodotMaker/) — every page
 
-GodotMaker uses [gdUnit4](https://github.com/MikeSchulze/gdUnit4) with a TDD approach.
+## Roadmap
 
-```bash
-# Run a single test file
-godot --headless -s addons/gdunit4/bin/gdunit4_run.gd --single --file res://test/xxx.gd
+What's coming next:
 
-# Run Python tool tests
-pytest
-```
+- **More high-quality plugin skills** — first-class support for popular Godot community addons (Phantom Camera, Dialogic, Beehave, GodotSteam, …).
+- **Richer asset generation workflows** — more pipelines for sprites, animations, tilesets, audio, and 3D models.
+- **Multi-platform publishing** — one-click export to Steam, iOS, Google Play, and Web.
+- **Graphical UI** — a visual front-end so you don't have to use the command line.
+
+Full backlog and shipped items: [`ROADMAP.md`](ROADMAP.md).
 
 ## Contributing
 
-We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.md) before submitting a PR.
+Contributions are welcome — bug fixes, new reviewer skills, addon integrations, translations, anything. Start with the [Development Setup](https://RandallLiuXin.github.io/GodotMaker/wiki/07-contributing/development-setup/) and the [Contributing Guide](CONTRIBUTING.md).
 
 ## License
 
-This project is licensed under the [Business Source License 1.1](LICENSE).
+Business Source License 1.1. See [LICENSE](LICENSE). Each released version converts to Apache License 2.0 four years after that version is first publicly distributed. **The games you build with GodotMaker are not GodotMaker and are entirely yours**, subject to any third-party engine, asset, model-provider, runtime, or dependency terms that may apply.
