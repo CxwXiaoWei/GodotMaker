@@ -46,7 +46,7 @@ Typical combos:
 
 ### Remove background
 
-Read `skills/core/orchestrator/rembg.md` for full guide: CLI, prompting strategy, troubleshooting, batch mode.
+Read `rembg.md` for full guide: CLI, prompting strategy, troubleshooting, batch mode.
 
 ### Generate animated sprite (7¢ ref + 7¢/pose + 5¢/sec video)
 
@@ -183,7 +183,7 @@ Minimum generation resolution is 1K. A 1024px image downscaled to 64px or even 1
 
 ## What to Generate — Cheatsheet
 
-For any asset needing transparency, read `skills/core/orchestrator/rembg.md` first — covers BG color strategy, CLI, and troubleshooting.
+For any asset needing transparency, read `rembg.md` first — covers BG color strategy, CLI, and troubleshooting.
 
 ### Background / large scenic image (2c Grok or 10c Gemini)
 

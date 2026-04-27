@@ -12,6 +12,7 @@ Usage:
     python tools/publish.py --force <target_godot_project_dir>
 """
 import argparse
+import json
 import os
 import re
 import shutil
@@ -165,7 +166,12 @@ def copy_tree(src: Path, dst: Path):
 
 
 def publish_skills(repo_root: Path, skills_target: Path) -> int:
-    """Flatten-copy skills/core/* and skills/reviewer/* to target."""
+    """Flatten-copy skills/core/* and skills/reviewer/* to target.
+
+    Directory names starting with `_` (e.g. _shared/) are excluded — they hold
+    cross-skill source material rather than self-contained skills, and are
+    distributed by publish_shared_refs() instead.
+    """
     count = 0
     for layer in ("core", "reviewer"):
         layer_dir = repo_root / "skills" / layer
@@ -173,6 +179,8 @@ def publish_skills(repo_root: Path, skills_target: Path) -> int:
             continue
         for skill_dir in sorted(layer_dir.iterdir()):
             if not skill_dir.is_dir():
+                continue
+            if skill_dir.name.startswith("_"):
                 continue
             dst = skills_target / skill_dir.name
             copy_tree(skill_dir, dst)
@@ -185,6 +193,67 @@ def publish_skills(repo_root: Path, skills_target: Path) -> int:
 
     print(f"Published skills: {count}")
     return count
+
+
+SHARED_HEADER_TEMPLATE = (
+    "<!-- AUTO-GENERATED from skills/core/_shared/{filename}. "
+    "Do NOT edit this deployed copy — it is overwritten on every publish. "
+    "Edit the source under skills/core/_shared/ instead. -->\n\n"
+)
+
+
+def publish_shared_refs(repo_root: Path, skills_target: Path) -> int:
+    """Distribute shared reference docs into each consumer skill's references/.
+
+    The single source of truth is `skills/core/_shared/`. `_shared/manifest.json`
+    maps each shared filename to the skills that consume it. For every entry,
+    `<file>` is written into `<skill>/references/<file>` (with an
+    AUTO-GENERATED header prepended) so deployed skills are self-contained —
+    no `.claude/skills/_shared/` directory exists at runtime, and editors
+    opening a deployed copy see an explicit warning at the top.
+    """
+    shared_dir = repo_root / "skills" / "core" / "_shared"
+    manifest_path = shared_dir / "manifest.json"
+    if not manifest_path.exists():
+        return 0
+
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"Invalid JSON in {manifest_path}: {e.msg} "
+            f"(line {e.lineno}, col {e.colno})"
+        ) from e
+    files = manifest.get("files", {})
+    distributions = 0
+    for filename, target_skills in files.items():
+        src = shared_dir / filename
+        if not src.exists():
+            raise FileNotFoundError(
+                f"_shared/manifest.json references {filename}, but source "
+                f"file does not exist at {src}."
+            )
+        deployed_content = (
+            SHARED_HEADER_TEMPLATE.format(filename=filename)
+            + src.read_text(encoding="utf-8")
+        )
+        for skill_name in target_skills:
+            skill_root = skills_target / skill_name
+            if not skill_root.exists():
+                raise FileNotFoundError(
+                    f"_shared/manifest.json maps {filename} -> {skill_name}, "
+                    f"but skill directory {skill_root} does not exist (was "
+                    f"publish_skills() called first?)."
+                )
+            references = skill_root / "references"
+            references.mkdir(parents=True, exist_ok=True)
+            (references / filename).write_text(deployed_content,
+                                               encoding="utf-8")
+            distributions += 1
+
+    print(f"Distributed shared refs: {distributions} copies "
+          f"({len(files)} source file(s))")
+    return distributions
 
 
 def publish_directory(src: Path, dst: Path, label: str, count_pattern: str = "*.py"):
@@ -501,6 +570,7 @@ def main():
 
     # Publish all components
     publish_skills(repo_root, skills_target)
+    publish_shared_refs(repo_root, skills_target)
     publish_directory(repo_root / "agents", config_dir / "agents", "agents/", "*.md")
     publish_directory(repo_root / "tools", target / "tools", "tools/")
     publish_directory(repo_root / "config", config_dir / "config", "config/", "*")

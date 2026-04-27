@@ -60,7 +60,7 @@ Use `AskUserQuestion`:
 If user provides files:
 
 1. Wait for user confirmation that files are placed.
-2. Dispatch an **analyst subagent** (`subagent_type: "analyst"`, see `.claude/skills/orchestrator/analyst-dispatch.md`) to inspect the files and generate/update `assets/manifest.json`.
+2. Dispatch an **analyst subagent** (`subagent_type: "analyst"`, see `references/analyst-dispatch.md`) to inspect the files and generate/update `assets/manifest.json`.
    - **Do NOT read image files yourself.** All image analysis goes through the analyst.
    - Analyst extracts: type, role, dimensions, palette, style characteristics.
 3. After analyst reports, update ASSETS.md: change matching `MISSING` rows to `provided` and record extracted style notes in Art Direction (if first user-provided batch).
@@ -69,14 +69,14 @@ If user provides files:
 
 For each scene in SCENES.md whose `references/scene_{name}.png` is missing:
 
-1. Build the prompt from the scene's Elements + Mood (per `.claude/skills/orchestrator/asset-planner.md`):
-   - Style anchors (if user provided art): reference the user asset files
-   - Style fallback (if no user art): GDD §4 art direction + ASSETS.md Art Direction
-2. Run via Bash:
+1. **Read `references/visual-target.md` first** — it has the prompt rules (enumerate every object, exclude effects you won't build, show HUD, etc.) and a prompt template. These reference images become the VQA contract that `gm-evaluate` enforces, so the rules matter.
+2. Build the prompt for this scene using inputs from `SCENES.md` (Elements + Mood) + `ASSETS.md` Art Direction + `GDD.md` §4. If the user provided art in `assets/`, also reference the analyst's style summary from `assets/manifest.json`.
+3. Run via Bash:
    ```bash
-   python tools/asset_gen.py --prompt "..." --output references/scene_{name}.png
+   python tools/asset_gen.py image --model gemini --prompt "..." \
+     --size 1K --aspect-ratio 16:9 -o references/scene_{name}.png
    ```
-3. Show the result to the user. If rejected, regenerate with adjusted prompt.
+4. Show the result to the user. If rejected, regenerate with a tightened prompt (per `references/visual-target.md`).
 
 ### Step 4 — Generate Remaining MISSING Art
 
@@ -118,10 +118,10 @@ Never revert a `provided`/`generated` row back to `MISSING` — if the user want
 | `tools/asset_gen.py` | AI image generation (Gemini) |
 
 **Reference docs (read for prompt construction):**
-- `.claude/skills/orchestrator/asset-planner.md` — generation brief template
-- `.claude/skills/orchestrator/asset-gen.md` — `asset_gen.py` usage details
+- `references/asset-planner.md` — generation brief template
+- `references/asset-gen.md` — `asset_gen.py` usage details
 
-**Asset analysis:** Dispatch an Analyst subagent (`subagent_type: "analyst"`, see `.claude/skills/orchestrator/analyst-dispatch.md`).
+**Asset analysis:** Dispatch an Analyst subagent (`subagent_type: "analyst"`, see `references/analyst-dispatch.md`).
 
 ## Context Management
 

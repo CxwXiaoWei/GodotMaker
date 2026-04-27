@@ -102,7 +102,7 @@ For each non-`verified` task in GAP.md:
 
 ### Step 3 — Dispatch Workers
 
-- Read `.claude/skills/orchestrator/worker-dispatch.md` for the brief template
+- Read `references/worker-dispatch.md` for the brief template
 - Use `subagent_type: "worker"`. Max 3 in parallel with disjoint file sets via `isolation: "worktree"`.
 - In each brief, paste the specific evaluation finding from GAP.md, the file(s) to modify, and the correct behavior from GDD.md.
 - Update task status `pending` → `in_progress` when dispatched, `in_progress` → `completed` when worker reports DONE.
@@ -114,13 +114,13 @@ count from a single evaluation is small, run **one** verify + review pass
 after **all** GAP.md tasks reach `completed`.
 
 **Verifier:**
-- Read `.claude/skills/orchestrator/verifier-dispatch.md` for the brief template
+- Read `references/verifier-dispatch.md` for the brief template
 - Use `subagent_type: "verifier"`. Pass all completed workers' deliverables.
 - On FAIL for a task: add a NEW pending task in GAP.md (the failed task stays `completed`). Loop back to Step 3.
 - On PASS: update those tasks from `completed` → `verified`.
 
 **Reviewer** (after verifier passes):
-- Read `.claude/skills/orchestrator/reviewer-dispatch.md` for the brief template
+- Read `references/reviewer-dispatch.md` for the brief template
 - Use `subagent_type: "reviewer"`. Reviewer reports back; do not let it modify project files.
 - For each critical/major finding: add a NEW `pending` task in GAP.md. Loop back to Step 3.
 - For minor findings: record in MEMORY.md (you write, not the reviewer).
@@ -145,7 +145,7 @@ action, do not suppress errors, do not claim success without verification.
 - Workers with disjoint file sets use `isolation: "worktree"`
 - **Max 3 parallel workers** at once (file isolation constraint)
 - After parallel workers complete, merge branches and build-check
-- See `worker-dispatch.md` → Parallel Worker Dispatch for merge procedure
+- See `references/worker-dispatch.md` → Parallel Worker Dispatch for merge procedure
 
 ## Memory System
 
@@ -170,7 +170,7 @@ memory/
 | screenshot | Gameplay screenshot capture | .claude/skills/screenshot/SKILL.md |
 | mcp-driver | Runtime debugging via godot-mcp | .claude/skills/mcp-driver/SKILL.md |
 
-**Asset analysis:** Dispatch an Analyst subagent (`subagent_type: "analyst"`, see `.claude/skills/orchestrator/analyst-dispatch.md`) when you need to analyze user-provided assets.
+**Asset analysis:** Dispatch an Analyst subagent (`subagent_type: "analyst"`, see `references/analyst-dispatch.md`) when you need to analyze user-provided assets.
 
 ## Context Management
 

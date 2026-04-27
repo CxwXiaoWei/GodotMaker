@@ -73,7 +73,7 @@ Track a running count of workers completed since the last verification round.
 
 ### Step 1 — Dispatch Workers
 
-- Read `.claude/skills/orchestrator/worker-dispatch.md` for the brief template
+- Read `references/worker-dispatch.md` for the brief template
 - Use `subagent_type: "worker"`. Each worker implements ONE system + its unit tests.
 - Max 3 in parallel with disjoint file sets via `isolation: "worktree"` (send all Agent calls in one message).
 - After each worker reports DONE, mark its task in PLAN.md as `completed`.
@@ -83,13 +83,13 @@ Track a running count of workers completed since the last verification round.
 Once 5 or more workers have completed since the last verification round:
 
 **Verifier:**
-- Read `.claude/skills/orchestrator/verifier-dispatch.md` for the brief template
+- Read `references/verifier-dispatch.md` for the brief template
 - Use `subagent_type: "verifier"`. Pass each worker's deliverables since the last round.
 - On FAIL: add a NEW pending task in PLAN.md to fix it. The failed task stays `completed`.
 - On PASS: update those tasks from `completed` → `verified`.
 
 **Reviewer** (after verifier passes):
-- Read `.claude/skills/orchestrator/reviewer-dispatch.md` for the brief template
+- Read `references/reviewer-dispatch.md` for the brief template
 - Use `subagent_type: "reviewer"`. Reviewer reports back; do not let it modify project files.
 - For each critical/major finding: add a NEW pending task in PLAN.md.
 - For minor findings: record in MEMORY.md (you write, not the reviewer).
@@ -114,7 +114,7 @@ action, do not suppress errors, do not claim success without verification.
 - Workers with disjoint file sets use `isolation: "worktree"`
 - **Max 3 parallel workers** at once (file isolation constraint)
 - After parallel workers complete, merge branches and build-check
-- See `worker-dispatch.md` → Parallel Worker Dispatch for merge procedure
+- See `references/worker-dispatch.md` → Parallel Worker Dispatch for merge procedure
 
 ## Memory System
 
@@ -139,7 +139,7 @@ memory/
 | screenshot | Gameplay screenshot capture | .claude/skills/screenshot/SKILL.md |
 | mcp-driver | Runtime debugging via godot-mcp | .claude/skills/mcp-driver/SKILL.md |
 
-**Asset analysis:** Dispatch an Analyst subagent (`subagent_type: "analyst"`, see `.claude/skills/orchestrator/analyst-dispatch.md`) when you need to analyze user-provided assets.
+**Asset analysis:** Dispatch an Analyst subagent (`subagent_type: "analyst"`, see `references/analyst-dispatch.md`) when you need to analyze user-provided assets.
 
 ## Context Management
 

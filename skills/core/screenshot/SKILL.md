@@ -68,6 +68,43 @@ with GodotE2E.launch(project_path, timeout=15.0) as game:
     print(f"Captured {len(os.listdir(output_dir))} screenshots to {output_dir}/")
 ```
 
+## Frame Sequence for VQA Dynamic Mode
+
+For scenes with motion, animation, or physics, the `visual-qa` skill's
+Dynamic mode expects **a reference image plus N frames captured at 0.5s
+intervals (2 FPS cadence)**. Output goes into a per-scene subdirectory
+(`e2e/screenshots/scene_{name}/`) so multiple scenes don't collide:
+
+```python
+# capture_dynamic.py
+import os, sys
+from godot_e2e import GodotE2E
+
+project_path = sys.argv[1]
+out_dir      = sys.argv[2]   # e.g. "e2e/screenshots/scene_main"
+n_frames     = int(sys.argv[3]) if len(sys.argv) > 3 else 6
+os.makedirs(out_dir, exist_ok=True)
+
+with GodotE2E.launch(project_path, timeout=15.0) as game:
+    game.wait_for_node("/root/Main", timeout=10.0)
+    game.wait_seconds(1.0)  # let initial render settle
+
+    for i in range(n_frames):
+        path = os.path.join(out_dir, f"frame_{i:03d}.png")
+        game.screenshot(save_path=path)
+        if i < n_frames - 1:
+            game.wait_seconds(0.5)  # 0.5s = 2 FPS, matches VQA Dynamic cadence
+```
+
+Then feed reference + sequence to `visual-qa` (see `.claude/skills/visual-qa/SKILL.md`):
+
+```
+Skill(skill="visual-qa") "Check references/scene_main.png against e2e/screenshots/scene_main/frame_*.png — Goal: ..., Requirements: ..., Verify: ..."
+```
+
+For static scenes (decoration, terrain, UI without motion), one screenshot
+is enough — use the Quick Capture pattern above and call `visual-qa` Static mode.
+
 ## Generate reference.png
 
 Use the quick capture method, save to `reference.png` in the project root:

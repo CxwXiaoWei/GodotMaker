@@ -68,10 +68,18 @@ Using E2E test results + direct observation, verify each item. All must pass.
 
 **Visual checks:**
 6. **Visual cross-check:** For each scene in SCENES.md:
-   - Capture a screenshot via `game.screenshot("e2e/screenshots/scene_{name}.png")`
-   - Compare against reference image in `references/scene_{name}.png`
-   - Verify: elements present, layout roughly matches, no placeholder textures, no all-black/all-white frames
-   - Screenshot filenames MUST match reference filenames (used by gm-accept)
+   - Capture a screenshot via `game.screenshot("e2e/screenshots/scene_{name}.png")`. For scenes with motion/animation, capture a frame sequence per `.claude/skills/screenshot/SKILL.md` § "Frame Sequence for VQA Dynamic Mode".
+   - Compare against the reference image in `references/scene_{name}.png` by invoking the `visual-qa` skill — do not eyeball it yourself:
+     ```
+     # Static scene
+     Skill(skill="visual-qa") "Check references/scene_{name}.png against e2e/screenshots/scene_{name}.png — Goal: {scene goal from SCENES.md}, Requirements: {key elements + layout}, Verify: no placeholder textures, no all-black/all-white frames, layout matches reference."
+
+     # Dynamic scene (frame sequence in per-scene subdir)
+     Skill(skill="visual-qa") "Check references/scene_{name}.png against e2e/screenshots/scene_{name}/frame_*.png — Goal: ..., Requirements: ..., Verify: motion is fluid, no stuck entities, animation matches movement."
+     ```
+   - Record the verdict from `visual-qa`: `pass` / `fail` / `warning`. A `fail` becomes a critical_issue; a `warning` becomes a major_issue.
+   - Screenshot filenames MUST match reference filenames (used by gm-accept).
+   - Backend defaults to Gemini Flash; pass `--native` for Claude vision or `--both` for aggregated verdict if a check is ambiguous.
 
 For each check, record: **PASS** or **FAIL** with evidence (E2E output, screenshot path, error message).
 
