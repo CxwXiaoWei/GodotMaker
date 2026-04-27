@@ -1,38 +1,28 @@
 # Skill System
 
-GodotMaker organizes its capabilities into **skills** -- specialized knowledge modules that handle specific tasks during game generation.
+In Claude Code, a "skill" is a bundle of instructions and reference documents that Claude loads for a specific job. Think of each skill as a specialist handbook: when Claude needs to do something — scaffold a project, write gameplay code, check for common bugs — it reaches for the matching skill and follows its guidance. GodotMaker's skills are organized into two layers.
 
-## Three-Layer Architecture
+## Layer 1 — Core skills
 
-### Layer 1 -- Core (13 active skills)
+Core skills are the engine that drives the whole game-creation process. They come in two kinds:
 
-Core skills handle the end-to-end game creation pipeline: planning, scaffolding, code generation, build/test, visual verification, and runtime debugging. They are used directly by the orchestrator and its subagents during game construction.
+**Role skills** are the nine `/gm-*` commands you actually type. Each one handles one phase of making a game — designing it, building it, testing it, and so on. You run them in order, and each hands off to the next. See [Core skills](core-skills.md) for the full table.
 
-| Function | Skills |
-|---|---|
-| Planning | game-planner |
-| Scaffolding | project-scaffold |
-| API Reference | godot-api, gecs |
-| Build/Test | headless-build, gdunit-driver, godot-e2e, gdtoolkit |
-| Visual | visual-qa, screenshot |
-| Runtime | mcp-driver |
-| Orchestration | orchestrator |
-| Utility | input-mapper |
+**Supporting skills** are reference packs that role skills load silently in the background. They contain things like Godot API documentation, the ECS framework reference, and helpers for running tests. You never invoke them yourself — they exist so the role skills have accurate, up-to-date information to work from. These are also described in [Core skills](core-skills.md).
 
-See [Core Skills Reference](core-skills.md) for details on each.
+## Layer 2 — Reviewer skills
 
-### Layer 2 -- Reviewer (8 skills)
+Reviewer skills are eight domain-specific checklists covering areas like physics, UI, audio, and animation. They are not slash commands — you never type them directly. Instead, a reviewer sub-agent (a separate Claude instance that runs automatically) loads the relevant ones during `/gm-build` and `/gm-fixgap`, checks the freshly written code against known Godot pitfalls, and reports any issues it finds.
 
-Reviewer skills check your generated code for domain-specific pitfalls after implementation. See [Reviewer Skills](reviewer-skills.md) for the full list.
+For the full list and examples of what each reviewer catches, see [Reviewer skills](reviewer-skills.md).
 
-### Layer 3 -- Pattern (deferred)
+## How skills are deployed
 
-Pattern skills will provide game-genre-specific templates and constraints (e.g., platformer physics tuning, tower defense wave scheduling). This layer is planned for Phase 5 and is currently empty.
+Skills live in this repository under `skills/core/` and `skills/reviewer/`. When you run `python tools/publish.py <project>`, they are copied into `<project>/.claude/skills/` where Claude Code can find them automatically.
 
-See [Writing a Skill](../07-contributing/writing-a-skill.md) for a guide on creating new skills.
+Reference documents that are used by more than one skill (such as the worker dispatch protocol) have a single source-of-truth copy in `skills/core/_shared/`. The publish step deploys each shared file into every consumer skill's `references/` folder. If you are contributing to GodotMaker and need to edit a shared document, always edit the source in `_shared/` — the deployed copies are auto-generated and will be overwritten.
 
-## See Also
+## See also
 
-- [Core Skills Reference](core-skills.md) -- detailed documentation for each core skill
-- [Reviewer Skills Reference](reviewer-skills.md) -- the eight domain-specific reviewer skills
-- [Writing a Skill](../07-contributing/writing-a-skill.md) -- guide to creating new skills
+- [Core skills](core-skills.md) — the nine role commands and twelve supporting skills
+- [Reviewer skills](reviewer-skills.md) — the eight domain-specific quality checkers

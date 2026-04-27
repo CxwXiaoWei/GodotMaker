@@ -1,63 +1,63 @@
-# Core Skills Reference
+# Core Skills
 
-GodotMaker ships 13 core skills that handle the complete game creation pipeline. This page provides a quick reference for each.
+Core skills come in two kinds: the nine role skills you invoke with slash commands, and twelve supporting skills that role skills load automatically. This page covers both.
 
-## Planning
+## Role skills
 
-| Skill | Purpose |
-|---|---|
-| game-planner | Conducts a Socratic game design interview and produces a Game Design Document (GDD). Must run before any implementation begins. |
+There are nine role skills, each responsible for one phase of game creation. You run them in order — each one expects the previous phase to be complete before it starts.
 
-## Scaffolding
+| Command | What it does | Needs | Produces |
+|---------|-------------|-------|---------|
+| `/gm-scaffold` | Creates a new Godot project with the right folder structure, required addons, and a first git commit | Nothing (run this once per project) | `project.godot`, `addons/`, initial `CLAUDE.md` |
+| `/gm-gdd` | Interviews you about the game, then writes the design documents and work plan | A scaffolded project | `GDD.md`, `PLAN.md`, `STRUCTURE.md`, `SCENES.md`, `ASSETS.md`, `TOC.md` |
+| `/gm-asset` | Generates missing art or analyses art you provide, so the build has visuals to work with | `ASSETS.md` from `/gm-gdd` | Art files in `assets/`, updated `ASSETS.md` |
+| `/gm-build` | Implements the game by sending tasks to worker sub-agents one batch at a time, with reviewers checking the result | Design documents from `/gm-gdd` | Game code in `src/`, `scenes/`, unit tests, end-to-end tests |
+| `/gm-verify` | Runs a mechanical check: does the project compile, do unit tests pass, are required files present | A built project | `.godotmaker/verify_result.json` |
+| `/gm-evaluate` | Runs the game independently, takes screenshots, and scores the result against the GDD | A verified project | `.godotmaker/evaluation.json`, screenshots in `e2e/screenshots/` |
+| `/gm-fixgap` | Reads the evaluation report, generates a list of issues, and dispatches workers to fix them | An evaluation from `/gm-evaluate` | Updated game code, `GAP.md` archived to `.godotmaker/gaps/<n>/` |
+| `/gm-accept` | Shows you the current state and asks whether to accept it, go back for more fixes, or stop | A complete build cycle | Acceptance event recorded in `.godotmaker/stage.jsonl` |
+| `/gm-finalize` | Tidies up, archives the milestone records, and stamps it as done | An accepted build | `.godotmaker/final_report.json` |
 
-| Skill | Purpose |
-|---|---|
-| project-scaffold | Generates a new Godot project with ECS directory structure, project.godot, CLAUDE.md, gecs World setup, addon stubs, and template source files. |
+After `/gm-finalize` you can begin a new milestone by running `/gm-gdd` again (for example, to add a new feature). `/gm-scaffold` is a one-time step per project.
 
-## API Reference
+For a deeper look at what each role does and the decisions it makes, see [The 9 roles](../02-concepts/the-9-roles.md).
 
-| Skill | Purpose |
-|---|---|
-| godot-api | Looks up Godot engine class APIs (methods, properties, signals, enums) with version-specific docs. Runs as a forked Sonnet subagent. |
-| gecs | ECS framework API reference for gecs (Entity, Component, System, World, QueryBuilder, Relationship, Observer, CommandBuffer). Provides accurate gecs API reference so generated ECS code uses correct API calls. |
+## Supporting skills
 
-## Build and Test
+Supporting skills are reference packs loaded silently by the role skills. You never invoke them yourself — they exist so the role skills have accurate documentation and helpers available when they need them.
 
-| Skill | Purpose |
-|---|---|
-| headless-build | Compile-checks a Godot project using headless mode. Fastest feedback loop for parse errors. |
-| gdunit-driver | Runs gdUnit4 unit tests and parses results. Supports both GDScript and C# test files. |
-| godot-e2e | Writes and runs end-to-end game tests using the godot-e2e framework. Python controls a live Godot game over TCP for input simulation and state assertions. |
-| gdtoolkit | Lints and formats GDScript files using gdlint and gdformat. Standalone Python tool, does not require Godot. |
+### Planning
 
-## Visual
+| Skill | What it provides | Loaded by |
+|-------|-----------------|-----------|
+| `game-planner` | Interview structure and GDD template guidance for the design phase | `/gm-gdd` |
+| `project-scaffold` | Project layout rules, addon setup steps, and the ECS folder conventions | `/gm-scaffold` |
+| `input-mapper` | Reference for managing Godot input actions in `project.godot` | `/gm-build`, `/gm-fixgap` |
 
-| Skill | Purpose |
-|---|---|
-| visual-qa | Analyzes game screenshots for visual defects, compares against reference images, checks motion across frame sequences. Supports Claude native vision and Gemini Flash backends. |
-| screenshot | Captures gameplay screenshots using godot-e2e viewport capture. Works headless, multi-monitor safe. |
+### Godot reference
 
-## Runtime
+| Skill | What it provides | Loaded by |
+|-------|-----------------|-----------|
+| `godot-api` | Godot 4 engine class documentation — methods, properties, signals, and enums | `/gm-build`, `/gm-fixgap` |
+| `gecs` | API reference for the gecs ECS addon (Entity, Component, System, World, QueryBuilder) | `/gm-build`, `/gm-fixgap` |
+| `gdtoolkit` | How to run `gdlint` and `gdformat` to lint and format GDScript files | `/gm-verify` |
 
-| Skill | Purpose |
-|---|---|
-| mcp-driver | Runtime debugging and live project inspection via godot-mcp. Escalation path when headless tools cannot diagnose the problem (code compiles but behavior is wrong). |
+### Building and running
 
-## Orchestration
+| Skill | What it provides | Loaded by |
+|-------|-----------------|-----------|
+| `headless-build` | How to compile-check a Godot project in headless (no-window) mode | `/gm-verify`, `/gm-build` |
+| `gdunit-driver` | How to run gdUnit4 unit tests and read the results | `/gm-verify`, `/gm-build` |
+| `godot-e2e` | How to write and run end-to-end game tests that control a live Godot window over a network connection | `/gm-build`, `/gm-fixgap` |
 
-| Skill | Purpose |
-|---|---|
-| orchestrator | Lead agent that coordinates the full game creation pipeline: requirements, architecture, scaffolding, implementation, testing, and verification. Dispatches workers, verifiers, and reviewers. |
+### Evaluation
 
-## Utility
+| Skill | What it provides | Loaded by |
+|-------|-----------------|-----------|
+| `visual-qa` | How to analyse screenshots for visual defects and compare against reference images | `/gm-evaluate` |
+| `screenshot` | How to capture gameplay screenshots from a running Godot instance | `/gm-evaluate`, `/gm-fixgap` |
+| `mcp-driver` | How to inspect a live Godot project at runtime via godot-mcp, used when build tools alone can't diagnose a problem | `/gm-fixgap` |
 
-| Skill | Purpose |
-|---|---|
-| input-mapper | Manages Godot input action mappings in project.godot. Adds, changes, or validates input actions based on GDD requirements. |
+The full content of any supporting skill's `SKILL.md` lives in `skills/core/<name>/` in the repository if you want to see exactly what reference material it contains.
 
-## Skill Invocation
-
-Core skills are invoked in two ways:
-
-1. **Automatic** -- GodotMaker selects the right skills for each task during game generation.
-2. **Direct invocation** -- Advanced users can invoke specific skills through Claude Code for targeted tasks (e.g., running the linter or debugging a test failure).
+You don't invoke supporting skills directly — you use the nine role commands above, and they pull in what they need.

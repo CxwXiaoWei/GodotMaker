@@ -1,156 +1,212 @@
-# Your First Game
+# Your first game
 
-This walkthrough generates a complete Godot game from a natural language description using GodotMaker's 8-stage pipeline.
+This walkthrough takes you from an empty folder to a playable Godot game. You will type nine commands in Claude Code — one for each step in the process. In between commands, the AI does the work while you wait; you step in when it asks you a question or when you want to review what was produced.
 
-## Before You Start
+**Time to expect:** for a small game (a ball that bounces, a simple platformer, a basic puzzle), count on roughly 30 minutes of your own time spread across the session, plus however long the AI takes to run in the background between steps. Bigger games take longer; the commands are the same.
 
-Make sure you have completed the [installation](installation.md) steps:
-- All prerequisites installed and verified
+You can stop at any point and come back later. Each command checks what was already done and picks up from where it left off.
+
+## Before you start
+
+Complete [Installation](installation.md) first. You need:
+
+- All five tools installed and passing `python tools/check_env.py`
 - `GOOGLE_API_KEY` set in your environment
-- GodotMaker repository cloned and Python dependencies installed
+- The GodotMaker repository cloned locally
 
-## Step 1: Create a Game Project Directory
+## Set up the game project folder
+
+GodotMaker does not run inside the GodotMaker repository itself. You create a new empty folder for your game, then run one command from the GodotMaker folder to install everything the AI needs into that new folder.
+
+From inside the GodotMaker repository:
 
 ```bash
-mkdir my-bouncing-ball
+python tools/publish.py /path/to/my-game
 ```
 
-## Step 2: Publish GodotMaker into It
+Replace `/path/to/my-game` with a real path, for example `C:\Games\my-bouncing-ball` on Windows or `~/games/my-bouncing-ball` on macOS/Linux. The folder will be created if it does not exist yet.
+
+The command copies the AI skills, hook scripts, configuration, and templates into your new game folder. It will ask for the full path to your Godot executable if it cannot find Godot automatically.
+
+Once it finishes, open Claude Code inside that new folder:
 
 ```bash
-# From the GodotMaker repository root
-bash shell/publish.sh /path/to/my-bouncing-ball
-
-# Windows PowerShell
-# .\shell\publish.ps1 /path/to/my-bouncing-ball
-```
-
-The script will ask for your Godot executable path during setup. After publishing, the directory contains `.claude/` (skills, hooks, config) and `.godotmaker/` (project state).
-
-## Step 3: Start Claude Code
-
-```bash
-cd /path/to/my-bouncing-ball
+cd /path/to/my-game
 claude
 ```
 
-## Step 4: Invoke the Orchestrator
+Everything from here happens inside that Claude Code session.
 
-In the Claude Code session, use `/orchestrator` followed by your game description:
+---
+
+## Step 1 — `/gm-scaffold`
+
+**What you type:**
 
 ```
-/orchestrator Make a 2D game where a ball bounces around the screen.
-The ball starts in the center and moves in a random direction.
-It bounces off all four walls. No player input needed.
+/gm-scaffold
 ```
 
-**Important:** Always use `/orchestrator` to start game creation. Without it, Claude may write game code directly, bypassing the pipeline's quality controls (stage gates, worker dispatch, verification hooks).
+**What to expect:** The AI creates the empty Godot project structure — the folders, the required add-ons (gecs for game logic, gdUnit4 for tests), and the first Git commit. You will not be asked questions at this step; it runs automatically.
 
-## What Happens: The 8 Stages
+**What lands on disk:** `project.godot`, `addons/`, `src/`, `scenes/`, `assets/`, `tests/`, `e2e/conftest.py`.
 
-Once invoked, the orchestrator runs through a mandatory 8-stage pipeline. Here is what you see at each stage:
+**When you know it's done:** Claude Code prints a summary and returns to the prompt. You will see a new `project.godot` file in the folder.
 
-### Stage 1: Requirements and Game Design
+This step runs once per project. If you run it again on an existing project, it detects the existing scaffold and skips safely.
 
-The orchestrator analyzes your description and produces a Game Design Document (GDD). It may ask clarifying questions (screen size, art style, specific mechanics). You can provide feedback or approve to continue.
+---
 
-**Output:** `GDD.md`
+## Step 2 — `/gm-gdd`
 
-### Stage 2: Architecture
+**What you type:**
 
-The orchestrator creates the technical plan: which ECS components and systems are needed, how they connect, what the scene structure looks like.
+```
+/gm-gdd
+```
 
-**Output:** `PLAN.md` (task breakdown), `STRUCTURE.md` (components, systems, scenes)
+**What to expect:** The AI interviews you about the game you want. It will ask questions like: What is the goal? What does the player do? What should it look like? How many levels? You don't need to have answers ready — answer as much or as little as you know, and the AI fills in reasonable defaults for anything you leave blank.
 
-### Stage 3: Scaffold
+After the interview, it writes all the planning documents: the Game Design Document, a task list, a folder structure plan, a scene list, and an asset list.
 
-A worker creates the project skeleton: `project.godot`, directory structure, base component definitions, gecs/gdUnit4/godot-e2e addon stubs.
+**What lands on disk:** `GDD.md`, `PLAN.md`, `STRUCTURE.md`, `SCENES.md`, `ASSETS.md`, `TOC.md`.
 
-**Output:** `project.godot`, `components/`, `systems/`, `test/`, `e2e/`, addon directories
+**When you know it's done:** The AI summarises the design and asks if you are happy with it. Read through `GDD.md` — this is your chance to correct anything before the build starts. Type your feedback or say you're happy to continue.
 
-### Stage 4: Assets
+---
 
-The orchestrator generates a reference image showing what the game should look like, then generates game assets (sprites, audio placeholders) via the Gemini API.
+## Step 3 — `/gm-asset`
 
-**Output:** `references/reference.png`, `assets/sprites/`, `ASSETS.md`
+**What you type:**
 
-### Stage 5: Risk Implementation
+```
+/gm-asset
+```
 
-High-risk systems (those most likely to fail or block other work) are implemented first. Each system is built by a worker and verified by a separate verifier.
+**What to expect:** The AI generates the art for your game — sprites, backgrounds, icons — using Google Gemini. If you want to use your own images instead, you can drop them into the `assets/` folder first and the AI will analyse what you have and fill in only what is missing.
 
-**Output:** Implemented systems with unit tests, e2e test stubs
+**What lands on disk:** Image files in `assets/`, updated `ASSETS.md`.
 
-### Stage 6: Main Implementation
+**When you know it's done:** The AI reports which assets were generated and which already existed. You can open the `assets/` folder and look at the images; if something looks wrong, give feedback and the AI will regenerate specific items.
 
-Remaining systems, scenes, and UI are implemented through worker dispatch. Each worker receives a structured brief, implements code + tests, and reports back.
+---
 
-**Output:** All remaining `systems/`, `components/`, scene files, `test/` files
+## Step 4 — `/gm-build`
 
-### Stage 7: Integration Verification
+**What you type:**
 
-Cross-system testing: headless build, full test suite, GDScript linting, visual QA (screenshots compared against the reference image).
+```
+/gm-build
+```
 
-**Output:** `screenshots/`, verification reports, bug fixes if needed
+**What to expect:** This is the longest step. The AI implements the game by handing work to specialised sub-agents (think of them as assistants, each responsible for one part of the game). Each task goes through three layers automatically: one sub-agent writes the code, a second one checks that it compiles and the tests pass, and a third checks for common Godot pitfalls. You don't need to supervise this — just wait.
 
-### Stage 8: Final Acceptance
+You will see a lot of output as tasks are dispatched and reported back. This is normal.
 
-End-to-end gameplay verification. The game is run, screenshots are captured, and visual QA confirms the game matches expectations. The orchestrator performs final polish.
+**What lands on disk:** Game code in `src/`, scene files in `scenes/`, unit tests in `tests/`.
 
-**Output:** Final `screenshots/`, `MEMORY.md` updated, `TOC.md` updated
+**When you know it's done:** The AI prints a build summary. If any tasks failed their checks, they are noted so `/gm-fixgap` can address them later.
 
-## Step 5: Run the Generated Game
+---
 
-After the pipeline completes, open the project in Godot:
+## Step 5 — `/gm-verify`
+
+**What you type:**
+
+```
+/gm-verify
+```
+
+**What to expect:** The AI runs a mechanical check — does the project compile without errors? Do the unit tests pass? Are any required files missing? This is a fast, automated step with no questions.
+
+**What lands on disk:** `.godotmaker/verify_result.json`.
+
+**When you know it's done:** The AI prints a pass/fail summary. If anything fails here, it means something in the build step needs fixing — the next two commands handle that.
+
+---
+
+## Step 6 — `/gm-evaluate`
+
+**What you type:**
+
+```
+/gm-evaluate
+```
+
+**What to expect:** The AI runs the actual game in the background (without opening a window on your screen), takes screenshots, and scores the result against what the Game Design Document described. This gives an independent view of whether the game looks and behaves correctly — separate from the build step that created it.
+
+**What lands on disk:** `.godotmaker/evaluation.json`, screenshots in `e2e/screenshots/`.
+
+**When you know it's done:** The AI prints an evaluation score and a list of anything that didn't match the design. You can open the screenshots to see what the AI saw.
+
+---
+
+## Step 7 — `/gm-fixgap`
+
+**What you type:**
+
+```
+/gm-fixgap
+```
+
+**What to expect:** The AI reads the evaluation results, figures out what needs to change, and dispatches sub-agents to fix each issue — same three-layer process as the build step. This command is safe to skip if the evaluation reported no problems.
+
+**What lands on disk:** Updated game code, a `GAP.md` file listing what was fixed (archived to `.godotmaker/gaps/` when done).
+
+**When you know it's done:** The AI summarises what was fixed. If significant changes were made, you can re-run `/gm-verify` and `/gm-evaluate` to confirm the fixes landed correctly.
+
+---
+
+## Step 8 — `/gm-accept`
+
+**What you type:**
+
+```
+/gm-accept
+```
+
+**What to expect:** The AI presents the current state of the game and asks you to make a decision:
+
+- **Accept** — you're happy with this milestone; move on to finalising.
+- **Reject (loop back)** — something is still wrong; the AI will return to `/gm-fixgap` and try again.
+- **Stop** — you want to leave the session here and come back later.
+
+**What lands on disk:** An acceptance record in `.godotmaker/stage.jsonl`.
+
+**When you know it's done:** You've made your choice and told the AI.
+
+---
+
+## Step 9 — `/gm-finalize`
+
+**What you type:**
+
+```
+/gm-finalize
+```
+
+**What to expect:** The AI tidies everything up — archives the milestone's records, updates `MEMORY.md` so future sessions remember what was built, and stamps the milestone as complete. This is a short, automatic step.
+
+**What lands on disk:** `.godotmaker/final_report.json`, updated `MEMORY.md`.
+
+**When you know it's done:** The AI confirms the milestone is sealed and the project is ready to open in Godot.
+
+---
+
+## You now have a playable game
+
+Open the project in the Godot editor:
 
 ```bash
-# Open in Godot editor
-godot --editor --path /path/to/my-bouncing-ball
-
-# Or run directly
-godot --path /path/to/my-bouncing-ball
+godot --editor --path /path/to/my-game
 ```
 
-## What the Output Looks Like
+Or run it directly:
 
-After generation, your project directory contains:
-
-```
-my-bouncing-ball/
-  project.godot              # Godot project file
-  CLAUDE.md                  # Project-specific AI instructions
-  GDD.md                     # Game design document
-  PLAN.md                    # Task breakdown with status tracking
-  STRUCTURE.md               # ECS architecture (components, systems, scenes)
-  ASSETS.md                  # Asset manifest
-  SCENES.md                  # Scene definitions
-  MEMORY.md                  # Persistent context for future sessions
-  TOC.md                     # Table of contents
-  components/                # ECS component definitions (.gd)
-  systems/                   # ECS system implementations (.gd)
-  test/                      # Unit tests (gdUnit4)
-  e2e/                       # End-to-end tests (godot-e2e)
-  assets/                    # Game assets (sprites, audio, fonts)
-  screenshots/               # Captured gameplay screenshots
-  references/                # Reference images for visual QA
-  addons/                    # gecs, gdunit4, godot_e2e
-  .claude/                   # Skills, config (gitignored)
-  .godotmaker/               # Hooks, pipeline state, metrics (partially tracked)
+```bash
+godot --path /path/to/my-game
 ```
 
-## Iterating on Your Game
+To add a new feature later, start a fresh Claude Code session in the same folder and begin again at `/gm-gdd`. The AI reads `MEMORY.md` to understand what already exists before planning the next change. `/gm-scaffold` is a one-time step and does not need to be repeated.
 
-To add features or make changes to an existing game, start a new Claude Code session in the same directory and invoke `/orchestrator` again:
-
-```
-/orchestrator Add a score counter in the top-left corner that increments
-each time the ball bounces off a wall.
-```
-
-The orchestrator detects the existing project, reads its state, and runs only the stages needed for the change (typically Stage 6 through Stage 8).
-
-## Tips
-
-- **Be specific in your description.** "A ball that bounces" is fine for a demo, but for real games, describe mechanics, art style, screen layout, and win/lose conditions.
-- **You can interrupt at any stage.** If the GDD does not match your vision, give feedback before the orchestrator proceeds.
-- **Check screenshots.** The `screenshots/` directory shows what the game looks like at verification time -- useful for catching visual issues early.
-- **Read PLAN.md for status.** The task table in PLAN.md tracks what has been implemented, what is pending, and what failed.
+For a tour of what everything in the project folder means, see [Project layout](project-layout.md).

@@ -1,137 +1,94 @@
 # Installation
 
-This guide walks through setting up GodotMaker on your machine.
+GodotMaker turns a plain-English description into a playable Godot 4 game. To do that it needs five pieces of software working together: Godot (the game engine that runs your game), Git (version control that lets the AI keep a safe history of every change), Node.js (a runtime that GodotMaker uses to talk to Godot from the command line), Python (runs the asset-generation pipeline and the environment checker), and Claude Code (the AI assistant that drives the whole process). This guide gets all five installed, adds the API key needed for image generation, and confirms everything is working before you make your first game.
 
 ## Prerequisites
 
-### Required Tools
+| Tool | Minimum version | Why GodotMaker needs it | Where to get it |
+|------|-----------------|-------------------------|-----------------|
+| Godot | 4.4+ | Compiles and runs the generated game | https://godotengine.org/download |
+| Git | 2.30+ | Tracks every file change; lets the AI work in parallel without conflicts | https://git-scm.com/downloads |
+| Node.js | 18+ | Provides `npx`, which GodotMaker uses to connect Claude Code to Godot | https://nodejs.org (choose the LTS version) |
+| Python | 3.9+ | Generates art, runs the environment check, and drives end-to-end tests | https://python.org/downloads |
+| Claude Code | Latest | The AI assistant you type commands into | `npm install -g @anthropic-ai/claude-code` |
 
-| Tool | Minimum Version | Purpose | Install Link |
-|------|----------------|---------|--------------|
-| Godot | 4.4+ | Game engine (headless builds, runtime) | https://godotengine.org/download |
-| Git | 2.30+ | Version control, worktree-based parallel workers | https://git-scm.com/downloads |
-| Node.js | 18+ | godot-mcp runtime (npx) | https://nodejs.org |
-| Python | 3.9+ | Asset pipeline, visual QA, E2E testing, environment checker | https://python.org |
-| Claude Code | Latest | AI agent runtime (orchestrator + workers) | `npm install -g @anthropic-ai/claude-code` |
+Install each one using the links above, then continue.
 
-Verify each tool after installation:
+## API keys
 
-```bash
-git --version          # >= 2.30
-python --version       # >= 3.9
-node --version         # >= 18
-godot --version        # >= 4.4
-claude --version       # Claude Code CLI
-```
+GodotMaker uses Google Gemini to create the art in your game (sprites, backgrounds, icons). This requires a free API key. Two other keys are optional and only add extra image-generation providers.
 
-### API Keys
+| Key | Required? | What it unlocks |
+|-----|-----------|-----------------|
+| `GOOGLE_API_KEY` | **Yes** | Image generation and visual quality checks — required for every project. Get one free at https://aistudio.google.com/apikey |
+| `XAI_API_KEY` | Optional | Uses xAI Grok as a second image-generation option (sometimes cheaper). Get one at https://console.x.ai |
+| `TRIPO3D_API_KEY` | Optional | Generates 3D models, only useful for 3D games. Get one at https://www.tripo3d.ai |
 
-| Key | Service | Required? | How to Get |
-|-----|---------|-----------|------------|
-| `GOOGLE_API_KEY` | Google Gemini (image generation + VQA) | **Yes** | https://aistudio.google.com/apikey |
-| `XAI_API_KEY` | xAI Grok (cheaper image generation) | No | https://console.x.ai |
-| `TRIPO3D_API_KEY` | Tripo3D (3D model generation) | No (3D games only) | https://www.tripo3d.ai |
+### Setting the keys on Windows (PowerShell)
 
-For 2D-only projects, only `GOOGLE_API_KEY` is required.
+This stores the key permanently for your Windows user account. You only need to do this once.
 
-**Setting API keys:**
-
-Windows (PowerShell, permanent):
 ```powershell
 [System.Environment]::SetEnvironmentVariable("GOOGLE_API_KEY", "your-key-here", "User")
 ```
 
-Linux/macOS (add to `~/.bashrc` or `~/.zshrc`):
+To add the optional keys, run the same command with the other key names.
+
+Close and reopen your terminal after running these commands so the new values take effect.
+
+### Setting the keys on macOS or Linux
+
+Add the following lines to your shell profile file (`~/.bashrc` if you use Bash, `~/.zshrc` if you use Zsh), then restart your terminal.
+
 ```bash
 export GOOGLE_API_KEY="your-key-here"
+# Optional:
+# export XAI_API_KEY="your-key-here"
+# export TRIPO3D_API_KEY="your-key-here"
 ```
 
-Restart your terminal after setting environment variables.
+## Step-by-step install
 
-## Setup Steps
+### 1. Clone the GodotMaker repository
 
-### 1. Clone the Repository
+This downloads GodotMaker's tools and skill definitions to your machine. You only need to do this once. The folder you clone into is the GodotMaker framework — it is not your game project.
 
 ```bash
-git clone https://github.com/user/GodotMaker.git
+git clone https://github.com/RandallLiuXin/GodotMaker.git
 cd GodotMaker
 ```
 
-### 2. Configure Git
+### 2. Set your Git identity
 
-Git is required for parallel worker isolation via worktrees.
+Git records who made each change. If you have never set these, run:
 
 ```bash
 git config --global user.name "Your Name"
-git config --global user.email "your@email.com"
+git config --global user.email "you@example.com"
 ```
 
-### 3. Install Python Dependencies
+### 3. Install Python dependencies
 
 ```bash
 pip install -r tools/requirements.txt
 ```
 
-### 4. Verify Environment
+This installs the Python packages that handle image generation, visual quality checks, and end-to-end tests.
 
-Run the environment checker to confirm all prerequisites are met:
+### 4. Run the environment check
 
 ```bash
 python tools/check_env.py
 ```
 
-The checker reports three levels:
+The checker verifies every prerequisite and prints a result for each:
 
-| Level | Meaning |
-|-------|---------|
-| `[PASS]` | Requirement met |
-| `[WARN]` | Optional dependency missing -- some features may be unavailable |
-| `[FAIL]` | Required dependency missing -- must be resolved before proceeding |
+- `[PASS]` — all good
+- `[WARN]` — an optional feature is missing; your game will still generate but some capabilities are unavailable
+- `[FAIL]` — a required item is missing; fix it before continuing
 
-All `[FAIL]` items must be resolved. `[WARN]` items are optional.
+Fix every `[FAIL]` line before moving on. `[WARN]` lines are safe to skip unless you want the optional feature they describe.
 
-## Publishing to a Game Project
+## What's next
 
-GodotMaker does not run inside a game project directly. Instead, you **publish** skills, hooks, tools, and configuration into a target game directory.
-
-```bash
-# Linux / macOS / Git Bash
-bash shell/publish.sh /path/to/my-game-project
-
-# Windows PowerShell
-.\shell\publish.ps1 /path/to/my-game-project
-```
-
-The publish script copies skills, hooks, tools, config, and templates into the target project, registers godot-mcp, and initializes a git repository for worktree-based parallel workers. For the full publish pipeline details, see [Publish](../05-tools/publish.md).
-
-### Republishing After Upgrades
-
-When GodotMaker is updated, republish with `--force` to update skills while preserving your configuration:
-
-```bash
-bash shell/publish.sh --force /path/to/my-game-project
-# Windows: .\shell\publish.ps1 -Force /path/to/my-game-project
-```
-
-### Verifying the Publish
-
-```bash
-cd /path/to/my-game-project
-
-cat .claude/godotmaker.yaml        # Godot path and settings
-cat .godotmaker/config.yaml        # Project-level config
-ls .claude/skills/                 # Published skills
-claude mcp list                    # Should show "godot" server
-```
-
-## Troubleshooting
-
-**"godot: command not found"** -- Godot is not on your PATH. Either add it to PATH, or ensure `.claude/godotmaker.yaml` contains the full absolute path to the Godot executable.
-
-**"GOOGLE_API_KEY not set"** -- Verify the key is set (`echo $GOOGLE_API_KEY` on Linux/Mac, `echo %GOOGLE_API_KEY%` on Windows CMD). If you just set it, restart your terminal.
-
-**"npx: command not found"** -- Node.js is not installed. Install from https://nodejs.org (LTS version).
-
-**Publish script errors** -- Ensure Python 3.9+ is installed. On Windows, use PowerShell or Git Bash. As a fallback, run the Python script directly: `python tools/publish.py <target>`.
-
-**Skills not loading in Claude Code** -- Skills must be at `.claude/skills/<name>/SKILL.md` (not nested under core/ or reviewer/). Republish with `--force` and restart Claude Code.
+Once the environment check reports no `[FAIL]` items, you are ready to make your first game. Head to [Your first game](first-game.md).
