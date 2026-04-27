@@ -1,21 +1,33 @@
 # GodotMaker
 
-**ECS-native text-to-game framework for Godot.**
+**Turn a plain-English game description into a complete, playable Godot 4 project.**
 
-GodotMaker turns natural-language game descriptions into playable Godot projects. It combines an AI orchestrator (Claude Code skills) with an Entity Component System ([gecs](https://github.com/csprance/gecs)) to generate GDScript code, scenes, and assets — all inside the Godot editor.
+GodotMaker takes what you want — described in everyday language — and produces working game code, art, tests, and quality checks. You drive the process with nine slash commands; the framework keeps everything honest in between.
 
-## Features
+## What you get
 
-- **Text-to-Game Pipeline** — Describe a game concept; GodotMaker scaffolds the project, generates ECS components/systems, and wires up scenes.
-- **ECS-First Architecture** — Built on gecs. Systems declare read/write dependencies; a static DAG checker prevents conflicts at build time.
-- **Scene-as-Spawner** — Scenes hold marker nodes (metadata only); the runtime converts them to ECS entities. The scene tree stays reserved for UI/menus.
-- **Three-Layer Skill System** — Core skills (build, test, orchestrate), Reviewer skills (physics, animation, UI, audio, ...), and Pattern skills (genre templates).
-- **Automated Validation** — `dotnet build` > DAG check > gdUnit4 tests > headless run > Visual QA > MCP escalation.
+- **Describe, don't configure** — write a plain-language brief; the framework plans, scaffolds, and codes the game for you
+- **Tested code by default** — unit tests (gdUnit4) and end-to-end tests are written alongside game code, not bolted on later
+- **Catches Godot-specific bugs early** — eight domain reviewers (physics, animation, UI, tilemap, navigation, shader, audio, particles) flag common Godot pitfalls before you see the build
+- **Visual quality checks included** — automated screenshots and AI-based visual assessment confirm the game looks right, not just that it compiles
+- **Consistent ECS structure** — all generated game logic follows Entity-Component-System via [gecs](https://github.com/csprance/gecs), so the code stays predictable as it grows
+- **You stay in control** — each step is one slash command; you decide when to start the next, can stop anytime, and resume cleanly
 
-## Quick Links
+## New here? Start with these three pages
 
-- [Installation](wiki/01-getting-started/installation.md)
-- [First Game](wiki/01-getting-started/first-game.md)
-- [Architecture Overview](wiki/02-concepts/architecture-overview.md)
-- [Contributing](wiki/07-contributing/development-setup.md)
+1. [Installation](wiki/01-getting-started/installation.md) — what you need on your machine and how to set it up
+2. [Your first game](wiki/01-getting-started/first-game.md) — a walk-through that runs all nine commands end-to-end
+3. [How it works](wiki/02-concepts/how-it-works.md) — what the framework actually does behind those commands
+
+## Other quick links
+
+- [The 9 roles](wiki/02-concepts/the-9-roles.md) — what each `/gm-*` command does
+- [Troubleshooting](wiki/04-troubleshooting/common-problems.md) — fixes for common issues
 - [FAQ](wiki/08-reference/faq.md)
+- [Contributing](wiki/07-contributing/development-setup.md)
+- [GitHub repository](https://github.com/RandallLiuXin/GodotMaker)
+
+## Project status
+
+- Current release: see [`VERSION`](https://github.com/RandallLiuXin/GodotMaker/blob/main/VERSION) and [`CHANGELOG.md`](https://github.com/RandallLiuXin/GodotMaker/blob/main/CHANGELOG.md)
+- Roadmap: [`ROADMAP.md`](https://github.com/RandallLiuXin/GodotMaker/blob/main/ROADMAP.md)
