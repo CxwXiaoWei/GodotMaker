@@ -32,6 +32,12 @@ This roadmap tracks what has shipped, what we are working on now, and where the 
 - [x] `R-032` Wiki documentation (30 pages)
 - [x] `R-033` CI workflow (lint, test, gitleaks)
 
+### v0.x — Role-based pipeline
+
+- [x] `R-070` **Permission isolation — file-lock baseline** — Each role's write scope is enforced by `check_file_permissions.py` reading `.godotmaker/current_role` (set as the first action of every `/gm-*` skill). Hooks reject out-of-scope writes (e.g. only `/gm-evaluate` may write `e2e/`). The file-lock + hook approach was chosen over heavier alternatives after evaluation; harder isolation is tracked as `R-073`.
+- [x] `R-071` **Pipeline decomposition** — Split monolithic orchestrator skill into 9 role-based skills (`/gm-scaffold`, `/gm-gdd`, `/gm-asset`, `/gm-build`, `/gm-verify`, `/gm-evaluate`, `/gm-fixgap`, `/gm-accept`, `/gm-finalize`). Each role owns a single phase and write-permission scope; `gm-evaluate` owns `e2e/` exclusively.
+- [x] `R-072` **Shared reference docs (`_shared/`)** — Cross-skill reference docs (worker/verifier/reviewer/analyst dispatch) live as a single source of truth and are reverse-deployed by `publish_shared_refs()` into each consumer's `references/` with an `<!-- AUTO-GENERATED -->` header.
+
 ## In Progress
 
 ### v0.5 — Plugin Skills
@@ -52,8 +58,7 @@ This roadmap tracks what has shipped, what we are working on now, and where the 
 
 ### Permission & Pipeline
 
-- `R-070` **Permission isolation upgrade** — Current e2e/ permission isolation uses a file lock (`.godotmaker/current_role`). Explore stronger mechanisms: agent-type-based identity (GSD-style skill→agent dispatch), or harness-injected env vars. Goal: tamper-proof role separation without extra subagent nesting.
-- `R-071` **Pipeline decomposition** — Split monolithic orchestrator skill into independent orchestrator + evaluator roles with dedicated skills and agent definitions. Evaluator owns e2e/ exclusively, orchestrator owns planning + worker dispatch.
+- `R-073` **Tamper-proof role identity via external harness** — `R-070`'s file-lock relies on each `/gm-*` skill honestly writing `.godotmaker/current_role`; nothing structurally prevents the main agent from rewriting the file mid-session. A separate harness process (tracked outside this repo, in a separate automation host) drives each role as its own Claude Code subprocess with the role injected via env var, so hooks can read identity from the runtime instead of the filesystem.
 
 ### Framework Features
 
