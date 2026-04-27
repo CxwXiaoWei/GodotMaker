@@ -2,15 +2,18 @@
 
 GodotMaker turns a description into a game by running 9 small steps in order. Each step is a slash command you type. Each step does one job and stops.
 
-```
-/gm-scaffold → /gm-gdd → /gm-asset → /gm-build → /gm-verify → /gm-evaluate
-                                                                      |
-                                                              approve?
-                                                             /        \
-                                                     /gm-accept   /gm-fixgap
-                                                          |              |
-                                                   /gm-finalize   /gm-verify → /gm-evaluate
-                                                                  (loop until approve)
+```mermaid
+flowchart TD
+    A[/gm-scaffold] --> B[/gm-gdd]
+    B --> C[/gm-asset]
+    C --> D[/gm-build]
+    D --> E[/gm-verify]
+    E --> F[/gm-evaluate]
+    F --> G{approve?}
+    G -- yes --> H[/gm-accept]
+    G -- no --> I[/gm-fixgap]
+    H --> J[/gm-finalize]
+    I --> E
 ```
 
 You are in control at every transition. Nothing runs while you aren't looking — you type the next command when you are ready to move on.

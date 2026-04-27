@@ -1,0 +1,192 @@
+# 代码库指南
+
+本页面对 GodotMaker 仓库逐目录进行深度介绍，帮助你在开始修改之前建立全局认知。如需简短概览，请参阅 [开发环境搭建](development-setup.md)。想了解各模块在运行时如何协作，请继续阅读本文。
+
+## 仓库目录结构
+
+```
+GodotMaker/
+├── hooks/                   8 个 hook 脚本 + hooks/metrics/ 子系统
+├── skills/
+│   ├── core/                角色技能 + 辅助技能 + _shared/
+│   └── reviewer/            8 个审查技能（各含 gotchas.md + checklist.md）
+├── tools/                   publish.py, check_env.py, check_project.py, asset_gen.py, migrate.py
+├── config/                  settings.json, stage_schemas.json, addon_versions.json
+├── templates/               文档模板（GDD, PLAN, STRUCTURE, SCENES, ASSETS, GAP, MEMORY, TOC）
+├── tests/                   ~320 个 hook 和工具的单元测试
+├── docs/                    versioning.md, hooks.md, wiki/, update/, contributing/, reference/
+├── shell/                   publish.sh / publish.ps1, report.sh / report.bat
+├── migrations/              跨版本迁移脚本
+├── VERSION                  语义版本号的唯一真实来源
+└── CHANGELOG.md             每次发版的变更说明
+```
+
+---
+
+## hooks/
+
+八个 Python 脚本，负责强制执行流水线规则。每个脚本从 `sys.stdin` 读取 JSON payload，决定是否允许或拦截该操作，然后将 JSON 响应写入 stdout（静默放行时直接 exit 0，不输出任何内容）。
+
+各脚本及其处理的事件：
+
+| 脚本 | 事件 | 是否拦截 |
+|--------|-------|---------|
+| `session_start.py` | SessionStart | 否 |
+| `check_file_permissions.py` | PreToolUse (Write\|Edit) | 是 |
+| `stage_reminder.py` | PreToolUse (Write\|Edit) | 是 |
+| `check_stage_prerequisites.py` | PreToolUse (Agent) | 是 |
+| `check_asset_access.py` | PreToolUse (Read) | 是 |
+| `log_subagent.py` | SubagentStart | 否 |
+| `on_subagent_stop.py` | SubagentStop | 委托执行 |
+| `check_worker_report.py` | 由 on_subagent_stop.py 调用 | 是 |
+| `check_completion.py` | Stop | 是 |
+
+Hook 注册关系（哪个脚本响应哪个事件）存储在 `config/settings.json` 中，发布时会被部署到目标项目的 `.claude/settings.json`。
+
+### hooks/metrics/
+
+一个用于记录会话期间发生事件的小型子系统。Hook 通过调用 `record_event()` 将 JSON 行追加到 `.godotmaker/metrics_current.jsonl`（当前会话）和 `.godotmaker/metrics_total.jsonl`（全量生命周期日志）。`state.py` 模块负责在 `.godotmaker/state.json` 中管理可变的会话内计数器（拦截次数等）。`session_start.py` 在每次新会话开始时重置两者。
+
+关于编写 hook 和使用 metrics API 的详细说明，请参阅 [编写 Hook](writing-a-hook.md)。
+
+---
+
+## skills/core/
+
+角色技能和辅助技能，每个技能对应一个目录。每个目录至少包含一个带有 YAML front-matter 和 prompt 正文的 `SKILL.md`。
+
+**角色技能（9 个）：** `gm-scaffold`、`gm-gdd`、`gm-asset`、`gm-build`、`gm-verify`、`gm-evaluate`、`gm-fixgap`、`gm-accept`、`gm-finalize`。这些技能与 `/gm-*` 斜杠命令一一对应。每个角色技能的第一个动作是将角色名写入 `.godotmaker/current_role`，这正是 `check_file_permissions.py` 用来执行写入规则的依据。
+
+**辅助技能（12 个）：** `game-planner`、`project-scaffold`、`godot-api`、`gecs`、`input-mapper`、`headless-build`、`gdunit-driver`、`godot-e2e`、`gdtoolkit`、`visual-qa`、`screenshot`、`mcp-driver`。这些是由角色技能加载的参考文档，用户不会直接调用它们。
+
+### skills/core/_shared/
+
+任何被超过一个技能使用的参考文档，都以此处为唯一真实来源保存。例如：`worker-dispatch.md`、`verifier-dispatch.md`、`reviewer-dispatch.md`、`analyst-dispatch.md`。
+
+发布时，`publish_shared_refs()` 读取 `_shared/manifest.json`，将每个源文件写入所有列出的消费技能的 `references/` 文件夹。被部署的副本带有 `<!-- AUTO-GENERATED -->` 头部，每次发布都会被覆盖。
+
+**编辑规则：**
+- 只编辑 `_shared/<file>.md` 下的源文件，永远不要编辑已部署的副本。
+- 在消费技能的 `SKILL.md` 中，通过 `references/<file>.md` 引用该文档（这是部署后的路径，`_shared/` 在已发布项目中并不存在）。
+- 新增或修改共享文档后，运行 `python -m pytest tests/tools/test_publish_shared.py -q` 确认 manifest 与所有消费者引用保持一致。
+
+manifest 的 schema、添加/移除流程和调试技巧见 `docs/contributing/shared-refs.md`。
+
+---
+
+## skills/reviewer/
+
+八个审查技能，每个领域一个：`physics`、`animation`、`ui`、`tilemap`、`navigation`、`shader`、`audio`、`particles`。
+
+每个审查技能目录包含恰好三个文件：
+- `SKILL.md` — 审查员 prompt
+- `gotchas.md` — 领域特定陷阱目录（LLM 容易犯错的地方）
+- `checklist.md` — 与 gotcha ID 对应的系统性检查项
+
+审查子 Agent（由 `gm-build` 和 `gm-fixgap` 分发）根据 worker 输出中出现的 Godot 类和 API 动态读取这些文件，并不存在静态分发列表——审查员自行挑选相关的领域文件。关于审查技能结构的详细说明，见 [编写技能](writing-a-skill.md)。
+
+---
+
+## tools/
+
+贡献者和用户直接运行的 Python CLI 脚本。
+
+| 工具 | 用途 |
+|------|---------|
+| `publish.py` | 将 GodotMaker 部署到目标 Godot 项目 |
+| `check_env.py` | 验证 Godot、Python 和 API key 是否正确配置 |
+| `check_project.py` | 检验已生成项目中的缺失文件和损坏路径 |
+| `asset_gen.py` | 通过 Gemini / xAI 生成美术资源（由 `/gm-asset` 调用，也可独立运行） |
+| `migrate.py` | 跨 MINOR 版本升级时运行版本迁移脚本 |
+
+### publish.py 如何串联一切
+
+运行 `python tools/publish.py <target>` 时：
+
+1. 从仓库根目录读取 `VERSION`，与 `<target>/.godotmaker/version` 比较。MINOR / MAJOR 升级时弹出提示或直接拦截。
+2. 扁平复制技能：`skills/core/` 和 `skills/reviewer/` 下的所有目录 → `<target>/.claude/skills/`。名称以 `_` 开头的目录（即 `_shared/`）会被 `publish_skills()` 跳过；共享文档改由 `publish_shared_refs()` 部署到消费技能的 `references/` 文件夹中。
+3. 复制 hooks → `<target>/.godotmaker/hooks/`。
+4. 复制 tools → `<target>/tools/`。
+5. 复制 templates → `<target>/.claude/templates/`。
+6. 复制 `config/stage_schemas.json` → `<target>/.godotmaker/stage_schemas.json`。
+7. 首次安装（或使用 `--force`）时：写入 `.claude/settings.json`，初始化 `CLAUDE.md`，提示配置 `godotmaker.yaml`。
+8. 将当前版本号写入 `<target>/.godotmaker/version`。
+
+---
+
+## config/
+
+| 文件 | 控制内容 |
+|------|-----------------|
+| `settings.json` | Hook 注册：哪些脚本响应哪些 Claude Code 事件 |
+| `stage_schemas.json` | 每个角色的必要输出和程序化检查（key 为角色名） |
+| `addon_versions.json` | 按引擎版本锁定的 Godot 插件版本 |
+
+`stage_schemas.json` 是 `stage_reminder.py` 和 `check_stage_prerequisites.py` 都会读取的 schema。其 key 为角色名（`scaffold`、`gdd`、`build` 等），每个值包含可选的 `files` 数组（必须存在于磁盘上的路径）和可选的 `checks` 数组（程序化验证器名称）。完整 schema 说明见 [编写技能](writing-a-skill.md)。
+
+---
+
+## templates/
+
+Markdown 文档模板，由 `publish.py` 部署到新游戏项目的 `.claude/templates/` 下。角色技能在工作过程中填充这些模板。模板包括：`GDD.md`、`PLAN.md`、`STRUCTURE.md`、`SCENES.md`、`ASSETS.md`、`GAP.md`、`MEMORY.md`、`TOC.md`、`game-claude.md`。
+
+---
+
+## tests/
+
+测试套件，按覆盖对象组织。
+
+```
+tests/
+├── hooks/
+│   ├── helpers.py                       共享工具函数：run_hook, is_blocked, write_completed_roles, ...
+│   ├── test_check_completion.py
+│   ├── test_check_file_permissions.py
+│   ├── test_check_stage_prerequisites.py
+│   ├── test_check_worker_report.py
+│   ├── test_metrics.py
+│   ├── test_session_start.py
+│   └── test_stage_reminder.py
+├── tools/
+│   ├── conftest.py
+│   ├── test_addon_versions.py
+│   ├── test_check_classname.py
+│   ├── test_check_env.py
+│   ├── test_check_project.py
+│   ├── test_migrate.py
+│   ├── test_publish.py
+│   └── test_publish_shared.py
+└── test_pipeline_e2e.py                 端到端流水线冒烟测试
+```
+
+`pyproject.toml` 将 `hooks/` 加入 `pythonpath`，使 hook 测试中的 `from metrics import ...` 无需安装任何包即可解析。关于编写新测试，请参阅 [测试](testing.md)。
+
+---
+
+## docs/
+
+与代码共存于仓库的人类可读文档。
+
+| 路径 | 内容 |
+|------|-----------------|
+| `docs/hooks.md` | 每个 hook 的精确参考（重写后版本） |
+| `docs/versioning.md` | 版本方案与升级行为 |
+| `docs/wiki/` | 面向用户和贡献者的 Wiki |
+| `docs/contributing/` | 共享引用 schema、发版清单 |
+| `docs/update/` | `next.md`（待发布变更）及归档的 `vX.Y.Z.md` 文件 |
+| `docs/reference/` | API 和配置参考存根 |
+
+---
+
+## shell/
+
+贡献者从终端运行的两个操作的薄包装脚本：
+
+- `publish.sh` / `publish.ps1` — 委托调用 `python tools/publish.py`
+- `report.sh` / `report.bat` — 运行 `python -m hooks.metrics.reporter`，从 JSONL metrics 文件生成 HTML 报告
+
+---
+
+## migrations/
+
+当目标项目跨 MINOR 版本升级时，`tools/migrate.py` 运行的迁移脚本。脚本存储在 `migrations/{old}_to_{new}/` 下，按字母序依次执行。MAJOR 升级时，所有来自上一个 MAJOR 版本的迁移脚本都会被删除，不会延续——MAJOR 升级改用 `--force` 进行干净的重新初始化。完整升级流程见 [发版流程](release-process.md)。

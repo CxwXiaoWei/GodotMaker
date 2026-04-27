@@ -1,0 +1,133 @@
+# 常见问题
+
+---
+
+## 入门
+
+### 我需要懂游戏开发吗？
+
+不需要。GodotMaker 专为有游戏想法但不是游戏开发者的人设计。你用白话描述自己想要什么，在设计展示给你时确认感觉对不对，然后让 AI 去实现。不过，你需要阅读生成的 `GDD.md`，并确认它是否准确表达了你的意图——AI 来写，但你来拍板。
+
+### 我需要付费 API key 吗？
+
+你需要一个用于 Gemini 的 Google API key（`GOOGLE_API_KEY`），Gemini 负责图片生成和视觉质量检查，这是必填项。另外有两个可选 key 提供备用服务：`XAI_API_KEY` 用于 xAI Grok（更便宜的图片生成），`TRIPO3D_API_KEY` 用于 3D 游戏的模型生成。
+
+Claude Code 本身需要 Anthropic 账号并开通 API 访问（或已开通 Claude Code 的 Claude Pro / Team 订阅）。
+
+详细配置步骤见安装页面。
+
+### 我需要哪个版本的 Godot？
+
+Godot 4.4 或更高版本。GodotMaker 不支持 Godot 3.x 或 Godot 4.3 及以下版本。
+
+### 做一个游戏要多长时间？
+
+对于一个小游戏，你自己投入的时间大约是 30 分钟，分散在几条 `/gm-*` 指令之间——阅读 GDD、确认设计、查看评估报告、接受结果。AI 运行时（构建、测试、生成美术）在每条指令执行期间在后台进行，耗时取决于你的机器性能和网络速度。游戏越复杂，`PLAN.md` 中的任务数越多，时间也相应增加。
+
+### 我可以用 C# 代替 GDScript 吗？
+
+可以。GodotMaker 同时支持 GDScript 和 C#。ECS 组件和系统可以用任一语言编写。使用 C# 时，请确保你使用的是支持 .NET 的 Godot 构建版本。
+
+---
+
+## 流水线行为
+
+### 什么是里程碑（milestone）？
+
+里程碑是一次完整的流水线通关：从 `/gm-gdd`（写设计文档）到 `/gm-finalize`（标记完成）。当你想添加新功能或调整方向时，再次运行 `/gm-gdd` 开启下一个里程碑。`/gm-scaffold` 每个项目只运行一次，不在里程碑之间重复。
+
+### 如果我想中途停下来怎么办？
+
+随时可以停。下次打开项目时，`session_start.py` Hook 会读取 `.godotmaker/stage.jsonl` 来确认你上次到哪一步，当前活跃的角色技能会向你展示一个恢复摘要。只需再次运行相同的 `/gm-*` 指令，从中断处继续即可。
+
+详细的恢复场景说明见 [恢复与续跑](../04-troubleshooting/recovery-and-resume.md)。
+
+### 我可以同时运行两条 `/gm-*` 指令吗？
+
+不行。每个 `/gm-*` 技能启动时会将自己的名字写入 `.godotmaker/current_role`，Hook 脚本利用这个文件执行写权限控制。如果第二条指令在第一条还在运行时尝试启动，文件权限 Hook 会立刻开始拦截意外的写操作。请一次只运行一条指令，等它完成再开始下一条。
+
+### 为什么有些指令可以重复运行，有些不行？
+
+`/gm-scaffold` 是每个项目只执行一次的指令——在已有项目上重跑会覆盖项目设置。`/gm-asset` 在里程碑内可以随时重跑，有新资源需求时使用。从 `/gm-build` 开始的角色遵循里程碑周期：应按顺序运行，重跑某个角色会重做当前里程碑的那个阶段。`/gm-gdd` 会开启一个新的里程碑周期。
+
+### `/gm-build` 内部做了什么？
+
+`/gm-build` 通过为 `PLAN.md` 中的每个任务派发一条子代理链来逐一推进任务列表：**Worker** 实现代码和测试，**Verifier** 以无头模式构建项目并运行测试，**Reviewer** 检查 Godot 特有的坑。如果 Reviewer 发现新问题，会将它们加回 `PLAN.md`，在下一批次中处理。如果某批次运行了 Worker 但跳过了 Verifier 或 Reviewer，`check_completion.py` Hook 会拒绝 `/gm-build` 结束。
+
+### AI 为什么需要 git worktree？
+
+当 `/gm-build` 并行运行多个 Worker 时，每个 Worker 需要独立的文件夹来写文件，互不冲突。Git worktree 允许多个工作目录共享同一个仓库历史。这也是 `/gm-scaffold` 要创建初始 git 提交的原因——worktree 需要至少一个提交才能使用。
+
+---
+
+## 质量与输出
+
+### 为什么我的游戏和 GDD 里说的不完全一样？
+
+AI 代码生成不是确定性的，游戏系统之间复杂的交互可能产生预期之外的结果。这正是 `/gm-evaluate` 和 `/gm-fixgap` 存在的原因：评估器对照你的 GDD 给运行中的游戏打分，生成差距列表，然后 Fixgap 派发 Worker 逐一填补。对于小游戏，跑一轮通常就够了；更复杂的游戏可能需要再跑一轮。
+
+### 我可以手动修改生成的代码吗？
+
+可以，你的修改会被保留。但要注意，如果你在新里程碑中再次运行 `/gm-build`，它可能会添加涉及同一文件的新任务——新的 Worker 输出可能会扩展或部分覆盖你的手动修改。建议手动修改保持在小范围内，并在 `MEMORY.md` 中记录下来，让 AI 知道这些改动是有意为之的。
+
+### 截图和测试结果在哪里？
+
+- 评估期间截取的截图：`e2e/screenshots/`
+- 每个场景的视觉参考图：`e2e/screenshots/scene_<name>/`
+- 评估分数和差距列表：`.godotmaker/evaluation.json`
+- Hook 和流水线指标：`.godotmaker/metrics_current.jsonl`
+
+### 为什么用 ECS 而不是普通的 Godot 脚本？
+
+普通的 Godot 节点脚本往往把数据、逻辑和场景结构混在一个文件里。随着游戏规模增长，这些文件越来越难改——动一个地方就可能破坏另一个地方。ECS 干净地分离了关注点：数据在组件里，逻辑在系统里，实体只是连接两者的 ID。对于 AI 生成的代码，这一点尤为重要——新行为永远是新组件加新系统，而不是去修改一个已有的千行脚本。
+
+更详细的解释见 [用大白话讲 ECS](../02-concepts/ecs-in-plain-english.md)。
+
+### 我怎么知道构建是否成功？
+
+`/gm-verify` 完成后，结果在 `.godotmaker/verify_result.json` 中。每个 Worker 的报告也记录了其测试是否通过。如果 Godot 无头构建失败或单元测试失败，Verifier 子代理会报告这一情况，问题会反馈给 Worker 进行修复。
+
+---
+
+## 费用与隐私
+
+### 我的游戏数据去哪了？
+
+所有游戏文件都在你自己的机器上。AI 调用发送到 Claude Code 配置的模型服务商（通常是 Anthropic 的 API）。图片生成调用根据你的配置发送到 Gemini（Google）或 xAI。游戏内容不会存储在 GodotMaker 的服务器上——因为 GodotMaker 根本没有服务器，它是一个本地框架。
+
+### 我的游戏项目属于我吗？
+
+是的。GodotMaker 只是把文件部署到你的文件夹里，然后由 AI 填充内容。所有生成的内容都归你所有。GodotMaker 框架源码以自己的许可证发布，但你的游戏内容和代码属于你。
+
+---
+
+## 故障排查
+
+### 有个 Hook 一直在拦截我，没法继续。
+
+Hook 内置了防死锁限制。`check_completion.py` 最多允许连续拦截 5 次后强制放行；`check_worker_report.py` 每个子代理最多允许 2 次拦截。如果你反复碰到这个上限，说明流水线某处出了问题——检查失败子代理的报告，看看是否有缺失的部分或格式错误的输出。
+
+常见 Hook 报错及解读方法见 [常见问题](../04-troubleshooting/common-problems.md)。
+
+### Worker 启动时出现 "fatal: not a valid object name: HEAD"。
+
+这说明项目还没有 git 提交。`/gm-scaffold` 应该已经创建了一个。请重新运行 `/gm-scaffold`，或手动创建初始提交：`git commit --allow-empty -m "init"`。
+
+### 我的评估分数很低，但游戏看起来没问题。
+
+评估器对照每个场景的参考图和 GDD 描述进行视觉 QA。如果你跳过了 `/gm-asset` 的第三步（该步骤生成 `references/scene_*.png` 文件），评估器就没有视觉参考来比对，会给出保守的低分。在重新评估前，先运行 `/gm-asset` 补全缺失的参考图。
+
+### 我怎么回滚到旧版本的 GodotMaker？
+
+在 GodotMaker 仓库中切换到旧版本标签，然后带 `--force` 重新发布：
+
+```bash
+git checkout v0.1.0          # 在 GodotMaker 仓库中执行
+python tools/publish.py --force /path/to/my-game
+```
+
+`--force` 标志跳过升级提示，对项目中的框架文件做一次干净的重新初始化。
+
+### 流水线里提到"stage"，但我只看到 `/gm-*` 指令。这是怎么回事？
+
+"Stage"是 GodotMaker 早期对流水线步骤的称呼。框架已被重新设计为 9 个基于角色的指令，没有中央协调器。部分文件名（如 `stage.jsonl` 和 `stage_schemas.json`）为了延续性仍沿用旧名称。在工具输出或旧文档中看到"stage"时，把它当作"role"的同义词就好。另见词汇表中的 *Stage vs Role*。

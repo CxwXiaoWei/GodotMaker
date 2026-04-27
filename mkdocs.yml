@@ -78,7 +78,11 @@ nav:
 markdown_extensions:
   - admonition
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
@@ -88,4 +92,60 @@ markdown_extensions:
       permalink: true
 
 plugins:
-  - search
+  - search:
+      lang:
+        - en
+        - zh
+  - i18n:
+      docs_structure: folder
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: zh
+          name: 中文
+          build: true
+          nav_translations:
+            Home: 首页
+            Getting Started: 快速开始
+            Installation: 安装
+            Your First Game: 第一款游戏
+            Project Layout: 项目结构
+            Concepts: 核心概念
+            How It Works: 工作原理
+            The 9 Roles: 9 个角色
+            ECS in Plain English: 大白话讲 ECS
+            Why This Approach: 为什么这么设计
+            Skills: 技能
+            Skill System: 技能体系
+            Core Skills: 核心技能
+            Reviewer Skills: 评审技能
+            Troubleshooting: 故障排查
+            Common Problems: 常见问题
+            Recovery & Resume: 恢复与续跑
+            Tools: 工具
+            Publish: Publish 工具
+            Check Env: 环境检查
+            Check Project: 项目检查
+            Asset Tools: 资源工具
+            Configuration: 配置
+            Project Config: 项目配置
+            godotmaker.yaml: godotmaker.yaml
+            Addon Versions: 插件版本
+            Contributing: 贡献指南
+            Development Setup: 开发环境
+            Codebase Guide: 代码导览
+            Writing a Skill: 编写 Skill
+            Writing a Hook: 编写 Hook
+            Testing: 测试
+            Release Process: 发布流程
+            Reference: 参考资料
+            Glossary: 术语表
+            FAQ: 常见疑问
+            Changelog: 更新日志
+            Project Docs: 项目文档
+            Versioning: 版本管理
+            Hooks Reference: Hooks 参考
+            Tips & Tricks: 小贴士
+            User Notice: 用户须知
