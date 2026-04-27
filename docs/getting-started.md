@@ -153,15 +153,15 @@ cd my-game-project
 claude
 ```
 
-In Claude Code, explicitly invoke the orchestrator skill to start:
+In Claude Code, start the pipeline by invoking the first role skill, `/gm-scaffold`:
 
 ```
-/orchestrator Make a 2D game where a ball bounces around the screen.
+/gm-scaffold Make a 2D game where a ball bounces around the screen.
 The ball starts in the center and moves in a random direction.
 It bounces off all four walls. No player input needed.
 ```
 
-**Important:** Always use `/orchestrator` to start game creation or modification. This loads the full pipeline with stage gates, worker dispatch, and verification hooks. Without it, Claude may attempt to write game code directly, which bypasses all quality controls.
+**Important:** Always start with `/gm-scaffold` and let each role hand off to the next. The pipeline is enforced by hooks — `.godotmaker/current_role` decides who can write what, and `stage.jsonl` tracks role completion. Writing game code without the role skills bypasses the permission lock and quality gates.
 
 ## Project Configuration
 
@@ -225,15 +225,18 @@ Run `python tools/check_env.py` and fix each `[FAIL]` item. The output includes 
 
 ## What Happens During Game Generation
 
-The orchestrator follows an 8-stage pipeline:
+The pipeline runs as 9 role-based skills, each invoked in turn. Each role owns a single phase and a write-permission scope (enforced by `.godotmaker/current_role`).
 
-1. **Requirements** — Clarifies what game to build (game-planner skill)
-2. **Design** — Creates PLAN.md (task breakdown) and STRUCTURE.md (architecture)
-3. **Scaffold** — Creates project structure, addons, base components (project-scaffold skill)
-4. **Assets** — Generates reference image and game assets via Gemini API
-5. **Implementation** — Dispatches Sonnet workers for each system/scene/UI
-6. **Integration** — Cross-system testing and conflict resolution
-7. **Verification** — Builds, tests, lints, visual QA against reference
-8. **Final** — End-to-end gameplay verification and polish
+| Order | Role | What it does |
+|-------|------|---|
+| 1 | `/gm-scaffold` | Creates Godot project skeleton, addons (gecs, gdUnit4), base components |
+| 2 | `/gm-gdd` | Clarifies the game with the user → writes `GDD.md`, `PLAN.md`, `STRUCTURE.md`, `SCENES.md` |
+| 3 | `/gm-asset` | Generates per-scene visual targets (`references/scene_*.png`) and game assets via the analyst subagent |
+| 4 | `/gm-build` | Dispatches workers + verifiers + reviewers to implement each `PLAN.md` task |
+| 5 | `/gm-verify` | Mechanical verification: headless build + unit tests + project completeness |
+| 6 | `/gm-evaluate` | Independent E2E + VQA pass against `GDD.md` and the scene references — owns `e2e/` exclusively |
+| 7 | `/gm-fixgap` | If `/gm-evaluate` rejects: writes a `GAP.md` and dispatches workers to close the gap, then loops back to `/gm-verify` |
+| 8 | `/gm-accept` | Human acceptance — runs the game, confirms delivery |
+| 9 | `/gm-finalize` | Writes the final report, marks the project done |
 
-You can interrupt at any point to give feedback or redirect.
+Each role does its own Resume Check at startup, so re-invoking the same role is safe. You can interrupt at any point to give feedback or redirect.

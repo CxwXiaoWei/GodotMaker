@@ -107,7 +107,7 @@ picking up local changes during development.
 When a Claude Code session starts in a published project, the
 `session_start.py` hook reads `.godotmaker/version` and injects
 `[GodotMaker vX.Y.Z]` into the session context. This helps the
-orchestrator (and the user) know which framework version is active.
+active role skill (and the user) know which framework version is deployed.
 
 ## Workflow for Releasing a New Version
 

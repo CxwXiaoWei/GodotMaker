@@ -14,6 +14,7 @@ Generated Godot game project. The `/gm-*` skills drive the build pipeline — in
 ### Resources
 
 - Never fabricate resource paths. Use only paths listed in `ASSETS.md` or verified to exist. If you need an asset that does not exist, report it — do not invent.
+- Never edit `references/scene_*.png`. They are the visual ground truth that `/gm-evaluate` compares the running game against. To regenerate them, re-run `/gm-asset` Step 3.
 
 ## Where to look
 

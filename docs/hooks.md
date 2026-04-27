@@ -12,13 +12,13 @@ Registered in `config/settings.json`, deployed to `.godotmaker/hooks/` via publi
 | Hook | Event | Matcher | Blocks? | Purpose |
 |------|-------|---------|---------|---------|
 | `session_start.py` | SessionStart | — | No | Clear session metrics, reset state |
-| `check_file_permissions.py` | PreToolUse | Write\|Edit | Yes | Orchestrator can't write .gd/.tscn/.tres; workers can't write PLAN/STRUCTURE/ASSETS.md |
-| `stage_reminder.py` | PreToolUse | Write\|Edit | No | Detect stage.json writes, inject next-stage reminder |
-| `check_stage_prerequisites.py` | PreToolUse | Agent | Yes | Before worker dispatch, verify prerequisite stage files exist |
-| `check_asset_access.py` | PreToolUse | Read | Yes | Block orchestrator from reading image files in assets/ |
-| `log_subagent.py` | SubagentStart, SubagentStop | — | No | Record subagent lifecycle metrics (role, status, files changed) |
-| `check_worker_report.py` | SubagentStop | — | Yes | Validate worker/verifier/reviewer/analyst report format and content |
-| `check_completion.py` | Stop | — | Yes | Final gate: project completeness + orchestrator diligence |
+| `check_file_permissions.py` | PreToolUse | Write\|Edit | Yes | Per-role write rules driven by `.godotmaker/current_role` |
+| `stage_reminder.py` | PreToolUse | Write\|Edit | Yes | Detect `stage.jsonl` appends, validate role outputs, inject next-role reminder |
+| `check_stage_prerequisites.py` | PreToolUse | Agent | Yes | Before worker dispatch, verify the prerequisite role completed and its outputs exist |
+| `check_asset_access.py` | PreToolUse | Read | Yes | Block the main agent (any role) from reading image files in `assets/` |
+| `log_subagent.py` | SubagentStart | — | No | Record subagent start metrics (role detection, agent_id) |
+| `on_subagent_stop.py` | SubagentStop | — | Yes | Dispatcher: serialise `log_subagent.handle_stop` + `check_worker_report` to avoid metrics-file race |
+| `check_completion.py` | Stop | — | Yes | Final gate: for `build` / `fixgap` only, blocks if workers were dispatched without verifier + reviewer |
 
 ---
 
@@ -29,107 +29,159 @@ Registered in `config/settings.json`, deployed to `.godotmaker/hooks/` via publi
 **Event:** SessionStart
 **Blocks:** Never
 
-Clears `metrics_current.jsonl` (session log) and resets `state.json` counters.
-Runs once at conversation start.
+Three things at every session start:
+
+1. Clears `metrics_current.jsonl` (session log) and resets `state.json` counters.
+2. Removes any stale `.godotmaker/current_role` left from a previous session,
+   so the next `/gm-*` skill writes a fresh value.
+3. Reads `.godotmaker/version` and injects `[GodotMaker vX.Y.Z]` as
+   `additionalContext` so the role and the user know which framework version
+   is deployed.
 
 ### check_file_permissions.py
 
 **Event:** PreToolUse (Write|Edit)
 **Blocks:** Yes
 
-Two rules:
-1. **Orchestrator** (agent_id empty) cannot write `.gd`, `.tscn`, `.tres` files.
-   Must dispatch workers for game code.
-2. **Workers/subagents** (agent_id present) cannot write `PLAN.md`, `STRUCTURE.md`, `ASSETS.md`.
-   Planning docs are orchestrator-only.
+Reads `.godotmaker/current_role` (written as the first action of each `/gm-*`
+skill) and applies that role's write rules. Per-role summary:
+
+| Role | May write |
+|------|-----------|
+| `scaffold` | anything (project bootstrap) |
+| `gdd` | `.md` planning docs, `project.godot`, `.godotmaker/` (no `assets/`) |
+| `asset` | `ASSETS.md`, `.godotmaker/` (image files go through `asset_gen.py` Bash or analyst subagent) |
+| `build` / `fixgap` | nothing in `e2e/`; nothing in game code (`.gd` / `.tscn` / `.tres`) directly — must dispatch a Worker |
+| `verify` | `.godotmaker/` only (read-only otherwise) |
+| `evaluate` | `e2e/` or `.godotmaker/` (anywhere inside, not just `evaluation.json`) |
+| `accept` / `finalize` | anything except `e2e/` and game code (`.gd` / `.tscn` / `.tres`) |
+
+Subagents are always blocked from `e2e/` (Evaluator-owned) and from planning
+docs (`PLAN.md` / `STRUCTURE.md` / `ASSETS.md` / `GAP.md`); they report changes
+in their report instead.
+
+When no role is set (legacy mode), falls back to: main agent blocked from game
+code, subagents blocked from planning docs.
 
 Also records `FILE_WRITE` / `FILE_EDIT` metrics events for every file operation.
 
 ### stage_reminder.py
 
 **Event:** PreToolUse (Write|Edit)
-**Blocks:** Never
+**Blocks:** Yes
 
-Watches for writes to `.godotmaker/stage.json`. When orchestrator marks a stage
-complete:
+Triggers when a `/gm-*` skill appends a role-completion event to
+`.godotmaker/stage.jsonl`. Each line is `{"role": <role>, "ts": <iso>}`.
 
-1. **Validates stage outputs** — reads `config/stage_schemas.json`, checks file
-   existence (`files` field) and runs programmatic checks (`checks` field).
-   Blocks the write if validation fails.
-2. **Injects reminder** — points orchestrator to next stage's detail file.
+1. **Validates role outputs** — reads `config/stage_schemas.json` (keys are
+   role names, not stage numbers) and checks `files` existence + runs
+   `checks` programmatic validators. Blocks the append if validation fails.
+2. **Injects reminder** — points to the next role's `/gm-*` command via
+   the `ROLE_NEXT` table.
 
-Programmatic checks (stages 4-8):
-- `references_has_images` — references/ has ≥1 .png
-- `metrics_has_worker_done` — metrics show ≥1 successful worker
-- `plan_has_non_pending` — PLAN.md has ≥1 non-pending task
-- `plan_no_pending` — PLAN.md has 0 pending tasks
-- `metrics_has_verifier` — metrics show ≥1 verifier event
-- `screenshots_match_scenes` — screenshots/ has ≥N .png where N = scene count in SCENES.md
+Programmatic checks:
+
+| Check | Role | What it asserts |
+|-------|------|-----------------|
+| `plan_all_verified` | `build` | every `PLAN.md` task row has status `verified` (no `pending` / `in_progress` / `completed`) |
+| `gap_archived` | `fixgap` | `GAP.md` has been moved to `.godotmaker/gaps/<iteration>/GAP.md` |
+
+Role-output schema lives at `config/stage_schemas.json`. Current shape:
+- `scaffold` → `project.godot`
+- `gdd` → `GDD.md`, `PLAN.md`, `STRUCTURE.md`
+- `evaluate` → `.godotmaker/evaluation.json`
+- `finalize` → `.godotmaker/final_report.json`
+- `asset` / `verify` / `accept` rely on Resume Check inside their SKILL.md.
 
 ### check_stage_prerequisites.py
 
 **Event:** PreToolUse (Agent)
 **Blocks:** Yes
 
-Before the orchestrator dispatches any subagent, checks that prerequisite
-stage outputs exist:
+Only enforces for the two roles that drive worker orchestration:
 
-| Prerequisite | File/Dir |
-|-------------|----------|
-| Stage 1 (Requirements) | `PLAN.md` |
-| Stage 2 (Architecture) | `STRUCTURE.md` |
-| Stage 3 (Scaffold) | `project.godot` |
-| Stage 3 (ECS Framework) | `addons/gecs/` |
-| Stage 4 (Assets) | `ASSETS.md` |
+| Role | Prerequisite role | Extra check |
+|------|-------------------|-------------|
+| `build` | `gdd` completed in `stage.jsonl` | `project.godot` exists (scaffold artifact, lifetime-once) |
+| `fixgap` | `evaluate` completed in `stage.jsonl` | (validated via `evaluate` schema → `.godotmaker/evaluation.json`) |
 
-Only checks the main agent (orchestrator), not sub-subagent dispatches.
+The hook also re-validates the prerequisite role's `files` from
+`config/stage_schemas.json` — so for `build` it confirms `GDD.md`, `PLAN.md`,
+`STRUCTURE.md` still exist on disk, and for `fixgap` it confirms
+`.godotmaker/evaluation.json` is still there.
 
-Reads `config/stage_schemas.json` dynamically — covers all stages with `files`
-fields. Checks `.godotmaker/stage.json` for which stages are completed, then
-verifies all completed stages' output files exist.
+Other dispatching roles (e.g. `asset` → analyst) self-validate via their
+SKILL.md Resume Check; their preconditions don't fit this hook's
+role-completion model. Only checks the main agent (the gm-* skill itself),
+not sub-subagent dispatches.
 
 ### check_asset_access.py
 
 **Event:** PreToolUse (Read)
 **Blocks:** Yes
 
-Blocks the orchestrator (main agent) from reading image files in `assets/`
-directory. Image extensions: .png, .jpg, .jpeg, .svg, .webp, .gif, .bmp, .tga.
+Blocks the main agent (any role) from reading image files in `assets/`.
+Image extensions: .png, .jpg, .jpeg, .svg, .webp, .gif, .bmp, .tga.
 
 Subagents (analyst) are allowed. Non-image files (.json, .ogg) are allowed.
 
-Purpose: Force orchestrator to delegate asset analysis to analyst subagent
-instead of consuming context with raw image data.
+Purpose: force the main agent to delegate asset analysis to the analyst
+subagent instead of consuming context with raw image data.
 
 ### log_subagent.py
 
-**Event:** SubagentStart, SubagentStop
+**Event:** SubagentStart (and called by `on_subagent_stop.py` for SubagentStop)
 **Blocks:** Never
 
-**SubagentStart:** Detects role from Agent description field (`detect_role_from_description`),
-records `SUBAGENT_START` metric with agent_id, agent_type, role, description.
+**SubagentStart:** Detects role and records `SUBAGENT_START` metric with
+`agent_id`, `agent_type`, `role`, `description`.
 
-Role detection order (prefix first, then keyword):
-1. `analyst:` → analyst
-2. `worker:` → worker
-3. `verifier:` / `verify:` → verifier
-4. `reviewer:` / `review:` → reviewer
+Role detection order:
+1. **Runtime-provided `agent_type`** — if Claude Code passes an `agent_type`
+   that matches `KNOWN_ROLES` (`worker`, `verifier`, `reviewer`, `analyst`),
+   that's the role. This is the structural identity Claude Code stamps when
+   you call `Agent({subagent_type: "verifier", ...})` and the agent can't
+   forge it.
+2. **Description prefix fallback** — if `agent_type` is generic, fall back to
+   `detect_role_from_description`:
+   1. `analyst:` → analyst
+   2. `worker:` → worker
+   3. `verifier:` / `verify:` → verifier
+   4. `reviewer:` / `review:` → reviewer
 
-**SubagentStop:** Extracts report type, status, files changed from assistant message.
-Looks up role from start event. Records `SUBAGENT_STOP` metric.
-Also records outcome-specific events: `WORKER_DONE`, `VERIFIER_PASS`, etc.
+**handle_stop:** invoked from `on_subagent_stop.py`. Extracts report type,
+status, files changed from the assistant message. Looks up role from the
+matching start event. Records `SUBAGENT_STOP` metric plus outcome-specific
+events: `WORKER_DONE`, `VERIFIER_PASS`, etc.
+
+### on_subagent_stop.py
+
+**Event:** SubagentStop
+**Blocks:** Yes (delegates to `check_worker_report`)
+
+Single dispatcher for the `SubagentStop` event. Reads stdin once and runs
+serially:
+
+1. `log_subagent.handle_stop(data)` — record metrics, save traces (never blocks)
+2. `check_worker_report.main_with_data(data)` — validate report (may block)
+
+**Why a dispatcher:** Claude Code runs multiple `SubagentStop` hooks in
+parallel by default. Both handlers touch `metrics_current.jsonl` —
+`log_subagent` reads while `check_worker_report` writes — which caused
+intermittent `JSONDecodeError` crashes. Serialising them inside one process
+removes the race.
 
 ### check_worker_report.py
 
-**Event:** SubagentStop
+**Event:** SubagentStop (called via `on_subagent_stop.py`)
 **Blocks:** Yes
 
-Validates report format and content for all agent roles.
+Validates report format and content for all subagent roles.
 
 **Format detection flow:**
-1. Detect report_type from message content (layered: exact marker → regex → fallback)
-2. If report_type detected → check required sections for that type
-3. If report_type is None but role is known (from start event) → block and demand formatted report
+1. Detect `report_type` from message content (layered: exact marker → regex → fallback)
+2. If `report_type` detected → check required sections for that type
+3. If `report_type` is None but role is known (from start event) → block and demand a formatted report
 
 **Per-role required sections:**
 
@@ -152,25 +204,31 @@ Validates report format and content for all agent roles.
 **Reviewer substance check:** ECS Review and Issues Found sections must each
 have ≥50 characters of content. Prevents empty/trivial reviews.
 
+**Anti-deadloop:** `BLOCK_LIMIT = 2` per `agent_id` — after 2 blocks for the
+same subagent, force-allow with a warning rather than re-block forever.
+
 **Gaps:**
 - Verifier reports: no check that tests were actually run (only format)
-- No per-worker screenshot validation (screenshots checked at stage 8 completion)
+- No per-worker screenshot validation (screenshots are the Evaluator's job
+  during `/gm-evaluate`)
 
 ### check_completion.py
 
 **Event:** Stop
 **Blocks:** Yes
 
-Final gate when orchestrator tries to end the conversation. Two checks:
+Final gate when the active gm-* skill tries to end the conversation.
+Only fires for the worker-dispatching roles (`build`, `fixgap`); for all
+other roles the hook is a no-op and they self-enforce via their SKILL.md
+Resume Check.
 
-1. **Project completeness:** Runs `tools/check_project.py --all` on the game
-   project directory. Checks for FAIL lines.
-2. **Orchestrator diligence:** Verifies workers, verifiers, and reviewers were
-   dispatched (from metrics events). If workers dispatched but 0 verifiers or
-   0 reviewers → block.
+**Worker-dispatch diligence:** if any workers were dispatched in this
+session, both verifier and reviewer must also have run (per gm-build /
+gm-fixgap rules). If only workers ran, the hook blocks with a message
+listing which role(s) are missing.
 
-**Anti-deadloop:** After 5 blocks (`BLOCK_LIMIT`), force-allows with a warning
-to prevent infinite retry loops.
+**Anti-deadloop:** `BLOCK_LIMIT = 5` — after 5 blocks in the same session,
+force-allow with a warning rather than re-block forever.
 
 ---
 
@@ -181,24 +239,23 @@ SessionStart
   └── session_start.py (clear metrics)
 
 PreToolUse(Write|Edit)
-  ├── check_file_permissions.py (block .gd from orchestrator)
-  └── stage_reminder.py (detect stage.json, inject reminder)
+  ├── check_file_permissions.py (per-role write rules from current_role)
+  └── stage_reminder.py (validate stage.jsonl append, inject next-role pointer)
 
 PreToolUse(Agent)
-  └── check_stage_prerequisites.py (block if prerequisites missing)
+  └── check_stage_prerequisites.py (block build/fixgap if prereq role not done)
 
 PreToolUse(Read)
-  └── check_asset_access.py (block orchestrator from reading assets/ images)
+  └── check_asset_access.py (block main agent from reading assets/ images)
 
 SubagentStart
   └── log_subagent.py (record start + role)
 
 SubagentStop
-  ├── log_subagent.py (record stop + outcome)
-  └── check_worker_report.py (validate report, block if incomplete)
+  └── on_subagent_stop.py (serial: log_subagent.handle_stop → check_worker_report)
 
 Stop
-  └── check_completion.py (project check + diligence check)
+  └── check_completion.py (build/fixgap diligence check only; no-op for other roles)
 ```
 
 ---
