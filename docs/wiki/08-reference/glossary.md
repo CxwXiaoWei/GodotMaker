@@ -1,46 +1,61 @@
 # Glossary
 
-Terms and concepts used throughout the GodotMaker project.
+Definitions for terms you'll see across the GodotMaker docs and slash-command output.
 
-## Architecture
+---
 
-| Term | Definition |
-|---|---|
-| **ECS** | Entity Component System -- an architecture where entities are numeric IDs, components are plain data containers, and systems are stateless logic that operates on entities matching specific component queries. Decouples data from behavior. |
-| **gecs** | Open-source Godot ECS addon ([github.com/csprance/gecs](https://github.com/csprance/gecs)). Provides the Entity, Component, and System base classes that GodotMaker builds on. |
-| **Scene-as-Spawner** | Design pattern where Godot scenes define entity templates via marker nodes (metadata only). At runtime, the framework converts markers into ECS entities. The scene tree itself is reserved for UI and menus. |
-| **DAG** | Directed Acyclic Graph -- used for system dependency checking. Each system declares which components it reads and writes. A static DAG checker verifies that no two systems write to the same component on the same entity, preventing circular dependencies. |
+**Accept** / **Acceptance** — The eighth role in the pipeline, triggered by `/gm-accept`. The AI presents the current build to you and asks whether you want to accept it, send it back for another round of fixes, or stop. Your decision is recorded as an `accept` event in `.godotmaker/stage.jsonl`. See also: *Milestone*, *Role*.
 
-## Testing and Validation
+**Analyst** — A sub-agent spawned by `/gm-asset` to inspect image files you provide. The main agent is blocked from reading images directly (to avoid burning context on raw pixel data), so it delegates image analysis to an analyst. The analyst reports back with an art-style summary and a list of usable assets. See also: *Sub-agent*.
 
-| Term | Definition |
-|---|---|
-| **gdUnit4** | Godot unit testing framework ([github.com/MikeSchulze/gdUnit4](https://github.com/MikeSchulze/gdUnit4)). Used for TDD-style testing of ECS systems and components. |
-| **godot-e2e** | End-to-end testing framework for Godot ([github.com/RandallLiuXin/godot-e2e](https://github.com/RandallLiuXin/godot-e2e)). Provides out-of-process Python control over a running Godot instance for integration and acceptance tests. |
-| **VQA** | Visual Question Answering -- AI-powered screenshot analysis that verifies visual correctness of rendered output. Uses Gemini Flash or Claude to answer questions like "Is the player sprite visible?" against captured screenshots. |
-| **MCP** | Model Context Protocol -- a runtime debugging bridge between Claude and Godot. Implemented via the `godot-mcp` npm package (`@coding-solo/godot-mcp`). Provides capabilities to run the project, capture debug output, inspect scene state, and manage the project from outside the editor. |
+**Asset** / **ASSETS.md** — "Asset" refers to art or audio files used by the game (sprites, backgrounds, sound effects). `ASSETS.md` is the planning document that lists every asset the game needs, who will generate it, and whether it has been produced. `/gm-asset` generates missing art and updates this file.
 
-## Pipeline Roles
+**Component** (ECS) — A small, plain data container attached to an entity. For example, a `Health` component might hold a single number (`hp: 5`). Components have no logic of their own. See also: *ECS*, *Entity*, *System*.
 
-| Term | Definition |
-|---|---|
-| **Orchestrator** | The lead Opus agent that coordinates the entire pipeline. It plans the implementation, dispatches workers, verifiers, and reviewers, tracks stage progression, and enforces quality gates. Defined in `skills/core/orchestrator/SKILL.md`. |
-| **Worker** | A Sonnet subagent that implements one system, feature, or component. Workers operate in isolated git worktrees to enable parallel development. Their output is validated by the `check_worker_report` hook. |
-| **Verifier** | A Sonnet subagent that runs integration tests and adversarial probes against a worker's implementation. Verifiers check for edge cases, error handling, and correctness beyond what unit tests cover. |
-| **Reviewer** | A Sonnet subagent that performs domain-specific code review using one of the 8 reviewer skills (physics, animation, UI, etc.). Reviewers check for Godot-specific pitfalls documented in `gotchas.md` and verify compliance with `checklist.md`. |
-| **Analyst** | A Sonnet subagent that inspects assets and reference images. Used during asset planning and visual QA stages to evaluate whether generated assets match the game design requirements. |
+**Current role** / `.godotmaker/current_role` — A plain-text file written by each `/gm-*` skill as its very first action. It records which role is active right now (e.g., `build`). Hook scripts read this file to decide which file-write operations are allowed and which are blocked. When no `/gm-*` skill is running the file is absent (or stale from a previous session, which `session_start.py` clears). See also: *Hook*, *Role*.
 
-## Pipeline Concepts
+**ECS** (Entity-Component-System) — The architecture that all generated game code follows. Instead of putting data and logic together in one big script, ECS splits them: entities are just IDs, components are data bags attached to entities, and systems are functions that run every frame over matching entities. This keeps AI-generated code modular and easier to extend. GodotMaker uses the [gecs](https://github.com/csprance/gecs) addon for ECS in Godot. See also: *Entity*, *Component*, *System*, *gecs*.
 
-| Term | Definition |
-|---|---|
-| **Hook** | A Python script triggered by Claude Code lifecycle events (SessionStart, PreToolUse, SubagentStart, SubagentStop, Stop). Hooks enforce pipeline rules by returning allow/block decisions as JSON. See `config/settings.json` for the hook registration map. |
-| **Stage** | One of 8 sequential pipeline phases that the orchestrator progresses through. Each stage has prerequisites, deliverables, and validation criteria. The stages are: (1) Requirements, (2) Architecture, (3) Scaffold, (4) Assets, (5) Risk Implementation, (6) Main Implementation, (7) Integration, (8) Final. |
-| **Worktree** | A git worktree created for each parallel worker subagent, providing filesystem isolation so multiple workers can modify files simultaneously without conflicts. Requires at least one commit in the repository (which is why `publish.py` creates an initial commit). |
+**Entity** (ECS) — A unique numeric ID that represents a "thing" in the game world (a player, an enemy, a bullet). An entity has no data or behaviour of its own; it only gains meaning through the components attached to it. See also: *ECS*, *Component*.
 
-## Tools and Infra
+**Evaluation** / **Evaluator** — The sixth role in the pipeline, triggered by `/gm-evaluate`. An independent agent runs the game headlessly, captures screenshots, and scores the result against the GDD. It writes its findings to `.godotmaker/evaluation.json` and stores screenshots in `e2e/screenshots/`. The results feed directly into the next role, `/gm-fixgap`. See also: *Role*, *Visual QA*.
 
-| Term | Definition |
-|---|---|
-| **publish.py** | The deployment script that copies GodotMaker skills, hooks, tools, config, and templates into a target Godot project directory. Handles versioned upgrades with semantic version comparison. |
-| **Metrics** | The event tracking subsystem in `hooks/metrics/`. Records hook decisions, subagent lifecycle events, and pipeline progression to `.godotmaker/metrics_current.jsonl`. Used for HTML report generation and session analysis. |
+**Fixgap** / **GAP.md** — The seventh role, triggered by `/gm-fixgap`. It reads the evaluation report, creates a `GAP.md` file listing every gap between what the GDD describes and what the game currently does, and dispatches workers to address each issue. After the fixes are done, `GAP.md` is archived to `.godotmaker/gaps/<n>/`. See also: *Role*, *Worker*.
+
+**GDD** (Game Design Document) — A structured document (`GDD.md`) that describes everything about the game: what it is, how it plays, what the player does, what the win/lose conditions are. The GDD is the single source of truth that all later roles refer back to. Produced by `/gm-gdd`.
+
+**gecs** — An open-source Godot addon that provides the Entity, Component, and System base classes GodotMaker builds on. Source: [github.com/csprance/gecs](https://github.com/csprance/gecs). GodotMaker pins specific addon versions in `config/addon_versions.json`. See also: *ECS*.
+
+**Hook** — A small Python script that Claude Code runs automatically on specific events (session start, before a file write, after a sub-agent finishes, etc.). Hooks enforce pipeline rules — for example, blocking the main agent from writing game code during the evaluate role, or refusing to let `/gm-build` end if it dispatched workers but never ran a verifier. Hooks live in `.godotmaker/hooks/` inside the generated project. See `docs/hooks.md` for the full list.
+
+**Milestone** — One complete pass through the pipeline from `/gm-gdd` to `/gm-finalize`. After a milestone is done you can start the next one with a fresh `/gm-gdd` to add features or change direction. `/gm-scaffold` is a once-per-project step and does not repeat between milestones.
+
+**PLAN.md** — The task list produced by `/gm-gdd`. It breaks the GDD down into discrete implementation tasks, each with a status field (`pending` / `in_progress` / `completed` / `verified`). `/gm-build` works through this list by dispatching a worker per task. The hook `stage_reminder.py` refuses to let `/gm-build` finish until every task is marked `verified`.
+
+**Reviewer** — A sub-agent and a set of 8 specialist skills (`physics`, `animation`, `ui`, `tilemap`, `navigation`, `shader`, `audio`, `particles`). After a worker implements a task and a verifier tests it, a reviewer checks the code for Godot-specific pitfalls documented in each skill's `gotchas.md` and `checklist.md`. Any new issues discovered are fed back into `PLAN.md` as new tasks. See also: *Sub-agent*, *Worker*, *Verifier*.
+
+**Role** — One of the nine focused steps in the GodotMaker pipeline. Each role maps to a `/gm-*` slash command and has a defined scope of what it may read and write. Roles replaced the older concept of "stages" (see *Stage vs Role* below). The nine roles in order: `scaffold`, `gdd`, `asset`, `build`, `verify`, `evaluate`, `fixgap`, `accept`, `finalize`.
+
+**SCENES.md** — A planning document produced by `/gm-gdd` that lists every Godot scene the game needs, what it contains, and how scenes relate to each other. The build role uses this when implementing the scene tree layout.
+
+**Skill** (Claude Code skill) — A markdown file (`SKILL.md`) that gives Claude Code a set of instructions for a specific job. GodotMaker ships 9 role skills (the `/gm-*` commands), 12 supporting skills (reference docs and helpers), and 8 reviewer skills. Skills are deployed into `.claude/skills/` inside the generated project. Users invoke role skills by typing the slash command; supporting and reviewer skills are called internally by the role skills.
+
+**Stage vs Role** — "Stage" was the original GodotMaker term for a pipeline step, and references to an "8-stage pipeline" described the first architecture. The pipeline has been redesigned as 9 role-based commands with no central orchestrator. The word "stage" may still appear in some file names (e.g., `stage_schemas.json`, `stage.jsonl`) and older docs, but the canonical term going forward is "role." See also: *Role*.
+
+**stage.jsonl** — An append-only log file at `.godotmaker/stage.jsonl`. Every time a `/gm-*` role finishes successfully, it appends one JSON line: `{"role": "<name>", "ts": "<iso-timestamp>"}`. The `check_stage_prerequisites.py` hook reads this file to confirm that required earlier roles have completed before allowing a new role to start. "jsonl" means each line is a separate valid JSON object.
+
+**STRUCTURE.md** — A planning document produced by `/gm-gdd` that describes the folder layout of the generated project: which directories exist, what kinds of files go in each, and how the source tree is organised.
+
+**Sub-agent** — An AI agent that the main role agent spawns to do a specific piece of work in parallel. Sub-agents operate in isolated git worktrees so they don't conflict with each other. The four sub-agent types are: *Worker*, *Verifier*, *Reviewer*, and *Analyst*.
+
+**System** (ECS) — A function (or GDScript class) that runs every frame over all entities that have a specific combination of components. For example, a `MovementSystem` might run over every entity that has both a `Velocity` component and a `Position` component, updating the position each frame. Systems contain all the game logic. See also: *ECS*, *Entity*, *Component*.
+
+**TOC.md** — A table of contents document produced by `/gm-gdd` that lists all planning documents and their locations. It gives a quick overview of what exists in the project at the start of each milestone.
+
+**Verifier** — A sub-agent that runs the headless Godot build and the unit tests written by a worker, then reports whether they pass. The verifier also runs "adversarial probes" — targeted tests for edge cases and error handling. If verification fails, the issue goes back to the worker. See also: *Sub-agent*, *Worker*, *Reviewer*.
+
+**Visual QA** / **VQA** — The process of comparing a screenshot of the running game against a reference image or a set of written criteria. `/gm-evaluate` uses the `visual-qa` skill (backed by Gemini) to score each scene against the GDD description and any per-scene reference images generated by `/gm-asset`. See also: *Evaluation*.
+
+**Worker** — A sub-agent that implements one game task: writes the GDScript code, the unit tests, and an end-to-end test, then reports back with a structured report. Workers operate in isolated git worktrees. After a worker finishes, a verifier and then a reviewer must both complete before the next task begins. See also: *Sub-agent*, *Verifier*, *Reviewer*, *Worktree*.
+
+**Worktree** — A git feature that lets multiple working directories share the same repository. GodotMaker uses worktrees so parallel sub-agents each get their own folder to write files into without stepping on each other's changes. A worktree requires at least one commit in the repository, which is why `/gm-scaffold` always creates an initial commit. See also: *Sub-agent*.

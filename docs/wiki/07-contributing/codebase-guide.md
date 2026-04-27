@@ -1,184 +1,192 @@
 # Codebase Guide
 
-Source code orientation for contributors. This page describes how the repository is organized and where to find key entry points.
+This page gives a folder-by-folder tour of the GodotMaker repository, with enough depth to orient you before you start editing. For a shorter overview, see [Development setup](development-setup.md). For how all the pieces wire together at runtime, keep reading.
 
-## Repository Layout
+## Repository layout
 
 ```
 GodotMaker/
-  hooks/                     8 hook scripts + metrics subsystem
-    metrics/                 Metrics core (5 modules)
-  skills/
-    core/                    13 core skills
-      orchestrator/          Main orchestrator (most complex: 15 files + 8 stage docs)
-    reviewer/                8 reviewer skills
-  tools/                     10 Python CLI tools
-  config/                    4 configuration files
-  templates/                 9 markdown templates
-  shell/                     5 shell scripts
-  tests/
-    hooks/                   8 test files for hooks
-    tools/                   5 test files for tools
-  docs/                      Documentation
-  VERSION                    Semantic version (currently 0.3.0)
-  CHANGELOG.md               Release history
-  pyproject.toml             Pytest configuration
+├── hooks/                   8 hook scripts + hooks/metrics/ subsystem
+├── skills/
+│   ├── core/                Role skills + supporting skills + _shared/
+│   └── reviewer/            8 reviewer skills (gotchas.md + checklist.md each)
+├── tools/                   publish.py, check_env.py, check_project.py, asset_gen.py, migrate.py
+├── config/                  settings.json, stage_schemas.json, addon_versions.json
+├── templates/               Document templates (GDD, PLAN, STRUCTURE, SCENES, ASSETS, GAP, MEMORY, TOC)
+├── tests/                   ~320 unit tests for hooks and tools
+├── docs/                    versioning.md, hooks.md, wiki/, update/, contributing/, reference/
+├── shell/                   publish.sh / publish.ps1, report.sh / report.bat
+├── migrations/              Per-version-jump migration scripts
+├── VERSION                  Semantic version source of truth
+└── CHANGELOG.md             Per-release notes
 ```
 
-## hooks/ -- Pipeline Enforcement
+---
 
-Eight Python scripts triggered by Claude Code events. Each reads JSON from stdin and writes a JSON decision to stdout.
+## hooks/
 
-| Script | Event | Purpose |
-|---|---|---|
-| `session_start.py` | SessionStart | Display version, initialize metrics session |
-| `check_file_permissions.py` | PreToolUse (Write/Edit) | Block writes to protected files |
-| `stage_reminder.py` | PreToolUse (Write/Edit) | Inject current stage context |
-| `check_stage_prerequisites.py` | PreToolUse (Agent) | Validate stage prerequisites before spawning subagents |
-| `check_asset_access.py` | PreToolUse (Read) | Gate access to asset files |
-| `log_subagent.py` | SubagentStart/Stop | Record subagent lifecycle events |
-| `check_worker_report.py` | SubagentStop | Validate worker/verifier/reviewer report format |
-| `check_completion.py` | Stop | Enforce completion criteria before session end |
+Eight Python scripts enforcing pipeline rules. Each script reads a JSON payload from `sys.stdin`, decides whether to allow or block the action, and writes a JSON response to stdout (or exits 0 silently for a quiet allow).
+
+Scripts and the events they handle:
+
+| Script | Event | Blocks? |
+|--------|-------|---------|
+| `session_start.py` | SessionStart | No |
+| `check_file_permissions.py` | PreToolUse (Write\|Edit) | Yes |
+| `stage_reminder.py` | PreToolUse (Write\|Edit) | Yes |
+| `check_stage_prerequisites.py` | PreToolUse (Agent) | Yes |
+| `check_asset_access.py` | PreToolUse (Read) | Yes |
+| `log_subagent.py` | SubagentStart | No |
+| `on_subagent_stop.py` | SubagentStop | Delegates |
+| `check_worker_report.py` | Called by on_subagent_stop.py | Yes |
+| `check_completion.py` | Stop | Yes |
+
+Hook registration (which script fires on which event) lives in `config/settings.json` and is deployed into the target project as `.claude/settings.json`.
 
 ### hooks/metrics/
 
-The metrics subsystem tracks session events for reporting.
+A small subsystem for recording what happened during a session. Hooks call `record_event()` to append a JSON line to `.godotmaker/metrics_current.jsonl` (current session) and `.godotmaker/metrics_total.jsonl` (lifetime). The `state.py` module manages mutable per-session counters (block counts, etc.) in `.godotmaker/state.json`. `session_start.py` resets both on every new session.
 
-| Module | Purpose |
-|---|---|
-| `__init__.py` | Package entry point, exports `record_event`, `get_current_stage` |
-| `collector.py` | `record_event`, `read_events`, `start_session` |
-| `schema.py` | `EventType` enum, role constants, report format definitions |
-| `state.py` | Persistent state management (block counters, stage tracking) |
-| `reporter.py` | HTML report generation from JSONL event logs |
-| `highlights.py` | Session highlight extraction for reports |
+For details on writing hooks and using the metrics API, see [Writing a hook](writing-a-hook.md).
 
-## skills/core/ -- Core Skills
+---
 
-Thirteen skill directories, each containing at minimum a `SKILL.md` prompt file.
+## skills/core/
 
-| Skill | Purpose |
-|---|---|
-| `orchestrator` | Lead agent coordination (15 files + `stages/` with 8 stage docs) |
-| `game-planner` | Game design document generation |
-| `project-scaffold` | Project directory and file scaffolding |
-| `gecs` | ECS framework usage patterns |
-| `godot-api` | Godot API reference and patterns |
-| `headless-build` | Headless build and validation |
-| `gdunit-driver` | Unit test execution |
-| `gdtoolkit` | GDScript linting and formatting |
-| `godot-e2e` | End-to-end testing framework |
-| `visual-qa` | AI-powered screenshot analysis |
-| `screenshot` | Screenshot capture utilities |
-| `mcp-driver` | MCP server interaction |
-| `input-mapper` | Input action mapping |
+Role skills and supporting skills, one directory per skill. Each directory contains at minimum a `SKILL.md` with YAML front-matter and the prompt body.
 
-The **orchestrator** is the most complex skill. Its `stages/` subdirectory contains 8 stage documents:
+**Role skills (9):** `gm-scaffold`, `gm-gdd`, `gm-asset`, `gm-build`, `gm-verify`, `gm-evaluate`, `gm-fixgap`, `gm-accept`, `gm-finalize`. These map 1:1 to the `/gm-*` slash commands. Each role skill writes its role name to `.godotmaker/current_role` as its first action, which is what `check_file_permissions.py` reads to enforce write rules.
 
-```
-stages/
-  stage1_requirements.md
-  stage2_architecture.md
-  stage3_scaffold.md
-  stage4_assets.md
-  stage5_risk_impl.md
-  stage6_main_impl.md
-  stage7_integration.md
-  stage8_final.md
-```
+**Supporting skills (12):** `game-planner`, `project-scaffold`, `godot-api`, `gecs`, `input-mapper`, `headless-build`, `gdunit-driver`, `godot-e2e`, `gdtoolkit`, `visual-qa`, `screenshot`, `mcp-driver`. These are reference documents loaded by role skills — users do not invoke them directly.
 
-Additional orchestrator files handle worker dispatch, verifier dispatch, reviewer dispatch, analyst dispatch, asset planning, visual QA, and more.
+### skills/core/_shared/
 
-## skills/reviewer/ -- Domain Reviewers
+Any reference document consumed by more than one skill lives here as the single source of truth. Examples: `worker-dispatch.md`, `verifier-dispatch.md`, `reviewer-dispatch.md`, `analyst-dispatch.md`.
 
-Eight reviewer skills. Each follows the same structure: `SKILL.md` + `checklist.md` + `gotchas.md`.
+At publish time, `publish_shared_refs()` reads `_shared/manifest.json` and writes each source file into every listed consumer skill's `references/` folder. Deployed copies carry an `<!-- AUTO-GENERATED -->` header and are overwritten on every publish.
 
-| Skill | Domain |
-|---|---|
-| `physics` | Physics and collision |
-| `animation` | Animation and tweens |
-| `ui` | User interface |
-| `tilemap` | Tilemap systems |
-| `navigation` | Pathfinding and navigation |
-| `shader` | Shader programs |
-| `audio` | Audio and sound |
-| `particles` | Particle systems |
+**Edit rules:**
+- Edit only the source under `_shared/<file>.md`. Never edit the deployed copies.
+- Inside a consumer `SKILL.md`, reference the doc as `references/<file>.md` (the deployed path). Do not write `_shared/<file>` — that path does not exist in a published project.
+- After adding or changing a shared doc, run `python -m pytest tests/tools/test_publish_shared.py -q` to confirm the manifest and all consumer references are consistent.
 
-These are post-implementation reviewers, not pre-implementation guides. The orchestrator dispatches them after a worker completes implementation.
+The manifest schema, add/remove flows, and debugging tips are in `docs/contributing/shared-refs.md`.
 
-## tools/ -- CLI Tools
+---
 
-Ten Python scripts for development and deployment tasks.
+## skills/reviewer/
+
+Eight reviewer skills, one per domain: `physics`, `animation`, `ui`, `tilemap`, `navigation`, `shader`, `audio`, `particles`.
+
+Each reviewer skill directory contains exactly three files:
+- `SKILL.md` — the reviewer prompt
+- `gotchas.md` — a catalogue of domain-specific pitfalls that LLMs reliably get wrong
+- `checklist.md` — systematic checks that map back to gotcha IDs
+
+The reviewer sub-agent (dispatched by `gm-build` and `gm-fixgap`) reads these dynamically based on which Godot classes and APIs appear in the worker's output. For details on the reviewer structure, see [Writing a skill](writing-a-skill.md).
+
+---
+
+## tools/
+
+Python CLI scripts that contributors and users run directly.
 
 | Tool | Purpose |
-|---|---|
+|------|---------|
 | `publish.py` | Deploy GodotMaker into a target Godot project |
-| `check_env.py` | Verify environment setup (Godot, addons, MCP) |
-| `check_project.py` | Validate project completeness |
-| `check_classname.py` | Detect classname conflicts with Godot built-ins |
-| `asset_gen.py` | AI-powered asset generation |
-| `rembg_matting.py` | Background removal from images |
-| `grid_slice.py` | Sprite sheet slicing |
-| `find_loop_frame.py` | Find loop points in animation frames |
-| `tripo3d.py` | 3D model generation |
-| `requirements.txt` | Python dependency list |
+| `check_env.py` | Verify Godot, Python, API keys are set up correctly |
+| `check_project.py` | Validate a generated project for missing files and broken paths |
+| `asset_gen.py` | Generate art via Gemini / xAI (called by `/gm-asset`, can run standalone) |
+| `migrate.py` | Run version migration scripts when upgrading across MINOR releases |
 
-## config/ -- Configuration
+### How publish.py wires everything together
 
-| File | Purpose |
-|---|---|
-| `settings.json` | Hook registration (which hooks fire on which events) |
-| `stage_schemas.json` | JSON schemas for stage validation |
-| `config.yaml.default` | Default project configuration template |
-| `addon_versions.json` | Godot version to addon version mappings |
+When you run `python tools/publish.py <target>`:
 
-## templates/ -- Document Templates
+1. Read `VERSION` from the repo root and compare against `<target>/.godotmaker/version`. Prompt or block on MINOR / MAJOR upgrades.
+2. Copy skills (flat): all directories under `skills/core/` and `skills/reviewer/` → `<target>/.claude/skills/`. Directories whose name starts with `_` (i.e., `_shared/`) are skipped by `publish_skills()`; shared docs are deployed into consumer `references/` folders instead by `publish_shared_refs()`.
+3. Copy hooks → `<target>/.godotmaker/hooks/`.
+4. Copy tools → `<target>/tools/`.
+5. Copy templates → `<target>/.claude/templates/`.
+6. Copy `config/stage_schemas.json` → `<target>/.godotmaker/stage_schemas.json`.
+7. On fresh install (or `--force`): write `.claude/settings.json`, initialize `CLAUDE.md`, prompt for `godotmaker.yaml`.
+8. Stamp `<target>/.godotmaker/version` with the current version.
 
-Nine markdown templates used when scaffolding a new game project:
+---
 
-`GDD.md`, `PLAN.md`, `STRUCTURE.md`, `ASSETS.md`, `SCENES.md`, `MEMORY.md`, `TOC.md`, `game-claude.md`, `memory_subsystem.md`
+## config/
 
-## shell/ -- Shell Scripts
+| File | What it controls |
+|------|-----------------|
+| `settings.json` | Hook registration: which scripts fire on which Claude Code events |
+| `stage_schemas.json` | Per-role required outputs and programmatic checks (keys are role names) |
+| `addon_versions.json` | Pinned Godot addon versions per engine version |
 
-| Script | Purpose |
-|---|---|
-| `publish.sh` | Unix publish wrapper |
-| `publish.ps1` | Windows publish wrapper |
-| `report.sh` | Unix metrics report generator |
-| `report.bat` | Windows metrics report generator |
-| `_read_config.sh` | Config file reader helper (also deployed to skills/) |
+`stage_schemas.json` is the schema that `stage_reminder.py` and `check_stage_prerequisites.py` both read. Its keys are role names (`scaffold`, `gdd`, `build`, etc.); each value has an optional `files` array (paths that must exist) and an optional `checks` array (programmatic validator names). See [Writing a skill](writing-a-skill.md) for the full schema description.
 
-## tests/ -- Test Suite
+---
 
-### tests/hooks/ (8 test files)
+## templates/
 
-| File | Tests |
-|---|---|
-| `test_check_completion.py` | Completion criteria enforcement |
-| `test_check_file_permissions.py` | File permission checks |
-| `test_check_stage_prerequisites.py` | Stage prerequisite validation |
-| `test_check_worker_report.py` | Worker/verifier/reviewer report validation |
-| `test_metrics.py` | Metrics collection and reporting |
-| `test_session_start.py` | Session initialization |
-| `test_stage_reminder.py` | Stage reminder injection |
-| `helpers.py` | Shared test utilities (`run_hook`, `is_blocked`, etc.) |
+Markdown document templates that `publish.py` deploys into new game projects under `.claude/templates/`. The role skills fill these in during their work. Templates include: `GDD.md`, `PLAN.md`, `STRUCTURE.md`, `SCENES.md`, `ASSETS.md`, `GAP.md`, `MEMORY.md`, `TOC.md`, `game-claude.md`.
 
-### tests/tools/ (5 test files)
+---
 
-| File | Tests |
-|---|---|
-| `test_publish.py` | Publish deployment logic |
-| `test_check_env.py` | Environment validation |
-| `test_check_project.py` | Project completeness checks |
-| `test_check_classname.py` | Classname conflict detection |
-| `test_addon_versions.py` | Addon version mapping validation |
+## tests/
 
-## Key Entry Points
+The test suite, organized by what it covers.
 
-If you are new to the codebase, start with these files:
+```
+tests/
+├── hooks/
+│   ├── helpers.py                       Shared utilities: run_hook, is_blocked, write_completed_roles, ...
+│   ├── test_check_completion.py
+│   ├── test_check_file_permissions.py
+│   ├── test_check_stage_prerequisites.py
+│   ├── test_check_worker_report.py
+│   ├── test_metrics.py
+│   ├── test_session_start.py
+│   └── test_stage_reminder.py
+├── tools/
+│   ├── conftest.py
+│   ├── test_addon_versions.py
+│   ├── test_check_classname.py
+│   ├── test_check_env.py
+│   ├── test_check_project.py
+│   ├── test_migrate.py
+│   ├── test_publish.py
+│   └── test_publish_shared.py
+└── test_pipeline_e2e.py                 End-to-end pipeline smoke test
+```
 
-1. **`tools/publish.py`** -- The deployment script. Reading it reveals what gets copied where and how versioning works.
-2. **`hooks/metrics/__init__.py`** -- The metrics package entry point. Shows how hooks record events and track pipeline state.
-3. **`skills/core/orchestrator/SKILL.md`** -- The orchestrator prompt. This is the "brain" of the system -- it defines how the lead agent coordinates workers, verifiers, and reviewers.
-4. **`config/settings.json`** -- Hook registration. Shows which hooks fire on which Claude Code events.
-5. **`tests/hooks/helpers.py`** -- Test infrastructure. Understanding `run_hook` and `is_blocked` is essential for writing hook tests.
+`pyproject.toml` adds `hooks/` to `pythonpath` so that `from metrics import ...` resolves in hook tests without installing anything. For writing new tests, see [Testing](testing.md).
+
+---
+
+## docs/
+
+Human-readable documentation that lives in the repo alongside the code.
+
+| Path | What it contains |
+|------|-----------------|
+| `docs/hooks.md` | Accurate per-hook reference (post-rewrite) |
+| `docs/versioning.md` | Version scheme and upgrade behaviour |
+| `docs/wiki/` | The user-facing and contributor wiki |
+| `docs/contributing/` | Shared-refs schema, release checklist |
+| `docs/update/` | `next.md` (pending changes) and archived `vX.Y.Z.md` files |
+| `docs/reference/` | API and config reference stubs |
+
+---
+
+## shell/
+
+Thin wrappers for the two operations that contributors run from a terminal:
+
+- `publish.sh` / `publish.ps1` — delegates to `python tools/publish.py`
+- `report.sh` / `report.bat` — runs `python -m hooks.metrics.reporter` to generate an HTML report from a JSONL metrics file
+
+---
+
+## migrations/
+
+Migration scripts run by `tools/migrate.py` when upgrading a target project across MINOR releases. Scripts are stored under `migrations/{old}_to_{new}/` and run in sorted order. MAJOR upgrades clear all migration scripts (they are not carried forward). See [Release process](release-process.md) for the full upgrade flow.

@@ -1,109 +1,96 @@
 # Release Process
 
-GodotMaker uses semantic versioning. This page describes how to create a release and publish it to target projects.
+GodotMaker uses semantic versioning. Each release follows a short checklist; this page summarises it. The canonical checklist is in `docs/contributing/release-checklist.md`.
 
-## Versioning Scheme
+For version scheme details and how `publish.py` handles upgrades in target projects, see [../../versioning.md](../../versioning.md).
 
-The version follows **Semantic Versioning** (MAJOR.MINOR.PATCH):
+---
 
-| Level | When to bump | Example |
-|---|---|---|
-| PATCH | Bug fixes, no functionality change | 0.3.0 -> 0.3.1 |
-| MINOR | New features or behavior changes (backward-compatible) | 0.3.0 -> 0.4.0 |
-| MAJOR | Breaking changes requiring project migration | 0.3.0 -> 1.0.0 |
+## When to bump what
 
-The current version is stored in the `VERSION` file at the repository root as a single line (e.g., `0.3.0`).
+| Level | When | Example |
+|-------|------|---------|
+| PATCH | Bug fixes with no behaviour change | `0.4.0 → 0.4.1` |
+| MINOR | New features or behaviour changes (backward-compatible) | `0.4.0 → 0.5.0` |
+| MAJOR | Breaking changes; incremental migration not possible | `0.x → 1.0.0` |
 
-## Steps to Release
+`publish.py` auto-proceeds on PATCH, prompts for confirmation on MINOR, and requires `--force` on MAJOR.
 
-### 1. Make your changes
+---
 
-Develop, test, and get changes merged to the main branch.
+## The next.md workflow
 
-### 2. Update CHANGELOG.md
-
-Add a new version section at the top of `CHANGELOG.md`, below the header. Follow the existing format:
+Contributors never edit `CHANGELOG.md` directly. Instead, every pull request adds at least one bullet to `docs/update/next.md` under the appropriate category:
 
 ```markdown
-## [0.4.0] -- 2026-05-01
+## Added
+- Brief description of the new thing (#123) — @author
 
-### Added
-- Description of new features
+## Changed
+- What changed and why (#124) — @author
 
-### Fixed
-- Description of bug fixes
+## Fixed
+- What was broken (#125) — @author
 
-### Changed
-- Description of behavior changes
+## Removed
+- What was deleted (#126) — @author
 ```
 
-### 3. Update the VERSION file
+Use [Keep a Changelog](https://keepachangelog.com/) conventions for category names. If none of the four standard categories fits, add a new one.
 
-Write the new version number to `VERSION`:
+At release time, `next.md` is archived and a fresh copy is created. Contributors working on the next batch of changes immediately start adding to the new `next.md`. This means `CHANGELOG.md` is touched only once per release, by whoever cuts the release.
 
-```bash
-echo "0.4.0" > VERSION
+---
+
+## Cutting a release
+
+High-level checklist. Follow the canonical steps in `docs/contributing/release-checklist.md`:
+
+1. **Merge all pending PRs** that should be in this release. Confirm `next.md` has entries for all of them.
+
+2. **Archive next.md.** Rename `docs/update/next.md` to `docs/update/vX.Y.Z.md`. Create a fresh `docs/update/next.md` from the template at the top of that file.
+
+3. **Update CHANGELOG.md.** Prepend a new section:
+
+   ```markdown
+   ## [X.Y.Z] — YYYY-MM-DD
+
+   ### Added
+   - (items from next.md)
+
+   ### Changed / Fixed / Removed
+   - ...
+   ```
+
+4. **Bump VERSION.** Write the new version number to the `VERSION` file at the repo root. This is the single source of truth.
+
+5. **Add migration scripts** (MINOR only). If any change requires updating an existing game project's files, add a migration script under `migrations/{old}_to_{new}/`. Scripts are numbered and run in sorted order by `tools/migrate.py`. See `migrations/README.md` for the script format.
+
+6. **Commit and tag.**
+
+   ```bash
+   git add VERSION CHANGELOG.md docs/update/ migrations/
+   git commit -m "release: vX.Y.Z"
+   git tag vX.Y.Z
+   ```
+
+7. **Publish to test projects** to confirm nothing broke:
+
+   ```bash
+   python tools/publish.py /path/to/test-game
+   ```
+
+---
+
+## Migrations
+
+Each MINOR release may ship migration scripts that automatically fix compatibility issues in existing game projects. Scripts live under `migrations/{old}_to_{new}/`, for example:
+
+```
+migrations/0.3_to_0.4/001_track_hooks.py
+migrations/0.3_to_0.4/002_track_stage_schemas.py
 ```
 
-### 4. Commit the release
+`tools/migrate.py` runs them in sorted order when `publish.py` detects a MINOR upgrade. If a script fails, the chain aborts and publish exits with an error. The target project may be partially migrated at that point — fix the issue and re-run publish to continue, or use `--force` for a clean install.
 
-```bash
-git add VERSION CHANGELOG.md
-git commit -m "release: v0.4.0"
-```
-
-### 5. Tag the release (optional)
-
-```bash
-git tag v0.4.0
-```
-
-### 6. Publish to target projects
-
-```bash
-python tools/publish.py <target_godot_project_dir>
-```
-
-## How publish.py Works
-
-The publish script (`tools/publish.py`) deploys GodotMaker into a target Godot project. It performs these steps in order:
-
-1. **Version check** -- Compares source `VERSION` against the target's `.godotmaker/version`
-2. **Publish skills** -- Flattens `skills/core/*` and `skills/reviewer/*` into `.claude/skills/`
-3. **Publish tools** -- Copies `tools/` to the target
-4. **Publish config** -- Copies `config/` to `.claude/config/`
-5. **Publish hooks** -- Copies `hooks/` to `.godotmaker/hooks/`
-6. **Deploy settings.json** -- Copies hook registration (only if not already present)
-7. **Publish templates** -- Copies `templates/` to `.claude/templates/`
-8. **Deploy CLAUDE.md** -- Copies game-claude.md template (only if not already present)
-9. **Create godotmaker.yaml** -- Interactive prompt for Godot executable path
-10. **Create project config** -- Copies default config.yaml
-11. **Deploy stage schemas** -- Copies stage_schemas.json to `.godotmaker/`
-12. **Create project directories** -- Creates `assets/`, `references/` subdirectories
-13. **Register MCP** -- Registers godot-mcp via `claude mcp add`
-14. **Ensure .gitignore** -- Adds `.claude/` entry. For `.godotmaker/`, selectively ignores only runtime state files (`state.json`, `metrics.jsonl`, `metrics_current.jsonl`)
-15. **Ensure git repo** -- Initializes git with an empty commit (required for worktree isolation)
-16. **Stamp version** -- Writes deployed version to `.godotmaker/version`
-
-## Version Comparison Logic
-
-When publishing, `publish.py` compares the source version (from `VERSION`) against the target's deployed version (from `.godotmaker/version`):
-
-| Scenario | Behavior |
-|---|---|
-| Fresh install (no target version) | Proceeds without prompting |
-| Same version | Proceeds (re-publish) |
-| PATCH upgrade | Proceeds without prompting |
-| MINOR upgrade | Shows changelog, prompts for confirmation |
-| MAJOR upgrade | Shows changelog, prompts for confirmation with warning |
-| Downgrade | Blocked (requires `--force`) |
-
-The version is parsed as a `SemVer` named tuple with `major`, `minor`, and `patch` fields. Standard tuple comparison determines upgrade direction.
-
-## The --force Flag
-
-The `--force` flag skips upgrade confirmations and allows downgrades. See [Publish](../05-tools/publish.md) for full details.
-
-## Why publish.py Initializes a Git Repository
-
-The publish script calls `git init` and creates an empty initial commit in the target project if one does not exist. This is required because the orchestrator uses **git worktrees** for parallel worker isolation. Worktree creation fails with `fatal: not a valid object name: HEAD` if the repository has no commits.
+At MAJOR release time, all migration scripts from the previous MAJOR version are deleted. They are not carried forward — MAJOR upgrades use `--force` for a clean re-initialization instead.

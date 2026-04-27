@@ -1,252 +1,220 @@
 # Writing a Skill
 
-This guide covers how to create a new skill for GodotMaker. Skills are prompt bundles that Claude reads at task time -- they deliver domain knowledge, step-by-step procedures, and known pitfalls to the AI agents.
+Skills are the instruction bundles that tell Claude what to do at each step of the pipeline. A skill is a folder containing a `SKILL.md` prompt, optional `references/` documents, and optional supporting files. When `publish.py` runs, every skill is copied flat into the target project's `.claude/skills/` folder and Claude Code picks them up automatically.
 
-## Directory Structure
+## What kind of skill am I writing?
 
-Create a new directory under the appropriate layer:
+GodotMaker has three skill layers, each living in a different folder:
+
+| Layer | Folder | Invoked by |
+|-------|--------|-----------|
+| **Role skill** | `skills/core/gm-*/` | User typing `/gm-build`, `/gm-verify`, etc. |
+| **Supporting skill** | `skills/core/<name>/` | Another skill loading it as a reference doc |
+| **Reviewer skill** | `skills/reviewer/<name>/` | The reviewer sub-agent dispatched by `gm-build` / `gm-fixgap` |
+
+Decision tree:
+- Adding a new `/gm-*` command that owns a pipeline phase → **role skill**
+- Adding domain knowledge that multiple existing skills need to reference → **supporting skill** (and likely a candidate for `_shared/` if two or more skills will use it)
+- Adding checks for a new Godot subsystem (e.g. shaders, navigation) → **reviewer skill**
+
+---
+
+## Skill structure
+
+Every skill directory needs at minimum one file:
 
 ```
-skills/core/<skill-name>/       # For procedural skills (how to do something)
-skills/reviewer/<skill-name>/   # For post-implementation reviewers (what to check)
+skills/core/my-skill/
+└── SKILL.md            Required. The prompt Claude reads.
+
+Optional:
+├── references/         Supporting docs loaded by the SKILL.md prompt.
+└── assets/             Any static files the skill needs.
 ```
 
-Skill names use lowercase kebab-case: `headless-build`, `visual-qa`, `game-planner`.
+### SKILL.md front-matter
 
-## Required File: SKILL.md
-
-Every skill must have a `SKILL.md` at its root. This is the prompt that Claude reads when the skill is invoked.
-
-### Frontmatter
-
-Start with a YAML frontmatter block:
+Start every `SKILL.md` with a YAML front-matter block:
 
 ```yaml
 ---
 name: my-skill
 description: |
-  One paragraph explaining what this skill does and when to use it.
-  Include concrete trigger phrases so the orchestrator can match tasks to this skill.
-  Be specific: "Use when..." and "Triggers: ..." help with automatic dispatch.
-  Also specify what this skill does NOT cover to prevent false matches.
-context: fork          # Optional. Runs in a subagent (isolated context).
-model: sonnet          # Optional. Override model (default is the lead agent's model).
-agent: Explore         # Optional. Agent mode hint.
+  One paragraph explaining what this skill does and when Claude should use it.
+  Be concrete: "Use when..." and "Does NOT handle..." help with matching.
+disable-model-invocation: true
 ---
 ```
 
-The `description` field is critical -- it determines when the orchestrator dispatches this skill. Write it as if answering: "Under exactly what circumstances should Claude use this skill instead of another?"
+The `name` field is the slash command identifier. The `description` field is what Claude Code uses to match a user request to the right skill. The `disable-model-invocation: true` line is **required for role skills** — it prevents the skill from being invoked implicitly by the model; it must be called explicitly via the slash command.
 
-### Body
+A real example (from `skills/core/gm-build/SKILL.md`):
 
-The body contains the instructions Claude follows. Guidelines:
-
-1. **State the purpose clearly** in the first paragraph. What does this skill produce?
-2. **Provide step-by-step instructions**. Number the steps. Claude follows them sequentially.
-3. **Include example outputs** where possible. Show what correct output looks like.
-4. **Specify failure modes**. What should Claude do when a step fails?
-5. **Reference other skills** by name when there are handoff points (e.g., "After scaffolding, run `headless-build` to verify compilation").
-6. **Use `$ARGUMENTS`** as a placeholder for runtime arguments passed to the skill.
-
-### Example: minimal core skill
-
-```markdown
+```yaml
 ---
-name: my-tool
+name: gm-build
 description: |
-  Runs my-tool against the project. Use when the user says "check X"
-  or after modifying X-related files. Does NOT handle Y -- use other-skill for that.
+  Implement game systems via worker dispatch. Covers risk-first then main implementation.
+  Dispatches workers continuously, triggers verification every ≥5 completed workers.
+  Explicit invocation only — use /gm-build.
+disable-model-invocation: true
 ---
-
-# My Tool
-
-$ARGUMENTS
-
-## Step 1 -- Locate the project
-
-Read `.godotmaker/config.yaml` to find the project path.
-
-## Step 2 -- Run the check
-
-\```bash
-my-tool --project "${PROJECT_PATH}" 2>&1
-\```
-
-## Step 3 -- Parse results
-
-If the tool exits 0, report success. If non-zero, extract error lines
-and present them as a numbered list with file paths and line numbers.
-
-## Step 4 -- Fix guidance
-
-For each error, suggest a fix. Reference the relevant Godot docs if applicable.
 ```
 
-## Optional Files
+### SKILL.md body
 
-### references/
+After the front-matter, write the prompt body. Common structure for a role skill:
 
-A directory for supporting documents the skill references. Examples:
+1. **Session setup** — the very first action the skill must take (e.g., write `.godotmaker/current_role`).
+2. **Resume check** — read `stage.jsonl` and decide whether to proceed, resume, or stop with a message.
+3. **Hard rules** — what the skill must never do (often enforced by hooks as a backup).
+4. **Steps** — numbered instructions for the work this role does.
+5. **Completion** — how to record the role completion event.
 
-- API excerpts that Claude needs but cannot reliably recall
-- Configuration file format specifications
-- Protocol documentation for external tools
+Use `$ARGUMENTS` as a placeholder for anything the user passes after the slash command.
 
-Keep reference files focused. A 200-line API excerpt is better than a 5000-line full dump.
+---
 
-### gotchas.md
+## Role skill specifics
 
-A curated list of known engine pitfalls. Primarily used by reviewer skills but also useful for core skills like `gecs` that have their own gotchas.
+### File lock — current_role
 
-Format each entry consistently:
+The very first action of every role skill must be:
+
+```
+Write the role name to .godotmaker/current_role.
+```
+
+For example, `/gm-build` writes `build`. This is what `check_file_permissions.py` reads to determine which write rules apply for this session.
+
+### Resume check
+
+Every role skill reads `.godotmaker/stage.jsonl` (one JSON object per line, `{"role": X, "ts": Y}`) and decides:
+
+- If the prerequisite role's event is missing → stop and tell the user which command to run first.
+- If this role's completion event already exists → tell the user the role is done and suggest the next command.
+- Otherwise → proceed (including resume from an interrupted run).
+
+### Completion event format
+
+When a role finishes, it appends one line to `.godotmaker/stage.jsonl`:
+
+```json
+{"role": "build", "ts": "2026-04-27T12:00:00Z"}
+```
+
+The `stage_reminder.py` hook intercepts this write, validates required outputs, and injects a pointer to the next role.
+
+### Required outputs and stage_schemas.json
+
+`config/stage_schemas.json` declares what each role must produce before it can record a completion event. The schema is keyed by role name:
+
+```json
+{
+  "scaffold": {
+    "files": ["project.godot"]
+  },
+  "gdd": {
+    "files": ["GDD.md", "PLAN.md", "STRUCTURE.md"]
+  },
+  "build": {
+    "checks": ["plan_all_verified"]
+  },
+  "evaluate": {
+    "files": [".godotmaker/evaluation.json"]
+  }
+}
+```
+
+- `files` — paths (relative to project root) that must exist on disk.
+- `checks` — names of programmatic validators run by `stage_reminder.py`. Current validators: `plan_all_verified` (every PLAN.md task row has status `verified`) and `gap_archived` (`GAP.md` has been moved to `.godotmaker/gaps/<n>/`).
+
+If you add a new role, add a corresponding entry here. If your role has no required outputs that can be validated by file existence, omit the entry or leave the object empty.
+
+### Shared reference docs
+
+If the reference doc you are writing into `references/` will also be needed by another skill, put it in `skills/core/_shared/` instead and add an entry to `_shared/manifest.json`. See `docs/contributing/shared-refs.md` for the manifest schema and add/remove flows. Inside your SKILL.md, reference it as `references/<file>.md` (the deployed path — `_shared/` does not exist at runtime).
+
+---
+
+## Reviewer skill specifics
+
+Reviewer skills must have all three files:
+
+```
+skills/reviewer/my-domain/
+├── SKILL.md        Reviewer prompt
+├── gotchas.md      Domain-specific pitfalls (what LLMs get wrong)
+└── checklist.md    Systematic checks that map back to gotcha IDs
+```
+
+The reviewer sub-agent reads `gotchas.md` and `checklist.md` dynamically based on which Godot classes and APIs appear in the worker's output. There is no static dispatch list — the reviewer picks the relevant domain files itself.
+
+### gotchas.md format
+
+Each entry describes one concrete pitfall:
 
 ```markdown
 ## G1. Short descriptive title [GDScript] [C#]
 
-**Symptom**: What goes wrong from the developer's perspective.
+**Symptom**: What the developer sees go wrong.
 
-**Root cause**: Why the engine behaves this way.
+**Root cause**: Why Godot behaves this way.
 
-**Correct approach**: The right pattern to use.
+**Correct approach**: The right pattern.
 
 **Wrong approach**: What LLMs typically generate (and why it fails).
 ```
 
-Tag entries with `[GDScript]`, `[C#]`, or both to indicate which languages are affected.
+Tag entries `[GDScript]`, `[C#]`, or both.
 
-### checklist.md
+### checklist.md format
 
-Automated check procedures that map back to gotchas. Used by reviewer skills to systematically verify code.
+Checks are numbered and cross-referenced to gotcha IDs:
 
 ```markdown
 ## Static Checks
 
-### S1. Check name -> G1
-Grep for [specific pattern]:
-- [condition that indicates a problem]
+### S1. Check name → G1
+Grep for [pattern]:
+- [condition that signals a problem]
 - [expected correct pattern]
-
-### S2. Another check -> G2
-For every [node type] in the project:
-- [property] is not [bad value]
-- [property] is explicitly set
 ```
 
-Number checks with `S` prefix (static) or `R` prefix (runtime). Map each to a gotcha with `-> G{n}`.
+Use `S` prefix for static (grep-based) checks and `R` for runtime checks.
 
-### templates/
+### Reviewer report format
 
-File templates with `{{placeholder}}` syntax, used by skills like `project-scaffold` that generate project files. The skill's SKILL.md instructions should document which placeholders are available and how they are filled.
+The `check_worker_report.py` hook validates that reviewer reports contain these sections: `### Reviewers Matched`, `### ECS Review`, `### Issues Found`, `### Summary`. The `ECS Review` and `Issues Found` sections must each have at least 50 characters of content — empty or trivial reports are blocked.
 
-### scripts/
-
-Helper scripts (Python, Bash) that the skill invokes. Keep scripts small and focused on a single operation.
-
-### evals/
-
-Test cases for measuring skill accuracy. Used during skill development to verify the skill produces correct outputs.
-
-## Creating a Reviewer Skill
-
-Reviewer skills follow a strict pattern. All three files are expected:
-
-```
-skills/reviewer/my-domain/
-    SKILL.md
-    checklist.md
-    gotchas.md
-```
-
-### Reviewer SKILL.md template
-
-```markdown
----
-name: my-domain-review
-description: |
-  Reviews Godot {domain} implementation for known pitfalls.
-  Triggers AFTER implementation, when code involves {list of relevant classes,
-  methods, and properties}.
-  Do NOT use this skill for planning or teaching -- only for post-implementation review.
 ---
 
-# {Domain} Review
+## Supporting skill specifics
 
-Post-implementation reviewer for Godot {domain} code. Checks against known
-gotchas that LLMs consistently get wrong.
+Supporting skills are pure reference content — no slash command, no `disable-model-invocation: true`. They are loaded by other skills via `references/<file>.md`. The `gecs` skill, for example, provides ECS usage patterns and known pitfalls that `gm-build` references.
 
-## When to trigger
+There is no registration step. `publish.py` copies every directory under `skills/core/` (except `_shared/`) into the target project, and a consumer skill references the supporting skill's content through a `references/` path.
 
-After {domain}-related code is written or modified. Look for:
-- {Node types}
-- {Method calls}
-- {Property assignments}
+---
 
-## Review procedure
+## Testing your skill
 
-1. Read `gotchas.md` in this skill directory
-2. Read `checklist.md` in this skill directory
-3. For each static check in the checklist:
-   a. Grep the files under review for the specified patterns
-   b. Flag any matches as potential issues
-   c. Reference the corresponding gotcha ID in the report
-4. Compile a report with: file path, line number, issue description, gotcha reference
+1. Publish to a scratch project:
 
-## Report format
-
-For each issue found:
-- **File**: path/to/file.gd:42
-- **Issue**: [description of what is wrong]
-- **Gotcha**: G{n} -- [gotcha title]
-- **Fix**: [concrete fix suggestion]
-```
-
-### Building the gotcha database
-
-Good gotchas come from:
-
-1. **Godot migration guides** -- API changes between versions that LLMs trained on old docs get wrong.
-2. **GitHub issues** -- Recurring bugs reported by users that stem from API misunderstanding.
-3. **Forum patterns** -- Questions asked repeatedly on Godot forums and Reddit.
-4. **LLM testing** -- Run Claude/GPT against Godot tasks without the skill and catalog the mistakes.
-
-Each gotcha should be something an LLM would plausibly get wrong, not something obvious. "Call `queue_free()` to delete a node" is not a gotcha. "Calling `queue_free()` inside `body_entered` crashes because the physics space is locked" is.
-
-## Testing a Skill
-
-### Manual testing
-
-1. Publish skills to a test project:
    ```bash
-   python tools/publish.py /path/to/test-project
+   python tools/publish.py /path/to/scratch-game
    ```
 
-2. Open Claude Code in the test project directory.
+2. Open the scratch project in Claude Code and run the slash command.
 
-3. Invoke the skill directly or trigger it through the orchestrator.
+3. Inspect the outputs:
+   - For role skills: check `stage.jsonl`, the expected files in `config/stage_schemas.json`, and that `.godotmaker/current_role` was written correctly.
+   - For reviewer skills: check that the report contains all required sections and that the gotcha cross-references are accurate.
 
-4. Verify:
-   - The skill activates on the expected triggers
-   - The instructions produce correct output
-   - Edge cases are handled (missing files, compilation errors, empty results)
+4. If the skill references shared docs, run:
 
-### Eval testing
+   ```bash
+   python -m pytest tests/tools/test_publish_shared.py -q
+   ```
 
-For skills with an `evals/` directory, run the eval suite to measure accuracy against known-good outputs. This is particularly important for API reference skills where hallucination is the primary risk.
-
-## Registration
-
-Skills auto-deploy via `publish.py`. There is no manual registration step. When you run:
-
-```bash
-python tools/publish.py /path/to/project
-```
-
-The script walks `skills/core/` and `skills/reviewer/`, copies every skill directory into `<project>/.claude/skills/`, and Claude Code picks them up automatically based on their SKILL.md frontmatter.
-
-To add a new skill to the deployment:
-
-1. Create the directory under `skills/core/` or `skills/reviewer/`.
-2. Add at minimum a `SKILL.md` with valid frontmatter.
-3. Run `publish.py` -- the new skill is included automatically.
-
-No changes to publish.py or any configuration file are needed.
+   to confirm the manifest and deployed paths are consistent.

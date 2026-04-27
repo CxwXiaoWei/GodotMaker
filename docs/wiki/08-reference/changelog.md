@@ -1,23 +1,43 @@
 # Changelog
 
-The canonical changelog is maintained at `CHANGELOG.md` in the repository root. You can view it on GitHub: [CHANGELOG.md](https://github.com/RandallLiuXin/GodotMaker/blob/main/CHANGELOG.md).
+---
 
-## Current Version: 0.3.0
+## Released versions
 
-Released 2026-04-22. Key changes in this release:
+The canonical, full-detail changelog is maintained in the repository root:
 
-- Version management with semantic version comparison on publish
-- Anti-deadloop protection for completion and worker report hooks
-- Stage-aware completion checks (enforced at stage 7+)
-- Forced self-review and orchestrator diligence validation
-- Worktree-aware file resolution for subagent hooks
-- Reviewer substance checks (ECS Review + Issues Found validation)
-- Classname conflict detection against Godot built-in names
-- Resource path validation in worker reports
+[CHANGELOG.md on GitHub](https://github.com/RandallLiuXin/GodotMaker/blob/main/CHANGELOG.md)
 
-## Previous Versions
+### 0.1.0 — 2026-04-26 (initial public release)
 
-- **0.2.0** (2026-04-20) -- Hook-based pipeline enforcement, metrics system, stage prerequisite validation
-- **0.1.0** (2026-04-15) -- Initial publish system, skill framework, godot-mcp integration, project scaffolding
+- 9-role pipeline delivered as individual `/gm-*` slash commands (`/gm-scaffold`, `/gm-gdd`, `/gm-asset`, `/gm-build`, `/gm-verify`, `/gm-evaluate`, `/gm-fixgap`, `/gm-accept`, `/gm-finalize`), replacing the earlier monolithic orchestrator approach.
+- Worker / verifier / reviewer / analyst sub-agent dispatch with format-validated reports and anti-deadloop protection.
+- 9 role skills + 12 supporting skills + 8 reviewer skills (physics, animation, ui, tilemap, navigation, shader, audio, particles).
+- 8 hook scripts enforcing per-role file-write permissions, stage prerequisite gating, sub-agent report validation, and completion diligence checks.
+- `tools/publish.py` deploys the framework into a target Godot project with semantic version tracking and upgrade prompts.
+- Static checks: `check_project.py` for project completeness, `check_classname.py` for Godot built-in name conflicts.
+- Asset pipeline: `asset_gen.py` (Gemini / xAI image generation), `rembg_matting.py`, `tripo3d.py`.
+- Wiki documentation across 8 sections.
+- 193+ unit tests for hooks and tools.
 
-See the full [CHANGELOG.md](https://github.com/RandallLiuXin/GodotMaker/blob/main/CHANGELOG.md) for complete details on each release.
+---
+
+## What's coming next
+
+Pending changes for the next release are tracked in [`../../update/next.md`](../../update/next.md).
+
+Contributors: every pull request must add an entry to `next.md` under the appropriate category (`Added`, `Changed`, `Fixed`, `Removed`) before merging. At release time, `next.md` is archived as `docs/update/vX.Y.Z.md` and a blank copy replaces it.
+
+---
+
+## Migration scripts
+
+When a MINOR version upgrade includes breaking changes, a migration script handles the transition automatically. Migration scripts live under `migrations/` in the GodotMaker repository, organised by version pair (e.g., `migrations/0.1_to_0.2/`). `tools/publish.py` discovers and runs them in sorted order during an upgrade.
+
+You can also run migrations manually for testing:
+
+```bash
+python tools/migrate.py /path/to/my-game --from 0.1.0 --to 0.2.0
+```
+
+For the full upgrade and downgrade policy, including what happens at MAJOR version boundaries, see [`../../versioning.md`](../../versioning.md).

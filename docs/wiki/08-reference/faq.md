@@ -1,125 +1,133 @@
 # Frequently Asked Questions
 
-## General
+---
 
-### What Godot versions are supported?
+## Getting started
 
-Godot 4.4 and above. The `config/addon_versions.json` file maps Godot versions (4.3, 4.4, 4.5) to compatible addon versions. While 4.3 mappings exist, the recommended minimum is 4.4.
+### Do I need to know game development?
+
+No. GodotMaker is designed for people who have a game idea but are not game developers. You describe what you want in plain English, confirm the design feels right when it's shown to you, and let the AI do the implementation. That said, you will need to read your `GDD.md` and say whether it captures what you meant — the AI writes it, but you approve it.
+
+### Do I need a paid API key?
+
+You need a Google API key (`GOOGLE_API_KEY`) for Gemini, which handles image generation and visual quality checking. This is required. Two optional keys add alternative providers: `XAI_API_KEY` for xAI Grok (cheaper image generation) and `TRIPO3D_API_KEY` for 3D model generation if you are making a 3D game.
+
+Claude Code itself requires an Anthropic account with API access (or a Claude Pro / Team subscription with Claude Code enabled).
+
+See the installation page for setup instructions.
+
+### What Godot version do I need?
+
+Godot 4.4 or later. GodotMaker does not support Godot 3.x or Godot 4.3 and below.
+
+### How long does it take to make a game?
+
+For a small game, expect roughly 30 minutes of your own time spread across several `/gm-*` commands — reading the GDD, confirming the design, checking the evaluation report, and accepting the result. The AI runtime (building, testing, generating art) runs in the background during each command and may take longer depending on your machine and network speed. More ambitious games scale with the number of tasks in your `PLAN.md`.
 
 ### Can I use C# instead of GDScript?
 
-Yes. The project supports both GDScript and C#. The `addon_versions.json` file tracks addon compatibility for the .NET-enabled Godot builds. ECS components and systems can be written in either language.
+Yes. GodotMaker supports both GDScript and C#. ECS components and systems can be written in either language. Make sure you are using a .NET-enabled Godot build when working with C#.
 
-### Where are metrics stored?
+---
 
-Metrics are written to two files inside the target project:
+## Pipeline behaviour
 
-- `.godotmaker/metrics_current.jsonl` -- Events for the current session
-- `.godotmaker/metrics.jsonl` -- Accumulated events across sessions
+### What is a milestone?
 
-These are JSONL (one JSON object per line) files. They are gitignored by default.
+A milestone is one complete pass through the pipeline: from `/gm-gdd` (write the design) through `/gm-finalize` (stamp it done). When you want to add a new feature or change direction, you start another milestone by running `/gm-gdd` again. `/gm-scaffold` runs only once per project and does not repeat between milestones.
 
-## Skills and Reviewers
+### What if I want to stop halfway through?
 
-### How do I add a new reviewer skill?
+You can stop at any point. The next time you open the project, the `session_start.py` hook reads `.godotmaker/stage.jsonl` to see where you left off, and the active role skill shows you a resume summary. Just run the same `/gm-*` command again to pick up where you stopped.
 
-Create a new directory under `skills/reviewer/` with three files:
+For a full walkthrough of recovery scenarios, see `04-troubleshooting/recovery-and-resume.md`.
 
-```
-skills/reviewer/your-domain/
-  SKILL.md        Main skill prompt (role, scope, review instructions)
-  checklist.md    Verification checklist for the domain
-  gotchas.md      Common pitfalls and Godot-specific issues
-```
+### Can I run two `/gm-*` commands at the same time?
 
-See any existing reviewer (e.g., `skills/reviewer/physics/`) as a reference. Reviewer skills are post-implementation reviewers -- they check code after a worker has written it, not before.
+No. Each `/gm-*` skill writes its name to `.godotmaker/current_role` when it starts, and hook scripts use that file to enforce write permissions. If a second command tried to start while one was already running, the file-permission hook would immediately start blocking unexpected writes. Run one command at a time and wait for it to complete.
 
-### How do I write a new core skill?
+### Why are some commands re-runnable and others are not?
 
-Create a directory under `skills/core/` with at minimum a `SKILL.md` file. The orchestrator references skills by directory name. After creating the skill, publish it to a test project to verify it deploys correctly.
+`/gm-scaffold` is a once-per-project command — re-running it on an existing project would overwrite the project setup. `/gm-asset` is re-runnable within a milestone whenever new assets are needed. The roles from `/gm-build` onward follow the milestone cycle: they should run in order, and re-running one re-does that phase of the current milestone. `/gm-gdd` starts a new milestone cycle.
 
-## Publishing and Deployment
+### What happens inside `/gm-build`?
 
-### Why does publish.py initialize a git repository?
+`/gm-build` works through the task list in `PLAN.md` by dispatching a chain of sub-agents for each task: a **Worker** implements the code and tests, a **Verifier** builds the project headlessly and runs the tests, and a **Reviewer** checks for Godot-specific pitfalls. If the reviewer finds new issues they are added back to `PLAN.md` and picked up in the next batch. The `check_completion.py` hook refuses to let `/gm-build` end if any batch ran workers but skipped verifier or reviewer.
 
-The orchestrator uses git worktrees to isolate parallel worker subagents. Worktree creation requires at least one commit in the repository. Without it, git fails with:
+### Why does the AI need git worktrees?
 
-```
-fatal: not a valid object name: HEAD
-```
+When `/gm-build` runs multiple workers in parallel, each worker needs its own folder to write files into without conflicting with the others. Git worktrees let multiple working directories share the same repository history. This is also why `/gm-scaffold` creates an initial git commit — worktrees require at least one commit to exist.
 
-The publish script runs `git init` and `git commit --allow-empty` to satisfy this requirement.
+---
 
-### What does --force do on publish?
+## Quality and output
 
-Two things:
+### Why doesn't my game look exactly like the GDD says?
 
-1. Deletes the existing `.claude/skills/` directory before publishing, ensuring no stale files remain from a previous version
-2. Skips interactive confirmation prompts for MINOR/MAJOR upgrades and allows downgrades
+AI code generation is not deterministic, and complex interactions between game systems can produce unexpected results. That is what `/gm-evaluate` and `/gm-fixgap` are for: the evaluator scores the running game against your GDD and produces a gap list, then fixgap dispatches workers to close each gap. Running this loop once is usually enough for a small game; larger games may benefit from a second pass.
 
-### How do I publish to multiple projects?
+### Can I edit the generated code by hand?
 
-Run `publish.py` once per target:
+Yes, and your edits will be preserved. Be aware that if you run `/gm-build` again for a new milestone, it may add new tasks that touch the same files — so your edits could be extended or partially overwritten by new worker output. Keep your hand-edits focused and document them in `MEMORY.md` so the AI knows they were intentional.
 
-```bash
-python tools/publish.py /path/to/project-a
-python tools/publish.py /path/to/project-b
-```
+### Where do I find screenshots and test results?
 
-Each target gets its own independent copy of all GodotMaker files.
+- Screenshots captured during evaluation: `e2e/screenshots/`
+- Per-scene visual reference images: `e2e/screenshots/scene_<name>/`
+- Evaluation scores and gap list: `.godotmaker/evaluation.json`
+- Hook and pipeline metrics: `.godotmaker/metrics_current.jsonl`
 
-## Hooks and Enforcement
+### Why ECS instead of plain Godot scripts?
 
-### How do I skip hook enforcement?
+Plain Godot node scripts tend to mix data, logic, and scene structure in one file. As the game grows, these files get harder to change without breaking something. ECS separates concerns cleanly: data lives in components, logic lives in systems, and entities are just IDs that connect them. For AI-generated code this matters a lot — new behaviour is always a new component plus a new system, not an edit to an existing 1000-line script.
 
-Three options:
+For a longer explanation, see `02-concepts/why-ecs.md`.
 
-1. **Use --force on publish** -- Overwrites `settings.json`, which you can then edit
-2. **Edit settings.json** -- In the target project's `.claude/settings.json`, remove or comment out hook entries for the events you want to skip
-3. **Let anti-deadloop kick in** -- After 5 consecutive blocks from the same hook, the system automatically allows the action to proceed (prevents infinite loops)
+### How do I know if the build succeeded?
 
-### What if a hook keeps blocking my work?
+After `/gm-verify` completes, the result is in `.godotmaker/verify_result.json`. Each worker's report also records whether its tests passed. If the Godot headless build fails or unit tests fail, the verifier sub-agent reports this and the issue is fed back to a worker for a fix.
 
-The anti-deadloop mechanism prevents infinite blocking. After 5 consecutive blocks from `check_completion` or `check_worker_report`, the hook automatically allows the action. The block counter resets when a different hook blocks or when the action succeeds.
+---
 
-If you need to debug a hook, run it manually with test input:
+## Cost and privacy
 
-```bash
-echo '{"event": "Stop", "session": {}}' | python .godotmaker/hooks/check_completion.py
-```
+### Where does my game data go?
 
-### Which hooks fire on which events?
+All game files live locally on your machine. AI calls go to whatever model provider Claude Code is configured for (typically Anthropic's API). Image generation calls go to Gemini (Google) or xAI depending on your configuration. No game content is stored on GodotMaker's servers because GodotMaker has no servers — it is a local framework.
 
-The hook registration is defined in `config/settings.json`:
+### Is my game project mine?
 
-| Event | Hooks |
-|---|---|
-| SessionStart | `session_start.py` |
-| PreToolUse (Write/Edit) | `check_file_permissions.py`, `stage_reminder.py` |
-| PreToolUse (Agent) | `check_stage_prerequisites.py` |
-| PreToolUse (Read) | `check_asset_access.py` |
-| SubagentStart | `log_subagent.py` |
-| SubagentStop | `log_subagent.py`, `check_worker_report.py` |
-| Stop | `check_completion.py` |
+Yes. GodotMaker only deploys files into your folder and then the AI fills them in. You own everything that gets generated. The GodotMaker framework source is available under its own license, but your game content and code are yours.
 
-## Reports
+---
 
-### How do I generate an HTML report?
+## Troubleshooting
 
-Use the shell scripts:
+### A hook keeps blocking me and I can't proceed.
+
+Hooks have a built-in anti-deadloop limit. `check_completion.py` allows up to 5 consecutive blocks before force-allowing; `check_worker_report.py` allows up to 2 blocks per sub-agent. If you are hitting these limits repeatedly something in the pipeline has gone wrong — check the failing sub-agent's report for missing sections or malformed output.
+
+For common hook errors and how to read them, see `04-troubleshooting/common-problems.md`.
+
+### I get "fatal: not a valid object name: HEAD" when a worker starts.
+
+This means the project has no git commits yet. `/gm-scaffold` should have created one. Re-run `/gm-scaffold` or create an initial commit manually with `git commit --allow-empty -m "init"`.
+
+### My evaluation score is low but the game seems fine to me.
+
+The evaluator uses visual QA against per-scene reference images and the GDD description. If you skipped `/gm-asset`'s Step 3 (which generates `references/scene_*.png` files), the evaluator has no visual reference to compare against and will score conservatively. Run `/gm-asset` again to generate the missing references before re-evaluating.
+
+### How do I roll back to a previous GodotMaker version?
+
+Check out the older version tag in the GodotMaker repo, then re-publish with `--force`:
 
 ```bash
-# Unix/macOS
-bash shell/report.sh .godotmaker/metrics.jsonl
-
-# Windows
-shell\report.bat .godotmaker\metrics.jsonl
+git checkout v0.1.0          # in the GodotMaker repo
+python tools/publish.py --force /path/to/my-game
 ```
 
-These invoke the metrics reporter to generate an HTML report from the specified JSONL event log.
+The `--force` flag skips the upgrade prompts and does a clean re-initialisation of the framework files in your project.
 
-You can also run the reporter directly:
+### The pipeline references "stages" but I only see `/gm-*` commands. What gives?
 
-```bash
-python -m hooks.metrics.reporter .godotmaker/metrics_current.jsonl -o report.html
-```
+"Stage" was the original GodotMaker term for a pipeline step. The framework has been redesigned around 9 role-based commands with no central orchestrator. Some file names (like `stage.jsonl` and `stage_schemas.json`) still use the old word for continuity. Treat "stage" and "role" as synonyms when you see them in tool output or older docs. See also: *Stage vs Role* in the Glossary.
