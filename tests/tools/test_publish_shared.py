@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.join(
     "tools",
 ))
 
-from publish import publish_skills, publish_shared_refs, SHARED_HEADER_TEMPLATE
+from publish import publish_skills, publish_shared_refs
 from pathlib import Path
 
 

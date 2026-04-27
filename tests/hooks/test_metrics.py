@@ -1,9 +1,8 @@
 """Tests for the metrics system."""
-import json
 import os
 import sys
 import pytest
-from metrics.collector import record_event, read_events, read_current_events, start_session, LOG_FILE, LOG_CURRENT
+from metrics.collector import record_event, read_events, read_current_events, start_session
 from metrics.schema import EventType
 from metrics.reporter import generate_report
 from metrics import state as metrics_state
@@ -12,7 +11,7 @@ from metrics import state as metrics_state
 HOOKS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if HOOKS_DIR not in sys.path:
     sys.path.insert(0, HOOKS_DIR)
-from log_subagent import detect_role_from_description, lookup_role_from_events
+from log_subagent import detect_role_from_description, lookup_role_from_events  # noqa: E402
 
 
 @pytest.fixture(autouse=True)

@@ -52,7 +52,6 @@ def _check_main(role: str, path_lower: str, file_name: str, ext: str) -> None:
     """Apply main-agent rules for the active role. Calls _block on violation."""
     is_e2e = _is_e2e_path(path_lower)
     is_code = ext in GAME_CODE_EXTENSIONS
-    is_eval = _is_eval_file(path_lower)
     is_godotmaker = _is_godotmaker_path(path_lower)
     is_assets = _is_assets_path(path_lower)
 

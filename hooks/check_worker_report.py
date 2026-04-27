@@ -20,7 +20,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from metrics import (
     record_event, read_current_events, EventType,
-    REPORT_MARKERS, detect_report_type, event_has_role,
+    detect_report_type, event_has_role,
     REPORT_REQUIRED_SECTIONS, REPORT_FORMAT_HINTS, REPORT_REQUIRED_LABELS,
     state,
 )

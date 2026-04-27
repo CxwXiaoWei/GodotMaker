@@ -17,7 +17,6 @@ from migrate import (
     collect_scripts,
     run_migration_script,
     run_migrations,
-    MIGRATIONS_DIR,
 )
 
 

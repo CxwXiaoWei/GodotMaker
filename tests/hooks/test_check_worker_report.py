@@ -1,5 +1,4 @@
 """Tests for check_worker_report.py hook."""
-import json
 import os
 import shutil
 

@@ -1,7 +1,6 @@
 """Tests for publish.py."""
 import os
 import sys
-import pytest
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -15,7 +14,6 @@ from publish import (
     publish_skills,
     DEFAULT_CONFIG_TEMPLATE,
 )
-from pathlib import Path
 
 
 class TestReadGodotPath:
@@ -64,7 +62,7 @@ class TestCreateProjectConfig:
         content = DEFAULT_CONFIG_TEMPLATE.read_text(encoding="utf-8")
         assert "vqa_model:" in content
         assert "worker_model:" in content
-        lines = [l for l in content.splitlines() if l and not l.startswith("#")]
+        lines = [line for line in content.splitlines() if line and not line.startswith("#")]
         for line in lines:
             assert ":" in line, f"Non-comment line missing ':' — {line}"
 
@@ -85,7 +83,7 @@ class TestEnsureGitignore:
         for entry in SELECTIVE_ENTRIES:
             assert entry in content
         # Blanket ignore must NOT be present (selective entries only)
-        lines = [l.strip() for l in content.splitlines()]
+        lines = [line.strip() for line in content.splitlines()]
         assert ".godotmaker/" not in lines
 
     def test_appends_missing_entries(self, tmp_path):
@@ -98,7 +96,7 @@ class TestEnsureGitignore:
         for entry in SELECTIVE_ENTRIES:
             assert entry in content
         # Blanket ignore must NOT be present
-        lines = [l.strip() for l in content.splitlines()]
+        lines = [line.strip() for line in content.splitlines()]
         assert ".godotmaker/" not in lines
 
     def test_skips_existing_selective_entries(self, tmp_path):
@@ -129,7 +127,7 @@ class TestEnsureGitignore:
         assert "*.log" in content
         assert "*.tmp" in content
         # Blanket ignore must be gone
-        lines = [l.strip() for l in content.splitlines()]
+        lines = [line.strip() for line in content.splitlines()]
         assert ".godotmaker/" not in lines
         # Selective entries must now be present
         for entry in SELECTIVE_ENTRIES:

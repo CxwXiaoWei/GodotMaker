@@ -5,7 +5,6 @@ Usage:
     python -m hooks.metrics.reporter .godotmaker/metrics.jsonl  # stdout
 """
 import argparse
-import sys
 from collections import Counter
 from datetime import datetime
 
@@ -381,7 +380,6 @@ def _event_class(event: dict) -> str:
 
 def _event_summary(event: dict) -> str:
     """One-line summary of an event."""
-    e = event.get("event", "")
     parts = []
     for key in ("agent_id", "hook", "reason", "file", "gate", "result", "status"):
         if key in event and event[key]:

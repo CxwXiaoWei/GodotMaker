@@ -13,7 +13,6 @@ Usage:
 """
 import argparse
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -482,13 +481,13 @@ def ensure_gitignore(target: Path):
     if gitignore.exists():
         content = gitignore.read_text(encoding="utf-8", errors="replace")
         lines = content.splitlines()
-        line_set = set(l.strip() for l in lines)
+        line_set = set(line.strip() for line in lines)
 
         # Remove old blanket .godotmaker/ ignore
         updated = False
         if old_blanket in line_set:
-            lines = [l for l in lines if l.strip() != old_blanket]
-            line_set = set(l.strip() for l in lines)
+            lines = [line for line in lines if line.strip() != old_blanket]
+            line_set = set(line.strip() for line in lines)
             updated = True
 
         # Add missing entries
