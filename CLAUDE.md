@@ -11,7 +11,8 @@ GodotMaker is an ECS-native text-to-game framework for Godot. It uses gecs (open
 ```
 hooks/              8 Python hook scripts + hooks/metrics/ subsystem
 skills/
-  core/             13 core skills (orchestrator is the most complex)
+  core/             role-based gm-* skills + supporting skills (gecs, godot-api, ...)
+    _shared/        cross-skill reference docs (see "Shared reference docs" below)
   reviewer/         8 reviewer skills (physics, animation, ui, etc.)
 shell/              publish.sh / publish.ps1, report.sh / report.bat
 tools/              publish.py, check_env.py, check_project.py, asset_gen.py, etc.
@@ -19,6 +20,22 @@ config/             settings.json, stage_schemas.json, addon_versions.json
 templates/          PLAN/STRUCTURE/ASSETS/SCENES/MEMORY/GDD templates + game-claude.md
 docs/               getting-started.md, hooks.md, wiki/, reference/
 ```
+
+## Shared reference docs (`skills/core/_shared/`)
+
+Reference docs consumed by more than one skill (e.g. `worker-dispatch.md`
+used by `gm-build` and `gm-fixgap`) live in `skills/core/_shared/` as the
+single source of truth. `publish_shared_refs()` deploys each entry from
+`_shared/manifest.json` into every consumer's `references/` directory.
+
+- **Edit only the source** under `_shared/<file>`. Deployed copies carry an
+  `<!-- AUTO-GENERATED -->` header and are overwritten on every publish.
+- Inside SKILL.md, reference shared docs as `references/<file>` (the
+  deployed path). Never write `_shared/<file>` — that path doesn't exist
+  at runtime.
+
+For the manifest schema, add/remove flows, and publish debugging see
+`docs/contributing/shared-refs.md`.
 
 ## Key Commands
 
@@ -44,7 +61,7 @@ python tools/check_env.py
 
 ## Skill System (Three Layers)
 
-- **Layer 1 — Core** (13 skills): orchestrator, game-planner, project-scaffold, godot-api, gecs, input-mapper, headless-build, gdunit-driver, godot-e2e, gdtoolkit, visual-qa, screenshot, mcp-driver
+- **Layer 1 — Core**: 9 role-based pipeline skills (`gm-scaffold`, `gm-gdd`, `gm-asset`, `gm-build`, `gm-verify`, `gm-evaluate`, `gm-fixgap`, `gm-accept`, `gm-finalize`) + supporting skills (game-planner, project-scaffold, godot-api, gecs, input-mapper, headless-build, gdunit-driver, godot-e2e, gdtoolkit, visual-qa, screenshot, mcp-driver)
 - **Layer 2 — Reviewer** (8 skills): physics, animation, ui, tilemap, navigation, shader, audio, particles — each has SKILL.md + gotchas.md + checklist.md
 - **Layer 3 — Pattern**: per game genre (deferred)
 
