@@ -1,71 +1,61 @@
-# Environment Checker
+# Check your environment
 
-`check_env.py` verifies that all prerequisites for using GodotMaker are installed and correctly configured on the current machine.
-
-## Usage
+`check_env.py` confirms your machine is set up to run GodotMaker. Run this any time something seems off.
 
 ```bash
 python tools/check_env.py
 ```
 
-Run this after publishing GodotMaker to a project, or any time you suspect environment issues.
+A clean run ends with:
 
-## What It Checks
+```
+All required checks passed! Ready to use GodotMaker.
+```
 
-The checker runs six categories of checks in order:
+If anything is missing, you'll see a list of failed checks and what to do about each one.
+
+## What it checks
 
 ### Git
 
-| Check | Requirement | Fix |
-|---|---|---|
-| Git installed | >= 2.30 | Install from https://git-scm.com/downloads |
-| `user.name` configured | Non-empty | `git config --global user.name "..."` |
-| `user.email` configured | Non-empty | `git config --global user.email "..."` |
+- Git 2.30 or later is installed.
+- `git user.name` and `git user.email` are set (needed for commits that `/gm-scaffold` and the worktree system create).
 
 ### Python
 
-| Check | Requirement | Fix |
-|---|---|---|
-| Python version | >= 3.9 | Install from https://python.org |
-| `google-genai` package | Importable | `pip install google-genai` |
-| `requests` package | Importable | `pip install requests` |
-| `pillow` package | Importable | `pip install pillow` |
-| `numpy` package | Importable | `pip install numpy` |
+- Python 3.9 or later is running this script.
+- The following packages are installed: `google-genai`, `requests`, `pillow`, `numpy`.
 
 ### Node.js
 
-| Check | Requirement | Fix |
-|---|---|---|
-| Node.js version | >= 18 | Install from https://nodejs.org |
-| `npx` available | On PATH | Should come with Node.js |
+- Node.js 18 or later is installed (needed to run `godot-mcp` via `npx`).
+- `npx` is available on your PATH (it comes with Node.js).
 
 ### Godot
 
-| Check | Requirement | Fix |
-|---|---|---|
-| Godot version | >= 4.4 | Install from https://godotengine.org; ensure `godot` or `godot4` is on PATH |
+- Godot 4.4 or later is reachable as `godot` or `godot4` on your PATH.
 
-The checker tries both `godot` and `godot4` commands. If neither is found, it issues a warning (not a failure) since the full path can be provided via `godotmaker.yaml` instead.
+If Godot is not on your PATH, this check shows a warning rather than a hard failure — you can still provide the full path to the executable when you run `publish.py`, and it will be saved in `.claude/godotmaker.yaml` for future use.
 
 ### Claude Code
 
-| Check | Requirement | Fix |
-|---|---|---|
-| `claude` CLI | On PATH | `npm install -g @anthropic-ai/claude-code` |
+- The `claude` command-line tool is installed and on your PATH.
 
-### API Keys
+### API keys
 
-| Key | Status | Purpose |
-|---|---|---|
-| `GOOGLE_API_KEY` or `GEMINI_API_KEY` | **Required** | Image generation + VQA (visual quality assurance) |
-| `XAI_API_KEY` | Optional | Cheaper image generation via xAI Grok |
-| `TRIPO3D_API_KEY` | Optional | 3D model generation via Tripo3D |
+| Key | Status | Used for |
+|-----|--------|---------|
+| `GOOGLE_API_KEY` | Required | Image generation (Gemini) and visual quality assessment |
+| `XAI_API_KEY` | Optional | Image generation via xAI Grok (cheaper alternative) |
+| `TRIPO3D_API_KEY` | Optional | 3D model generation (3D games only) |
 
-For the Google API key, the checker also verifies that `google-genai` can be imported successfully.
+`GOOGLE_API_KEY` is the only key that blocks GodotMaker from working if it is absent. Get one at [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey) — it is free for moderate use.
 
-## Output Format
+The checker also verifies that `google-genai` can actually be imported after the key is found, catching installation issues that version checks alone would miss.
 
-Each check prints one of three status markers:
+## Reading the output
+
+Each line starts with one of three markers:
 
 ```
 [PASS] Git 2.43.0 (>= 2.30)
@@ -73,7 +63,9 @@ Each check prints one of three status markers:
 [WARN] XAI_API_KEY not set (optional, cheaper image generation)
 ```
 
-At the end, a summary is printed:
+`[WARN]` lines are for optional items — they don't stop you from using GodotMaker. `[FAIL]` lines are blockers.
+
+At the end, any failed checks are listed together so you can fix them in one pass:
 
 ```
 ========================================
@@ -88,9 +80,15 @@ Failed checks:
 Fix the above issues before using GodotMaker.
 ```
 
-## Exit Codes
+## Exit codes
 
 | Code | Meaning |
-|---|---|
-| 0 | All required checks passed (warnings are acceptable) |
+|------|---------|
+| 0 | All required checks passed (warnings are fine) |
 | 1 | One or more required checks failed |
+
+Scripts and CI pipelines can rely on this exit code to gate further steps.
+
+## If you're just getting started
+
+See [installation](../01-getting-started/installation.md) for a step-by-step guide to getting all these prerequisites in place before running `check_env.py`.

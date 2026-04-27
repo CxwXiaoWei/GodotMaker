@@ -1,108 +1,79 @@
-# Publish System
+# Publish
 
-The publish system deploys GodotMaker's skills, hooks, tools, configuration, and templates into a target Godot game project. It is the primary mechanism for setting up new projects and upgrading existing ones.
+`publish.py` installs the GodotMaker framework into a target Godot project folder. You'll run it once to create a project, and again whenever you upgrade GodotMaker.
 
-## Usage
+## Fresh install
 
-**Linux / macOS:**
+Point `publish.py` at an empty folder (or an existing Godot project folder). It will create everything it needs:
 
 ```bash
-bash shell/publish.sh [--force] <target_godot_project_dir>
+python tools/publish.py /path/to/my-game
 ```
 
-**Windows (PowerShell):**
+On Windows:
 
 ```powershell
-.\shell\publish.ps1 [-Force|--force] <target_godot_project_dir>
+python tools\publish.py C:\Games\my-game
 ```
 
-Both shell scripts are thin wrappers that detect Python and delegate to `tools/publish.py`. You can also invoke Python directly:
+The first time you run this, the script will ask you for the full path to your Godot executable. Enter it when prompted — you only need to do this once per project.
+
+**What gets created:**
+
+| Location | What it is |
+|----------|------------|
+| `.claude/skills/` | All GodotMaker slash commands (the `/gm-*` commands and supporting skills) |
+| `.claude/agents/` | Definitions for the worker, verifier, reviewer, and analyst helpers |
+| `.claude/settings.json` | Tells Claude Code which hook scripts to run and when |
+| `.claude/godotmaker.yaml` | Your Godot executable path (specific to this machine) |
+| `.godotmaker/hooks/` | The enforcement scripts that keep the AI on track |
+| `.godotmaker/config.yaml` | Per-project settings (model choice, asset generation provider, etc.) |
+| `.godotmaker/version` | Records which GodotMaker version is installed here |
+| `tools/` | Utility scripts (`check_env.py`, `check_project.py`, `asset_gen.py`, etc.) |
+| `.claude/templates/` | Document templates used by `/gm-gdd` and other commands |
+| `CLAUDE.md` | Per-project instructions that Claude Code reads at the start of every session |
+| `assets/sprites`, `assets/audio`, `assets/fonts`, `assets/ui`, `references/` | Standard asset folders |
+
+The script also registers the `godot-mcp` server (which lets Claude Code talk to the Godot editor), initializes a git repository if one doesn't exist, and creates a `.gitignore` with the right entries.
+
+## Upgrading an existing project
+
+Run the same command again inside an already-published project. GodotMaker compares its own version number against the version recorded in `.godotmaker/version` and decides what to do:
+
+| Upgrade type | What happens |
+|--------------|--------------|
+| **Patch** (e.g. 0.3.0 to 0.3.1) | Proceeds automatically — just bug fixes, nothing to review |
+| **Minor** (e.g. 0.3.0 to 0.4.0) | Shows the changelog for the new version, asks you to confirm, then runs any migration scripts |
+| **Major** (e.g. 0.x to 1.x) | Requires `--force` — breaking changes that need a clean re-initialization |
+| **Same version** | Always proceeds — useful when you've made local changes to the framework |
+| **Downgrade** | Blocked by default; requires `--force` to override |
+
+For the full upgrade policy and migration script details, see [`../../versioning.md`](../../versioning.md). For what changed in each release, see the [changelog](../08-reference/changelog.md).
+
+## Options
 
 ```bash
-python tools/publish.py [--force] <target_godot_project_dir>
+python tools/publish.py --force /path/to/my-game
 ```
 
-## What Publish Does
+`--force` does four things at once:
 
-Publish copies the GodotMaker framework into a target Godot project so that Claude Code sessions in that project have access to skills, hooks, tools, and templates. It also configures the godot-mcp MCP server, initializes git, and stamps a version marker.
+1. Clears `.claude/skills/` before re-deploying, removing any skills left over from a previous version.
+2. Overwrites `.claude/settings.json` even if you've already customized it.
+3. Skips the confirmation prompts for minor and major upgrades.
+4. Allows downgrades.
 
-## Publish Steps (in order)
+For **major** upgrades with `--force`, the clean-up is more thorough: `.claude/skills/`, `.claude/agents/`, `.claude/config/`, `.claude/templates/`, `.godotmaker/hooks/`, `tools/`, and the runtime state files are all wiped and rebuilt from scratch.
 
-1. **Version check** -- Compare `VERSION` (repo root) against `.godotmaker/version` (target). May abort on MAJOR/MINOR upgrades without `--force`.
-2. **Force clean** (if `--force`) -- Delete and recreate `.claude/skills/`.
-3. **Publish skills** -- Flatten-copy `skills/core/*` and `skills/reviewer/*` into `.claude/skills/`. Also copies `_read_config.sh` helper.
-4. **Publish tools** -- Copy `tools/` directory to `<target>/tools/`.
-5. **Publish config** -- Copy `config/` directory to `.claude/config/`.
-6. **Publish hooks** -- Copy `hooks/` directory to `.godotmaker/hooks/`.
-7. **Deploy settings.json** -- Copy `config/settings.json` to `.claude/settings.json` (only if it does not exist, or `--force`).
-8. **Publish templates** -- Copy `templates/` directory to `.claude/templates/`.
-9. **Deploy CLAUDE.md** -- Copy `templates/game-claude.md` to `<target>/CLAUDE.md` (only on fresh install).
-10. **Create godotmaker.yaml** -- Interactive prompt for Godot executable path. Writes to `.claude/godotmaker.yaml`. Skipped if file already exists.
-11. **Create project config** -- Copy `config/config.yaml.default` to `.godotmaker/config.yaml` (only on fresh install).
-12. **Deploy stage_schemas.json** -- Copy `config/stage_schemas.json` to `.godotmaker/stage_schemas.json`.
-13. **Create project directories** -- Create `assets/sprites`, `assets/audio`, `assets/fonts`, `assets/ui`, `references` if missing.
-14. **Register godot-mcp** -- Run `claude mcp add godot` to register the MCP server with the Godot path from step 10.
-15. **Ensure .gitignore** -- Add `.claude/` to `.gitignore`. For `.godotmaker/`, add selective ignores: only runtime state files (`state.json`, `metrics.jsonl`, `metrics_current.jsonl`) are gitignored.
-16. **Ensure git repo** -- Run `git init` and create an initial empty commit if needed (required for worktree isolation).
-17. **Stamp version** -- Write the source version to `.godotmaker/version`.
+## What is preserved on upgrade
 
-## Version Management
+These files are never overwritten by a normal publish (only `--force` can change `settings.json`):
 
-GodotMaker uses [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
+| File | Why it is kept |
+|------|---------------|
+| `CLAUDE.md` | You may have added project-specific instructions |
+| `.claude/settings.json` | You may have adjusted hook behavior |
+| `.claude/godotmaker.yaml` | Contains your machine-specific Godot path |
+| `.godotmaker/config.yaml` | Contains your project-specific preferences |
 
-| Location | Purpose |
-|---|---|
-| `VERSION` (repo root) | Source of truth for current GodotMaker release |
-| `.godotmaker/version` (target project) | Records which version was last published |
-| `CHANGELOG.md` (repo root) | Human-readable changes per version |
-
-### Upgrade behavior by severity
-
-| Level | Behavior |
-|---|---|
-| **PATCH** | Auto-proceed. Prints "Bug fixes only, no functionality change." |
-| **MINOR** | Displays the CHANGELOG section for the new version. Prompts `Proceed with MINOR upgrade? [y/N]`. |
-| **MAJOR** | Displays the CHANGELOG section with a strong warning ("Breaking changes -- backup your project first!"). Prompts for confirmation. |
-| **Same version** | Always proceeds (useful for picking up local changes). |
-| **Downgrade** | Blocked by default. Prints a warning and exits. |
-
-## What Gets Overwritten vs. Preserved
-
-**Overwritten on every publish:**
-
-| Directory | Content |
-|---|---|
-| `.claude/skills/` | All skills (flattened from core + reviewer) |
-| `.godotmaker/hooks/` | All hook scripts |
-| `.claude/config/` | Config files |
-| `.claude/templates/` | Document templates |
-| `tools/` | Python tools |
-| `.godotmaker/stage_schemas.json` | Stage validation schema |
-
-**Preserved (created only on fresh install, never overwritten):**
-
-| File | Reason |
-|---|---|
-| `CLAUDE.md` | User may have customized it |
-| `.claude/settings.json` | User hook configuration (overwritten only with `--force`) |
-| `.claude/godotmaker.yaml` | Host-specific paths |
-| `.godotmaker/config.yaml` | Project-specific settings |
-
-## The --force Flag
-
-The `--force` flag does three things:
-
-1. **Cleans skills directory** -- Deletes `.claude/skills/` before re-publishing (removes stale skills from previous versions).
-2. **Skips confirmation prompts** -- MINOR and MAJOR upgrades proceed without asking.
-3. **Allows downgrades** -- Overrides the downgrade block.
-4. **Overwrites settings.json** -- Replaces `.claude/settings.json` even if it already exists.
-
-## Excluded Content
-
-The following directories are excluded from all copy operations: `__pycache__`, `doc_source`, `.workspace`.
-
-## See Also
-
-- [Check Env](check-env.md) -- environment validation tool
-- [Check Project](check-project.md) -- project structure validator
-- [Asset Tools](asset-tools.md) -- asset generation and processing utilities
+Your game code, scenes, assets, and planning documents (`GDD.md`, `PLAN.md`, etc.) are not touched by publish — it only manages the framework layer.

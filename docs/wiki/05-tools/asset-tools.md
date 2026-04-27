@@ -1,231 +1,112 @@
-# Asset Tools
+# Asset tools
 
-GodotMaker includes several Python tools for generating and processing game assets.
+GodotMaker generates art via small Python helper scripts. `/gm-asset` calls them automatically — but you can also run them by hand if you need to regenerate a specific file or experiment with different settings.
 
-## asset_gen.py -- Asset Generator CLI
+## asset_gen.py
 
-Unified CLI for generating images, videos, and 3D models using AI backends.
+`asset_gen.py` is the main image and 3D model generator. It supports two image providers and one 3D model service.
 
-### Subcommands
+**Image providers:**
 
-#### `image` -- Generate PNG images
+| Provider | Cost per image | Best for |
+|----------|---------------|---------|
+| xAI Grok | 2 cents (1K or 2K only) | Fast, good for most sprites and UI elements |
+| Google Gemini | 5–15 cents (512 to 4K) | More precise prompt following, better for detailed or edited images |
 
-```bash
-python tools/asset_gen.py image --prompt "pixel art sword, 32x32" -o assets/sprites/sword.png
-python tools/asset_gen.py image --prompt "edit: add glow" --image assets/sprites/sword.png -o assets/sprites/sword_glow.png
-```
+Both require API keys: `GOOGLE_API_KEY` for Gemini, `XAI_API_KEY` for Grok. To choose which provider `/gm-asset` uses by default, see [`../06-configuration/project-config.md`](../06-configuration/project-config.md).
 
-| Flag | Default | Description |
-|---|---|---|
-| `--prompt` | (required) | Image generation prompt |
-| `--model` | `grok` | Backend: `grok` (fast) or `gemini` (precise) |
-| `--size` | `1K` | Resolution (e.g., `1K`, `2K`, `4K`; see `--help`) |
-| `--aspect-ratio` | `1:1` | Aspect ratio (many options; see `--help`) |
-| `--image` | none | Reference image for image-to-image editing |
-| `-o, --output` | (required) | Output PNG path |
-
-#### `video` -- Generate MP4 video
+### Generating an image
 
 ```bash
-python tools/asset_gen.py video --prompt "sword spinning" --image assets/sprites/sword.png --duration 3 -o assets/video/sword_spin.mp4
+python tools/asset_gen.py image \
+  --prompt "top-down pixel art player character, blue outfit, 64x64, transparent background" \
+  --model grok \
+  -o assets/sprites/player.png
 ```
 
-| Flag | Default | Description |
-|---|---|---|
-| `--prompt` | (required) | Video generation prompt |
-| `--image` | (required) | Reference image (starting frame) |
-| `--duration` | (required) | Duration in seconds (1-15) |
-| `--resolution` | `720p` | `480p` or `720p` |
-| `-o, --output` | (required) | Output MP4 path |
-
-#### `glb` -- Convert PNG to 3D model
+To use Gemini instead:
 
 ```bash
-python tools/asset_gen.py glb --image assets/sprites/tree.png -o assets/models/tree.glb
+python tools/asset_gen.py image \
+  --prompt "top-down pixel art player character, blue outfit, 64x64, transparent background" \
+  --model gemini \
+  --size 1K \
+  -o assets/sprites/player.png
 ```
 
-| Flag | Default | Description |
-|---|---|---|
-| `--image` | (required) | Input PNG path |
-| `--quality` | `default` | `default` or `high` |
-| `-o, --output` | (required) | Output GLB path |
+To edit an existing image (image-to-image):
 
-#### `set_budget` -- Set asset generation budget
+```bash
+python tools/asset_gen.py image \
+  --prompt "add a glowing aura around the character" \
+  --image assets/sprites/player.png \
+  -o assets/sprites/player_glow.png
+```
+
+**Common options:**
+
+| Option | Default | Notes |
+|--------|---------|-------|
+| `--prompt` | (required) | Describe what you want |
+| `--model` | `grok` | `grok` or `gemini` |
+| `--size` | `1K` | Grok: `1K`, `2K`. Gemini: `512`, `1K`, `2K`, `4K` |
+| `--aspect-ratio` | `1:1` | Many options — run `--help` to see all |
+| `--image` | none | Provide a reference image to edit |
+| `-o` | (required) | Output file path |
+
+### Setting a budget
+
+You can cap total spending to avoid surprises:
 
 ```bash
 python tools/asset_gen.py set_budget 500
 ```
 
-Sets the budget cap in cents. Tracked via `assets/budget.json`. All generation commands check the remaining budget before proceeding and exit with an error if insufficient.
+This sets a 500-cent ($5.00) limit, tracked in `assets/budget.json`. Any generation command that would exceed the remaining budget exits with an error before making an API call.
 
-### Output Format
+### Generating 3D models
 
-All subcommands print JSON to stdout:
-
-```json
-{"ok": true, "path": "assets/sprites/sword.png", "cost_cents": 2}
-```
-
-On failure:
-
-```json
-{"ok": false, "error": "Budget exceeded: need 15c but only 3c remaining", "cost_cents": 0}
-```
-
-### Required Environment Variables
-
-| Variable | Required for |
-|---|---|
-| `GOOGLE_API_KEY` or `GEMINI_API_KEY` | `--model gemini` |
-| `XAI_API_KEY` | `--model grok` and `video` |
-| `TRIPO3D_API_KEY` | `glb` subcommand |
-
-### Advanced
-
-**Backend comparison:**
-
-| Backend | Speed | Quality | Cost per image |
-|---|---|---|---|
-| Grok (xAI) | Fast | Good for most sprites | 2c flat (1K or 2K) |
-| Gemini | Slower | More precise, better detail | 5c (512) / 7c (1K) / 10c (2K) / 15c (4K) |
-
-**Video cost:** 5c per second.
-
-**GLB quality modes:**
-
-| Mode | Notes |
-|---|---|
-| `default` | Best low-poly, game-optimized topology. Cost: ~50c |
-| `high` | HD textures, detailed geometry. Cost: ~40c |
-
----
-
-## rembg_matting.py -- Background Removal
-
-Removes solid-color backgrounds from images using color matting combined with BiRefNet neural network masks.
+The `glb` subcommand converts a PNG image into a 3D model (`.glb` file) using Tripo3D. This requires `TRIPO3D_API_KEY` and is only relevant for 3D games.
 
 ```bash
-# Auto-detect best mode (recommended)
-python tools/rembg_matting.py image.png
-
-# Custom output path
-python tools/rembg_matting.py image.png -o output.png
-
-# Batch mode (all PNGs in a directory)
-python tools/rembg_matting.py --batch frames/ -o output_frames/
-
-# Generate QA preview
-python tools/rembg_matting.py image.png --preview
+python tools/asset_gen.py glb \
+  --image assets/sprites/tree.png \
+  -o assets/models/tree.glb
 ```
 
-### Requirements
+Cost is roughly 40–50 cents per model depending on the `--quality` preset (`default` or `high`).
 
-- `rembg` package (`pip install rembg`)
-- `numpy`, `pillow`
-- Optional: `onnxruntime-gpu` + CUDA for GPU acceleration
+## rembg_matting.py
 
-### Advanced
-
-By default the tool auto-selects the best processing mode. You can force a specific mode with `-m`:
-
-| Mode | When to use |
-|---|---|
-| `trust` | Standard subjects with a clear background — the recommended mode for most sprites |
-| `adapt` | Subject fills most of the frame or has colors similar to the background |
-| `color` | Simple solid-color backgrounds where AI-based removal gives poor results |
-| `auto` | Default; lets the tool pick the best mode automatically |
+`rembg_matting.py` removes solid-color backgrounds from images, producing PNG files with transparent backgrounds. Use this when you have a sprite rendered on a plain background and need it cut out for use in a scene.
 
 ```bash
-# Force a specific regime
-python tools/rembg_matting.py image.png -m trust
+# Single image, auto-detect the best approach
+python tools/rembg_matting.py assets/sprites/enemy_raw.png -o assets/sprites/enemy.png
+
+# Batch: process all PNGs in a folder
+python tools/rembg_matting.py --batch raw_frames/ -o clean_frames/
+
+# Generate a preview so you can check the result before using it
+python tools/rembg_matting.py assets/sprites/enemy_raw.png --preview
 ```
 
----
+The tool uses a neural network (BiRefNet) to identify the subject and color matting to clean up the edges. It auto-selects the right approach for most images; you can force a mode with `-m trust`, `-m adapt`, or `-m color` if the automatic result is not clean enough.
 
-## grid_slice.py -- Sprite Sheet Slicer
+GPU acceleration is used automatically if an NVIDIA GPU with CUDA is available. On CPU it is slower but still works.
 
-Slices a grid image into individual PNG frames.
+## tripo3d.py
 
-```bash
-python tools/grid_slice.py spritesheet.png -o frames/ --grid 4x4
-python tools/grid_slice.py items.png -o items/ --grid 2x2 --names "sword,shield,potion,helm"
-```
+`tripo3d.py` is the Tripo3D API client used by `asset_gen.py glb` internally. You do not normally call it directly — use the `glb` subcommand of `asset_gen.py` instead. It requires `TRIPO3D_API_KEY`.
 
-| Flag | Default | Description |
-|---|---|---|
-| `input` | (required) | Input grid image |
-| `-o, --output` | (required) | Output directory |
-| `--grid` | `2x2` | Grid layout as `ColsxRows` (e.g., `3x3`, `2x4`) |
-| `--names` | none | Comma-separated names for output files (without `.png`). Default: `01`, `02`, etc. |
+## Calling these by hand
 
-Output JSON:
+You usually do not need to run these scripts directly. `/gm-asset` orchestrates them based on your `ASSETS.md` and calls them with the right prompts and output paths automatically.
 
-```json
-{"ok": true, "cells": 4, "cell_size": "32x32", "paths": ["frames/01.png", ...]}
-```
+The main reasons to call them manually:
 
----
+- You want to regenerate one specific asset with a tweaked prompt.
+- You are experimenting with different sizes, providers, or aspect ratios before committing to a full `/gm-asset` run.
+- You received art from an external source and want to remove its background with `rembg_matting.py`.
 
-## find_loop_frame.py -- Animation Loop Finder
-
-Detects the best loop point in a sequence of animation frames by comparing frame similarity.
-
-```bash
-python tools/find_loop_frame.py frames/ --skip 10 --min-gap 5
-```
-
-| Flag | Default | Description |
-|---|---|---|
-| `frames_dir` | (required) | Directory containing numbered frame PNGs |
-| `--skip` | `10` | Skip first N frames (avoid intro/transition) |
-| `--min-gap` | `5` | Minimum frames between loop candidates |
-| `--top` | `5` | Show top N candidates on stderr |
-
-Strategy: Automatically detects the best loop point in an animation clip.
-
-Output JSON:
-
-```json
-{"loop_frame": 54, "similarity": 0.9983, "window": 7, "total_frames": 73}
-```
-
----
-
-## check_classname.py -- Class Name Validator
-
-Checks GDScript files for `class_name` declarations that conflict with Godot built-in names. Shadowing a built-in name causes hard-to-debug errors in the Godot editor and at runtime.
-
-```bash
-python tools/check_classname.py <project_dir>
-python tools/check_classname.py <project_dir> --json
-```
-
-Scans all `.gd` files (excluding `addons/`, `.godot/`, `.claude/`, `.git/`) for `class_name` declarations and compares them against a comprehensive blacklist of Godot built-in class names, singletons, and core variant types.
-
-Human-readable output:
-
-```
-[PASS] No class_name conflicts with Godot built-in names.
-```
-
-Or:
-
-```
-[FAIL] Found 2 class_name conflict(s):
-
-  src/components/timer.gd: class_name 'Timer' conflicts with Godot built-in 'Timer'
-  src/systems/world.gd: class_name 'World' conflicts with Godot built-in 'World'
-```
-
-JSON output (`--json`):
-
-```json
-{
-  "conflicts": [
-    {"file": "src/components/timer.gd", "class_name": "Timer", "conflicts_with": "Timer"}
-  ],
-  "clean": false
-}
-```
-
-Exit codes: 0 = clean, 1 = conflicts found, 2 = invalid directory.
+If you want to update the visual targets that `/gm-evaluate` checks against, re-run `/gm-asset` rather than editing the generated images directly. Editing them by hand will be overwritten the next time `/gm-asset` runs.

@@ -1,76 +1,52 @@
-# Project Checker
+# Check your project
 
-`check_project.py` validates that a GodotMaker-generated game project is complete and correctly structured. It checks ECS setup, test coverage, planning documents, e2e tests, build readiness, and MCP registration.
-
-## Usage
+`check_project.py` inspects a generated game project for missing files, broken structure, and other inconsistencies. Run this when a build is acting strange or before publishing a milestone.
 
 ```bash
-# Run all checks
-python tools/check_project.py <project_dir> --all
-
-# Run specific check categories
-python tools/check_project.py <project_dir> --build --ecs --tests
-
-# If no flags are specified, all checks run by default
-python tools/check_project.py <project_dir>
+python tools/check_project.py /path/to/my-game
 ```
 
-### Flags
+With no flags, all checks run. You can also run specific categories:
 
-| Flag | Category |
-|---|---|
-| `--build` | Build readiness (project.godot) |
-| `--ecs` | ECS framework (gecs) setup |
-| `--tests` | Unit test coverage (gdUnit4) |
-| `--e2e` | End-to-end test setup (godot-e2e) |
-| `--plan` | Planning documents (PLAN.md, STRUCTURE.md, etc.) |
-| `--mcp` | MCP server registration |
-| `--all` | Run all of the above |
+```bash
+python tools/check_project.py /path/to/my-game --ecs --tests
+python tools/check_project.py /path/to/my-game --all
+```
 
-## Checks Performed
+## Category flags
 
-### Build Readiness (`--build`)
+| Flag | What it checks |
+|------|---------------|
+| `--build` | `project.godot` exists and has a valid `[application]` section |
+| `--ecs` | The gecs addon is present; game code has Component and System files |
+| `--tests` | The gdUnit4 addon is present; every System has a matching unit test file |
+| `--e2e` | The godot-e2e plugin is enabled; `e2e/` has real test functions, not placeholders |
+| `--plan` | `PLAN.md` and `STRUCTURE.md` exist with the right sections |
+| `--mcp` | The `godot-mcp` server is registered in `.mcp.json` |
+| `--all` | All of the above |
 
-- `project.godot` exists
-- `project.godot` contains an `[application]` section
+## What it catches
 
-### ECS Setup (`--ecs`)
+**Build readiness** — confirms `project.godot` is present and structurally valid. A missing project file means Godot cannot open the project at all.
 
-- `addons/gecs/` directory exists
-- At least one `.gd` file extends `Component` or `GECSComponent`
-- At least one `.gd` file extends `System` or `GECSSystem`
+**ECS setup** — confirms that `addons/gecs/` is installed and that your game actually has GDScript files that `extend Component` and `extend System`. A project with neither has not been built yet (or the build was interrupted).
 
-The checker scans all `.gd` files outside `addons/`, `.godot/`, and `.claude/` directories.
+**Unit test coverage** — checks that every System file has a corresponding test file. It looks for matches like `test_movement_system.gd`, `movement_system_test.gd`, or `testmovementsystem.gd`. Systems without tests are listed by name.
 
-### Unit Tests (`--tests`)
+**End-to-end tests** — checks that `e2e/conftest.py` exists, that there are `test_*.py` files in the `e2e/` folder, and that those files contain real `def test_` functions and are not empty stubs. Placeholder files that are too short or contain "todo" / "stub" keywords trigger a warning.
 
-- `addons/gdunit4/` directory exists
-- Test files exist (files with "test" in their path)
-- Each System file has a corresponding test file (matching `test_<name>`, `<name>_test`, or `test<name>` patterns)
-- Reports which systems are missing test coverage
+**Planning documents** — confirms `PLAN.md` exists with task status markers (`pending`, `in_progress`, `completed`, etc.) and that `STRUCTURE.md` has a Component Registry and a System Schedule. These are the documents that guide `/gm-build` and `/gm-fixgap`.
 
-### E2E Tests (`--e2e`)
+**MCP registration** — checks that `.mcp.json` contains a `"godot"` server entry, which is what `publish.py` creates. Without it, Claude Code cannot send commands to the Godot editor.
 
-- godot-e2e plugin enabled in `project.godot`, or addon directory exists
-- `e2e/conftest.py` exists
-- E2E test files found in `e2e/` (matching `test_*.py`)
-- Content quality: files must be >50 characters, contain `def test_` functions, and not consist entirely of placeholder content
+## When to run it
 
-### Planning Documents (`--plan`)
+- After a build that produced errors or unexpected behavior.
+- Before running `/gm-finalize` to confirm the project is complete.
+- When resuming a project after a long break, to see what state it is in.
+- After manually adding or renaming files, to confirm nothing is broken.
 
-| File | Required | Checks |
-|---|---|---|
-| `PLAN.md` | Yes | Exists; has Task Status section with status markers (`pending`, `in_progress`, `completed`, etc.) |
-| `STRUCTURE.md` | Yes | Exists; has Component Registry (Component + Registry/table); has System Schedule (System + Schedule) |
-| `MEMORY.md` | No (warned) | Exists |
-| `ASSETS.md` | No (warned) | Exists |
-
-### MCP Registration (`--mcp`)
-
-- `.mcp.json` exists
-- `.mcp.json` contains a `"godot"` server entry
-
-## Output Format
+## Reading the output
 
 ```
 [PASS] project.godot exists
@@ -78,7 +54,7 @@ The checker scans all `.gd` files outside `addons/`, `.godot/`, and `.claude/` d
 [WARN] MEMORY.md not found (optional but recommended)
 ```
 
-Summary at the end:
+Failed checks are summarized at the end:
 
 ```
 ==================================================
@@ -93,14 +69,10 @@ Failed checks:
   - Systems without test files: movement_system, spawn_system
 ```
 
-## Exit Codes
+## Exit codes
 
 | Code | Meaning |
-|---|---|
+|------|---------|
 | 0 | All checks passed |
 | 1 | One or more checks failed |
-| 2 | Project directory does not exist |
-
-## Integration with Hooks
-
-The `check_completion` hook (triggered on Stop events) calls this tool to verify project completeness before allowing the orchestrator to finish.
+| 2 | The project directory does not exist |
