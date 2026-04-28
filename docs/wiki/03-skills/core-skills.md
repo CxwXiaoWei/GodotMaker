@@ -12,7 +12,7 @@ There are nine role skills, each responsible for one phase of game creation. You
 | `/gm-gdd` | Interviews you about the game, then writes the design documents and work plan | A scaffolded project | `GDD.md`, `PLAN.md`, `STRUCTURE.md`, `SCENES.md`, `ASSETS.md`, `TOC.md` |
 | `/gm-asset` | Generates missing art or analyses art you provide, so the build has visuals to work with | `ASSETS.md` from `/gm-gdd` | Art files in `assets/`, updated `ASSETS.md` |
 | `/gm-build` | Implements the game by sending tasks to worker sub-agents one batch at a time, with reviewers checking the result | Design documents from `/gm-gdd` | Game code in `src/`, `scenes/`, unit tests, end-to-end tests |
-| `/gm-verify` | Runs a mechanical check: does the project compile, do unit tests pass, are required files present | A built project | `.godotmaker/verify_result.json` |
+| `/gm-verify` | Runs a mechanical check: does the project compile, do unit tests pass, are required files present | A built project | A printed pass/fail report and a `verify` event appended to `.godotmaker/stage.jsonl` |
 | `/gm-evaluate` | Runs the game independently, takes screenshots, and scores the result against the GDD | A verified project | `.godotmaker/evaluation.json`, screenshots in `e2e/screenshots/` |
 | `/gm-fixgap` | Reads the evaluation report, generates a list of issues, and dispatches workers to fix them | An evaluation from `/gm-evaluate` | Updated game code, `GAP.md` archived to `.godotmaker/gaps/<n>/` |
 | `/gm-accept` | Shows you the current state and asks whether to accept it, go back for more fixes, or stop | A complete build cycle | Acceptance event recorded in `.godotmaker/stage.jsonl` |

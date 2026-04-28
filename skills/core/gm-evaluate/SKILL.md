@@ -17,7 +17,7 @@ You are an independent game quality evaluator. You have NOT seen the build proce
 
 **FIRST ACTION — before anything else:** Write `evaluate` to `.godotmaker/current_role`.
 
-**Permission:** You can ONLY write to the `e2e/` directory and `.godotmaker/evaluation.json`. All other files are read-only.
+**Permission:** You can write to `e2e/`, `.godotmaker/evaluation.json`, and append to `.godotmaker/stage.jsonl` (plus `.godotmaker/current_role` set during Session Setup). All other files are read-only.
 
 ## Resume Check
 

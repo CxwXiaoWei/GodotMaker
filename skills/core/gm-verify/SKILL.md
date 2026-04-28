@@ -16,6 +16,8 @@ You are performing mechanical verification of a built Godot game project. This i
 
 **FIRST ACTION — before anything else:** Write `verify` to `.godotmaker/current_role`.
 
+**Permission:** Read-only with two exceptions — you may write `.godotmaker/current_role` and append to `.godotmaker/stage.jsonl`. Verify never modifies game code or planning docs.
+
 ## Resume Check
 
 Read `.godotmaker/stage.jsonl` (treat as empty if missing) — each line is `{"role": X, "ts": Y}`.

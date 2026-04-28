@@ -52,8 +52,8 @@ skill) and applies that role's write rules. Per-role summary:
 | `gdd` | `.md` planning docs, `project.godot`, `.godotmaker/` (no `assets/`) |
 | `asset` | `ASSETS.md`, `.godotmaker/` (image files go through `asset_gen.py` Bash or analyst subagent) |
 | `build` / `fixgap` | nothing in `e2e/`; nothing in game code (`.gd` / `.tscn` / `.tres`) directly — must dispatch a Worker |
-| `verify` | `.godotmaker/` only (read-only otherwise) |
-| `evaluate` | `e2e/` or `.godotmaker/` (anywhere inside, not just `evaluation.json`) |
+| `verify` | `.godotmaker/stage.jsonl` and `.godotmaker/current_role` only (read-only otherwise) |
+| `evaluate` | `e2e/`, `.godotmaker/evaluation.json`, `.godotmaker/stage.jsonl`, `.godotmaker/current_role` |
 | `accept` / `finalize` | anything except `e2e/` and game code (`.gd` / `.tscn` / `.tres`) |
 
 Subagents are always blocked from `e2e/` (Evaluator-owned) and from planning

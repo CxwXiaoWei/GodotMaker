@@ -14,6 +14,8 @@ $ARGUMENTS
 
 You are fixing specific issues identified by the Evaluator. You read the evaluation report, generate a GAP.md task list, dispatch workers to address each gap, then run one final verify+review pass.
 
+**Loop position:** `/gm-fixgap` is never terminal. The cycle is `/gm-fixgap → /gm-verify → /gm-evaluate`. Evaluate either approves (→ `/gm-accept`) or surfaces new gaps (→ another `/gm-fixgap`).
+
 ## Session Setup
 
 **FIRST ACTION — before anything else:** Write `fixgap` to `.godotmaker/current_role`.

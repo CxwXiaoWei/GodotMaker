@@ -12,7 +12,7 @@ Core 技能分为两类：九个通过斜杠命令调用的角色技能，以及
 | `/gm-gdd` | 询问你关于游戏的构想，然后编写设计文档和工作计划 | 已搭建好的项目骨架 | `GDD.md`、`PLAN.md`、`STRUCTURE.md`、`SCENES.md`、`ASSETS.md`、`TOC.md` |
 | `/gm-asset` | 生成缺失的美术资源，或分析你提供的美术资源，为构建阶段准备好可用的素材 | `/gm-gdd` 产出的 `ASSETS.md` | `assets/` 下的美术文件，更新后的 `ASSETS.md` |
 | `/gm-build` | 通过向 Worker（工人）子 Agent 分批派发任务来实现游戏，Reviewer 会对结果进行审查 | `/gm-gdd` 产出的设计文档 | `src/`、`scenes/` 下的游戏代码，单元测试，端对端测试 |
-| `/gm-verify` | 运行机械性检查：项目能否编译、单元测试是否通过、必要文件是否存在 | 已构建好的项目 | `.godotmaker/verify_result.json` |
+| `/gm-verify` | 运行机械性检查：项目能否编译、单元测试是否通过、必要文件是否存在 | 已构建好的项目 | 一份打印到聊天里的通过/失败报告，并向 `.godotmaker/stage.jsonl` 追加一个 `verify` 事件 |
 | `/gm-evaluate` | 独立运行游戏，截图并对照 GDD 给结果评分 | 已通过验证的项目 | `.godotmaker/evaluation.json`，`e2e/screenshots/` 下的截图 |
 | `/gm-fixgap` | 读取评估报告，生成问题列表，并派发 Worker 逐一修复 | `/gm-evaluate` 产出的评估结果 | 更新后的游戏代码，`GAP.md` 归档到 `.godotmaker/gaps/<n>/` |
 | `/gm-accept` | 展示当前状态，询问你是接受结果、继续修复，还是停止 | 完整的构建周期 | 接受事件记录到 `.godotmaker/stage.jsonl` |

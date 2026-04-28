@@ -8,7 +8,7 @@ Generated Godot game project. The `/gm-*` skills drive the build pipeline — in
 
 - **Don't bypass the role lock.** `.godotmaker/current_role` decides who may write what. If a hook denies a write, dispatch the right subagent or switch to the right `/gm-*` skill — don't try to `--force` past it.
 - **Don't write `e2e/` outside the Evaluator role.** Workers expose `simulate_*()` interfaces and write unit tests for them. Only the Evaluator (`/gm-evaluate`) writes the e2e tests.
-- **Don't manually edit `.godotmaker/stage.json`.** Each `/gm-*` skill appends its own role timestamp on completion.
+- **Don't manually edit `.godotmaker/stage.jsonl`.** Each `/gm-*` skill appends its own role timestamp on completion.
 - **Read `MEMORY.md` before dispatching a worker.** Past mistakes are indexed there — workers will repeat them otherwise.
 
 ### Resources

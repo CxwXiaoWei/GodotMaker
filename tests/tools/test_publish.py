@@ -139,7 +139,7 @@ class TestPublishSkills:
         """Create a minimal repo structure with fake skills."""
         repo = tmp_path / "repo"
         # core skills
-        for name in ["gecs", "orchestrator"]:
+        for name in ["gecs", "gm-scaffold"]:
             skill_dir = repo / "skills" / "core" / name
             skill_dir.mkdir(parents=True)
             (skill_dir / "SKILL.md").write_text(f"# {name}\n")
@@ -165,7 +165,7 @@ class TestPublishSkills:
         count = publish_skills(repo, target)
         assert count == 4
         assert (target / "gecs" / "SKILL.md").exists()
-        assert (target / "orchestrator" / "SKILL.md").exists()
+        assert (target / "gm-scaffold" / "SKILL.md").exists()
         assert (target / "physics" / "SKILL.md").exists()
         assert (target / "ui" / "SKILL.md").exists()
 

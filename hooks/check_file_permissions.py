@@ -18,7 +18,13 @@ PLANNING_DOCS = {"plan.md", "structure.md", "assets.md", "gap.md"}
 E2E_DIR_PREFIX = "e2e/"
 ASSETS_DIR_PREFIX = "assets/"
 GODOTMAKER_DIR = ".godotmaker/"
-EVAL_FILE = ".godotmaker/evaluation.json"
+# Per-role narrow write allow-lists under .godotmaker/. Both roles still need
+# current_role + stage.jsonl for bookkeeping; evaluate also writes its verdict.
+EVAL_ALLOWED_GM_FILES = {".godotmaker/evaluation.json",
+                          ".godotmaker/stage.jsonl",
+                          ".godotmaker/current_role"}
+VERIFY_ALLOWED_GM_FILES = {".godotmaker/stage.jsonl",
+                            ".godotmaker/current_role"}
 
 
 def _is_e2e_path(path_lower: str) -> bool:
@@ -33,8 +39,9 @@ def _is_godotmaker_path(path_lower: str) -> bool:
     return path_lower.startswith(GODOTMAKER_DIR) or f"/{GODOTMAKER_DIR}" in path_lower
 
 
-def _is_eval_file(path_lower: str) -> bool:
-    return path_lower.endswith(EVAL_FILE) or path_lower == EVAL_FILE
+def _matches_allowed_gm(path_lower: str, allowed: set[str]) -> bool:
+    """True if path ends with one of the allowed `.godotmaker/<file>` entries."""
+    return any(path_lower.endswith(p) for p in allowed)
 
 
 def _block(reason: str, file_name: str, agent_id: str = "") -> None:
@@ -56,15 +63,17 @@ def _check_main(role: str, path_lower: str, file_name: str, ext: str) -> None:
     is_assets = _is_assets_path(path_lower)
 
     if role == "evaluate":
-        if not (is_e2e or is_godotmaker):
-            _block(f"Evaluator can only write to e2e/ or .godotmaker/ "
-                   f"(attempted: {file_name}).", file_name)
-        return
+        if is_e2e or _matches_allowed_gm(path_lower, EVAL_ALLOWED_GM_FILES):
+            return
+        _block(f"Evaluator can only write e2e/, .godotmaker/evaluation.json, "
+               f".godotmaker/stage.jsonl, or .godotmaker/current_role "
+               f"(attempted: {file_name}).", file_name)
 
     if role == "verify":
-        if not is_godotmaker:
-            _block(f"Verify role is read-only — cannot write {file_name}.", file_name)
-        return
+        if _matches_allowed_gm(path_lower, VERIFY_ALLOWED_GM_FILES):
+            return
+        _block(f"Verify is read-only except .godotmaker/stage.jsonl and "
+               f".godotmaker/current_role (attempted: {file_name}).", file_name)
 
     if role == "scaffold":
         return

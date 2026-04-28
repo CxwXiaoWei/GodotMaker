@@ -226,13 +226,26 @@ class TestRoleBased:
 
     def test_verify_is_read_only(self, project_dir):
         write_current_role("verify")
-        for path in ["scripts/x.gd", "PLAN.md", "e2e/test.py"]:
+        for path in ["scripts/x.gd", "PLAN.md", "e2e/test.py",
+                     ".godotmaker/evaluation.json", ".godotmaker/random.json"]:
             _, _, parsed = run_hook(HOOK, {
                 "tool_name": "Write",
                 "tool_input": {"file_path": path},
                 "agent_id": "",
             })
             assert is_blocked(parsed), f"verify must block {path}"
+
+    def test_verify_can_write_stage_jsonl_and_current_role(self, project_dir):
+        """Verify needs to update bookkeeping files even though it is otherwise
+        read-only (per gm-verify SKILL.md 'Session Setup' + 'When Done')."""
+        write_current_role("verify")
+        for path in [".godotmaker/stage.jsonl", ".godotmaker/current_role"]:
+            _, _, parsed = run_hook(HOOK, {
+                "tool_name": "Edit",
+                "tool_input": {"file_path": path},
+                "agent_id": "",
+            })
+            assert not is_blocked(parsed), f"verify must allow {path}"
 
     def test_evaluate_can_write_e2e(self, project_dir):
         write_current_role("evaluate")
@@ -265,7 +278,11 @@ class TestRoleBased:
 
     def test_evaluate_blocked_from_other_files(self, project_dir):
         write_current_role("evaluate")
-        for path in ["scripts/x.gd", "PLAN.md", "MEMORY.md", "config.yaml"]:
+        # Includes other .godotmaker/ paths that are NOT in the allow-list
+        # (final_report.json belongs to finalize; config.yaml is user-owned).
+        for path in ["scripts/x.gd", "PLAN.md", "MEMORY.md", "config.yaml",
+                     ".godotmaker/final_report.json", ".godotmaker/config.yaml",
+                     ".godotmaker/random.json"]:
             _, _, parsed = run_hook(HOOK, {
                 "tool_name": "Write",
                 "tool_input": {"file_path": path},

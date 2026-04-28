@@ -9,8 +9,9 @@ vqa_model: gemini-3-flash
 
 # Agent model configuration
 # Workers use opus for complex implementation tasks
-# Verifiers, reviewers, and analysts use sonnet for lighter validation work
+# Verifiers, reviewers, analysts, and the GDD auditor use sonnet for lighter validation work
 worker_model: opus
 verifier_model: sonnet
 reviewer_model: sonnet
 analyst_model: sonnet
+auditor_model: sonnet

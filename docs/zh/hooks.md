@@ -47,8 +47,8 @@ GodotMaker 所有 Hook 的完整参考。Hook 是 Python 脚本，在 Claude Cod
 | `gdd` | `.md` 规划文档、`project.godot`、`.godotmaker/`（不含 `assets/`） |
 | `asset` | `ASSETS.md`、`.godotmaker/`（图片文件通过 `asset_gen.py` Bash 或 Analyst 子代理处理） |
 | `build` / `fixgap` | `e2e/` 中不可写；游戏代码（`.gd` / `.tscn` / `.tres`）不可直接写——必须派发 Worker |
-| `verify` | 仅 `.godotmaker/`（其他地方只读） |
-| `evaluate` | `e2e/` 或 `.godotmaker/`（内部任意位置，不仅限于 `evaluation.json`） |
+| `verify` | 仅 `.godotmaker/stage.jsonl` 和 `.godotmaker/current_role`（其他地方只读） |
+| `evaluate` | `e2e/`、`.godotmaker/evaluation.json`、`.godotmaker/stage.jsonl`、`.godotmaker/current_role` |
 | `accept` / `finalize` | 除 `e2e/` 和游戏代码（`.gd` / `.tscn` / `.tres`）外的任何内容 |
 
 子代理始终被阻止写入 `e2e/`（评估器专属）和规划文档（`PLAN.md` / `STRUCTURE.md` / `ASSETS.md` / `GAP.md`）；它们通过报告来记录变更。

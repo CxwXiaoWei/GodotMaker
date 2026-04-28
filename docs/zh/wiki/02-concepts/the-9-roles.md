@@ -88,7 +88,7 @@
 - 通过 `gdUnit4` 运行 `tests/` 里的所有单元测试
 - 检查当前里程碑 `stage_schemas.json` 中列出的每个文件是否都存在
 
-**你得到什么：** `.godotmaker/verify_result.json`，包含通过/失败判定和所有失败的完整输出。
+**你得到什么：** 一份打印出来的验证报告，按检查项给出通过/失败判定，并附上所有失败的完整输出。全部通过后，`/gm-verify` 会向 `.godotmaker/stage.jsonl` 追加一个 `verify` 事件。
 
 **需要知道的：** `/gm-verify` 是 `/gm-evaluate` 的前置条件。如果它失败了，说明构建还有问题需要修——回到 `/gm-build` 或者给 `/gm-fixgap` 提供问题描述。
 

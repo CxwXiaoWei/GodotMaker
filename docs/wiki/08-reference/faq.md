@@ -85,7 +85,7 @@ For a longer explanation, see [ECS in plain English](../02-concepts/ecs-in-plain
 
 ### How do I know if the build succeeded?
 
-After `/gm-verify` completes, the result is in `.godotmaker/verify_result.json`. Each worker's report also records whether its tests passed. If the Godot headless build fails or unit tests fail, the verifier sub-agent reports this and the issue is fed back to a worker for a fix.
+After `/gm-verify` completes, it prints a per-check pass/fail report to the chat and — on overall success — appends a `verify` event to `.godotmaker/stage.jsonl`. Each worker's report during `/gm-build` also records whether its tests passed. If the Godot headless build fails or unit tests fail, `/gm-verify` reports the failure and tells you to go back to `/gm-build` (or `/gm-fixgap` if you were in a gap-fix cycle).
 
 ---
 

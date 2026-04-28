@@ -69,6 +69,11 @@ nav:
       - Glossary: wiki/08-reference/glossary.md
       - FAQ: wiki/08-reference/faq.md
       - Changelog: wiki/08-reference/changelog.md
+  - Release Notes:
+      - Latest: update/next.md
+      - v0.2.1: update/v0.2.1.md
+      - v0.2.0: update/v0.2.0.md
+      - Release Checklist: update/release-checklist.md
   - Project Docs:
       - Versioning: versioning.md
       - Hooks Reference: hooks.md
@@ -144,6 +149,9 @@ plugins:
             Glossary: 术语表
             FAQ: 常见疑问
             Changelog: 更新日志
+            Release Notes: 发布说明
+            Latest: 最新
+            Release Checklist: 发布清单
             Project Docs: 项目文档
             Versioning: 版本管理
             Hooks Reference: Hooks 参考

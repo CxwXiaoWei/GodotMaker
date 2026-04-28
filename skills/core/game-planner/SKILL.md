@@ -146,7 +146,7 @@ Spawn the **`gdd-auditor`** subagent with a fresh context. Pass it the full GDD 
 Agent({
   subagent_type: "gdd-auditor",
   description: "Audit GDD draft (pass 1)",
-  model: "{auditor_model from .godotmaker/config.yaml, default: opus}",
+  model: "{auditor_model from .godotmaker/config.yaml, default: sonnet}",
   prompt: "{audit brief below}"
 })
 ```
@@ -186,7 +186,7 @@ Spawn the auditor again with iteration `2`. **You MUST populate the `Previously 
 Agent({
   subagent_type: "gdd-auditor",
   description: "Audit GDD draft (pass 2)",
-  model: "{auditor_model from .godotmaker/config.yaml, default: opus}",
+  model: "{auditor_model from .godotmaker/config.yaml, default: sonnet}",
   prompt: "{audit brief below}"
 })
 ```

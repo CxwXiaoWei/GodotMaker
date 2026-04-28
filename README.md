@@ -29,8 +29,8 @@ GodotMaker is for the gap between *"I have an idea"* and *"I have a playable thi
 ## How it works (in 30 seconds)
 
 1. You install GodotMaker into an empty folder. One command.
-2. You open Claude Code in that folder and type `/gm-gdd`. The AI interviews you about the game you want.
-3. You run the next eight commands one at a time. Between each, the AI does the work — writes the code, generates the art, builds the project, plays the game, takes screenshots, scores the result.
+2. You open Claude Code in that folder and type `/gm-scaffold`. The AI sets up the Godot project, addons, and folder layout. Then `/gm-gdd` interviews you about the game you want.
+3. You run the remaining seven commands one at a time. Between each, the AI does the work — writes the code, generates the art, builds the project, plays the game, takes screenshots, scores the result.
 4. When you're happy, you accept and finalise. Open the project in Godot and play.
 
 A small game typically takes about 30 minutes of *your* attention spread across the session — the AI runs in the background between commands.

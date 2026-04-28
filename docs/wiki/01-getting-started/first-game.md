@@ -119,7 +119,7 @@ You will see a lot of output as tasks are dispatched and reported back. This is 
 
 **What to expect:** The AI runs a mechanical check — does the project compile without errors? Do the unit tests pass? Are any required files missing? This is a fast, automated step with no questions.
 
-**What lands on disk:** `.godotmaker/verify_result.json`.
+**What lands on disk:** A `verify` event appended to `.godotmaker/stage.jsonl` once every check passes. The detailed report is printed to the chat — nothing else is written to disk.
 
 **When you know it's done:** The AI prints a pass/fail summary. If anything fails here, it means something in the build step needs fixing — the next two commands handle that.
 

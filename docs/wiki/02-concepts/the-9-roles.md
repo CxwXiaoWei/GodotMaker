@@ -88,7 +88,7 @@ The commands form two kinds of sequence. `/gm-scaffold` runs once, at the very s
 - Runs all unit tests in `tests/` via `gdUnit4`
 - Checks that every file listed in `stage_schemas.json` for the current milestone exists
 
-**What you get:** `.godotmaker/verify_result.json` with a pass/fail verdict and the full output of any failures.
+**What you get:** A printed verification report with a pass/fail verdict per check and the full output of any failures. On success, `/gm-verify` appends a `verify` event to `.godotmaker/stage.jsonl`.
 
 **Things to know:** `/gm-verify` is a prerequisite for `/gm-evaluate`. If it fails, the build still has problems that need fixing — go back to `/gm-build` or file an issue description for `/gm-fixgap`.
 
