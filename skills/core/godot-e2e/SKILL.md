@@ -192,9 +192,9 @@ def test_player_moves_right(game):
     assert game.get_property("/root/Main/Player", "position:x") > initial_x
 ```
 
-### Orchestrator E2E Spec
+### Dispatcher E2E Spec
 
-Before dispatching a worker, the orchestrator writes an E2E spec to `.godotmaker/workers/{task_id}.md` containing:
+Before dispatching a worker, the dispatching role writes an E2E spec to `.godotmaker/workers/{task_id}.md` containing:
 - Task objective and constraints
 - **E2E acceptance criteria**: specific "user action → expected state change" pairs
 - Known gotchas or dependencies
@@ -220,7 +220,7 @@ Workers maintain reusable E2E helper functions in `e2e/helpers/` to prevent test
 4. **Private → public methods** → E2E `game.call()` cannot call `_private()` methods; any method called by E2E must be public
 5. **After ANY structural change** → run `godot-e2e e2e/ -v` to catch broken fixtures immediately
 
-> **Note:** Orchestrator writes E2E specs to `.godotmaker/workers/{task_id}.md` before dispatching workers. Verifiers MUST confirm the worker's E2E tests cover ALL listed acceptance criteria.
+> **Note:** The dispatching role writes E2E specs to `.godotmaker/workers/{task_id}.md` before dispatching workers. Verifiers MUST confirm the worker's E2E tests cover ALL listed acceptance criteria.
 
 ## Extended References
 

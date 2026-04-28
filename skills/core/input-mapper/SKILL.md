@@ -5,7 +5,7 @@ description: |
   Use when adding input actions, changing key bindings, setting up controls
   for a new genre, or validating that all referenced actions exist.
   Called by project-scaffold (initial setup), workers (new mechanics),
-  and orchestrator (GDD changes requiring new inputs).
+  and the dispatching role (GDD changes requiring new inputs).
 ---
 
 # Input Mapper
@@ -22,7 +22,7 @@ Source actions from one of:
 1. **GDD Mechanics table** — each mechanic implies input actions
    (e.g., "Player can jump" → `jump` action).
 2. **Genre preset** — use a preset from Step 3 as a starting point.
-3. **Explicit request** — user or orchestrator specifies exact actions.
+3. **Explicit request** — user or dispatching role specifies exact actions.
 
 For each action, determine: action name (snake_case), bound keys/buttons.
 

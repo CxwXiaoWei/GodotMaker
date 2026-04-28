@@ -55,7 +55,7 @@ You are STRICTLY PROHIBITED from:
 {What the system does, which Components/Systems are involved}
 
 ### Specific Concerns                                    [OPTIONAL]
-{Anything the orchestrator wants you to pay special attention to}
+{Anything the dispatching role wants you to pay special attention to}
 ```
 
 ## Report Format (MANDATORY)

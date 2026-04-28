@@ -40,7 +40,7 @@ def main():
 
     version = read_deployed_version()
     if version:
-        # Inject version info as additional context for the orchestrator
+        # Inject version info as additional context for the active role
         result = {
             "hookSpecificOutput": {
                 "hookEventName": "SessionStart",

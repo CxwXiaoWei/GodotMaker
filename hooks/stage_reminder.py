@@ -51,9 +51,9 @@ def check_plan_all_verified() -> str | None:
 def check_gap_archived() -> str | None:
     """Fixgap role: GAP.md must be archived (moved out of project root).
 
-    The orchestrator's When Done step archives the completed GAP.md to
+    The fixgap role's When Done step archives the completed GAP.md to
     `.godotmaker/gaps/<iteration>/GAP.md`. If GAP.md is still at root
-    when the fixgap event is recorded, the orchestrator skipped the archive.
+    when the fixgap event is recorded, the role skipped the archive.
     """
     if os.path.isfile("GAP.md"):
         return ("GAP.md is still at project root — it must be archived to "

@@ -23,7 +23,7 @@ def project_dir():
         os.chdir(original)
 
 
-class TestOrchestratorBlocked:
+class TestMainAgentBlocked:
     """Main agent (no agent_id) should be blocked from writing game code."""
 
     @pytest.mark.parametrize("ext", [".gd", ".tscn", ".tres"])
@@ -33,7 +33,7 @@ class TestOrchestratorBlocked:
             "tool_input": {"file_path": f"scripts/player{ext}"},
             "agent_id": "",
         })
-        assert is_blocked(parsed), f"Should block orchestrator writing {ext}"
+        assert is_blocked(parsed), f"Should block main agent writing {ext}"
 
     def test_allow_planning_docs(self):
         _, _, parsed = run_hook(HOOK, {
@@ -41,7 +41,7 @@ class TestOrchestratorBlocked:
             "tool_input": {"file_path": "PLAN.md"},
             "agent_id": "",
         })
-        assert not is_blocked(parsed), "Orchestrator should be allowed to write PLAN.md"
+        assert not is_blocked(parsed), "Main agent should be allowed to write PLAN.md"
 
     def test_allow_memory(self):
         _, _, parsed = run_hook(HOOK, {
@@ -49,7 +49,7 @@ class TestOrchestratorBlocked:
             "tool_input": {"file_path": "MEMORY.md"},
             "agent_id": "",
         })
-        assert not is_blocked(parsed), "Orchestrator should be allowed to edit MEMORY.md"
+        assert not is_blocked(parsed), "Main agent should be allowed to edit MEMORY.md"
 
 
 class TestWorkerBlocked:
@@ -148,7 +148,7 @@ class TestRoleBased:
         assert is_blocked(parsed), f"role={role} must not write to e2e/"
 
     @pytest.mark.parametrize("role", ["build", "fixgap"])
-    def test_orchestrator_blocked_from_game_code(self, project_dir, role):
+    def test_dispatch_role_blocked_from_game_code(self, project_dir, role):
         write_current_role(role)
         _, _, parsed = run_hook(HOOK, {
             "tool_name": "Write",
@@ -222,7 +222,7 @@ class TestRoleBased:
                 "tool_input": {"file_path": path},
                 "agent_id": "",
             })
-            assert is_blocked(parsed), f"asset orchestrator must block {path}"
+            assert is_blocked(parsed), f"asset role must block {path}"
 
     def test_verify_is_read_only(self, project_dir):
         write_current_role("verify")

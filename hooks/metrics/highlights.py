@@ -69,7 +69,7 @@ def _hl_completion_fail_loop(events):
     comp_fails = sum(1 for e in events if e.get("event") == "gate_check"
                      and e.get("gate") == "completion" and e.get("result") == "fail")
     if comp_fails >= 3:
-        return f"Completion gate failed {comp_fails} times. Orchestrator may be stuck in a retry loop."
+        return f"Completion gate failed {comp_fails} times. The active role may be stuck in a retry loop."
 
 
 HIGHLIGHT_RULES = [

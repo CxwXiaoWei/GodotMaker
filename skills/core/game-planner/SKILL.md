@@ -119,7 +119,7 @@ Cover: Music needs per scene (mood/style), SFX list, art asset requirements,
 MVP vs stretch vs deferred features, content volume.
 
 Focus on WHAT the game needs (design perspective), not whether the user HAS files.
-Asset collection happens later in Stage 1b — game-planner only defines requirements.
+Asset collection happens later in `/gm-asset` — game-planner only defines requirements.
 
 Example questions:
 - "What kind of music fits the gameplay — fast-paced electronic, orchestral, chiptune?"
@@ -241,7 +241,7 @@ Once confirmed, the GDD becomes the **source of truth** for all downstream stage
 
 ## ECS Architecture Hints
 
-When the GDD is being decomposed into PLAN.md (Stage 1b, done by the orchestrator),
+When the GDD is being decomposed into PLAN.md (by `/gm-gdd`),
 the Characters & Entities section maps directly to ECS components:
 
 | Genre | Typical Components |
@@ -252,13 +252,13 @@ the Characters & Entities section maps directly to ECS components:
 | Tower defense | C_PathFollow, C_Tower, C_Range, C_Projectile, C_WaveSpawner |
 | RPG | C_Stats, C_Inventory, C_DialogTrigger, C_QuestState, C_TurnOrder |
 
-These are starting points — the orchestrator adapts based on the specific GDD.
+These are starting points — `/gm-gdd` adapts the choice based on the specific GDD.
 
 ## What This Skill Does NOT Do
 
 - Does not write code or create files
-- Does not decompose the GDD into tasks (that's the orchestrator's job in Stage 1b)
-- Does not collect assets (that's Stage 1b)
+- Does not decompose the GDD into tasks (that's `/gm-gdd`'s own synthesis step)
+- Does not collect assets (that's `/gm-asset`)
 - Does not teach game design theory
 - Does not enforce a specific project structure (that's project-scaffold's job)
 - Does not replace the user's creative vision — it clarifies and structures it

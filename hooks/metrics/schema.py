@@ -56,7 +56,7 @@ class EventType(str, Enum):
     BUILD_CHECK = "build_check"
     SCREENSHOT_CAPTURE = "screenshot_capture"
 
-    # Orchestrator actions
+    # Dispatch-role actions
     WORKER_BRIEF = "worker_brief"
 
 

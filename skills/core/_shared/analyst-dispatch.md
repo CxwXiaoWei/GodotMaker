@@ -1,7 +1,7 @@
 # Analyst Dispatch Protocol
 
 When the user provides art/audio assets, dispatch an analyst to process them.
-The orchestrator MUST NOT read image files in `assets/` directly — always delegate to the analyst.
+The dispatching role MUST NOT read image files in `assets/` directly — always delegate to the analyst.
 
 **Agent definition:** `.claude/agents/analyst.md` — system prompt loaded automatically via `subagent_type: "analyst"`.
 

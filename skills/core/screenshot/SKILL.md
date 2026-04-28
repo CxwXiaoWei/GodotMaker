@@ -166,5 +166,5 @@ VQA to verify that collision bounds match sprite extents.
 1. **Always use `game.screenshot()`** — internal viewport capture. Do NOT use external screenshot tools.
 2. **Wait before capturing** — `game.wait_seconds(0.5)` minimum after scene load to ensure rendering is complete.
 3. **Save with descriptive names** — `01_initial.png`, `02_after_input.png`, not `screenshot1.png`.
-4. **Orchestrator can write .py** — you are allowed to write Python capture scripts. You are only blocked from writing .gd/.tscn/.tres.
+4. **Dispatching role can write .py** — you are allowed to write Python capture scripts. You are only blocked from writing .gd/.tscn/.tres.
 5. **Collision verification** — use `--debug-collisions` when verifying physics/collision correctness.

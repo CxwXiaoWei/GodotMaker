@@ -190,15 +190,15 @@ class TestBuildPhase:
         assert code == 0
         assert not is_blocked(parsed)
 
-    def test_orchestrator_cannot_write_game_code(self, project_dir):
+    def test_build_role_cannot_write_game_code(self, project_dir):
         self.gdd_complete()
         write_current_role("build")
         for ext in [".gd", ".tscn", ".tres"]:
             _, parsed = run_hook("check_file_permissions.py",
                                  file_write_payload(f"systems/x{ext}"))
-            assert is_blocked(parsed), f"build orchestrator must not write {ext}"
+            assert is_blocked(parsed), f"build role must not write {ext}"
 
-    def test_orchestrator_can_update_plan(self, project_dir):
+    def test_build_role_can_update_plan(self, project_dir):
         self.gdd_complete()
         write_current_role("build")
         _, parsed = run_hook("check_file_permissions.py",

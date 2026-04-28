@@ -119,7 +119,7 @@ Main Menu → Start Game → Gameplay → Pause Menu → Resume / Quit
 
 ## 9. Art Asset Requirements
 
-<!-- What visual assets the game needs. Filled during Stage 1b when collecting assets. -->
+<!-- What visual assets the game needs. Filled during /gm-gdd; resolved during /gm-asset. -->
 
 ### Required Assets
 

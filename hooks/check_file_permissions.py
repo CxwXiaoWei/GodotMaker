@@ -85,7 +85,7 @@ def _check_main(role: str, path_lower: str, file_name: str, ext: str) -> None:
     if role == "asset":
         if path_lower == "assets.md" or is_godotmaker:
             return
-        _block(f"Asset orchestrator can only write the project-root ASSETS.md "
+        _block(f"Asset role can only write the project-root ASSETS.md "
                f"or .godotmaker/ (attempted: {file_name}). Image files go "
                f"through tools/asset_gen.py (Bash) or the analyst subagent.",
                file_name)
@@ -101,7 +101,7 @@ def _check_main(role: str, path_lower: str, file_name: str, ext: str) -> None:
 
     if is_code:
         if role in WORKER_DISPATCH_ROLES:
-            _block(f"{role.capitalize()} orchestrator cannot write game code directly "
+            _block(f"{role.capitalize()} role cannot write game code directly "
                    f"({file_name}). Dispatch a Worker subagent.", file_name)
         else:
             _block(f"{role.capitalize()} role cannot modify game code "
@@ -127,7 +127,7 @@ def _check_legacy(is_subagent: bool, path_lower: str, file_name: str,
                    file_name, agent_id)
     else:
         if ext in GAME_CODE_EXTENSIONS:
-            _block(f"Orchestrator cannot write game code directly ({file_name}). "
+            _block(f"Main agent cannot write game code directly ({file_name}). "
                    "Dispatch a Worker subagent.", file_name)
 
 

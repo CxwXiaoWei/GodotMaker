@@ -1,6 +1,6 @@
 # Game Plan: {Name}
 
-<!-- Decomposed from GDD.md during Stage 1b. See GDD.md for full game design. -->
+<!-- Decomposed from GDD.md by /gm-gdd. See GDD.md for full game design. -->
 
 ## Game Description
 
