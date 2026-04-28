@@ -4,6 +4,40 @@ All notable changes to GodotMaker will be documented in this file.
 
 Format: [Semantic Versioning](https://semver.org/) — MAJOR.MINOR.PATCH
 
+## [0.2.2] — 2026-04-28
+
+### Added
+
+- `auditor_model` config key in `config/config.yaml.default` (default `sonnet`).
+- Cross-layer consistency tests — `tests/test_config_consistency.py` (skill-referenced `*_model` defaults match config) and `tests/test_audit_workflow.py` (Round 6 + Round 7 dispatch contract).
+- `docs/wiki/07-contributing/codebase-guide.md` (EN + zh) "Permission contract layers" subsection explaining the schema vs hook vs SKILL.md split.
+- `docs/update/v0.2.0.md` "Upgrading from v0.1.x" section — declares clean redeploy via `--force` as the supported path; no `0.1_to_0.2` migration is shipped.
+- Pre-push CI-mirror hook (`scripts/pre-push`, `scripts/install-hooks.sh`).
+
+### Changed
+
+- `check_file_permissions.py` narrowed evaluate/verify write scopes — evaluate may write `e2e/`, `.godotmaker/evaluation.json`, `.godotmaker/stage.jsonl`, `.godotmaker/current_role`; verify is read-only except `stage.jsonl` and `current_role`.
+- `gm-evaluate`/`gm-verify`/`gm-fixgap` SKILL.md now have explicit Permission sections that mirror the hook allow-lists; `gm-fixgap` notes the `fixgap → verify → evaluate` loop position.
+- `game-planner` `auditor_model` default switched from `opus` to `sonnet` to match `config.yaml.default`.
+- The 9-roles wiki page (EN + zh) — `/gm-asset` section expanded to describe scene reference generation and how `/gm-evaluate` uses `references/scene_<name>.png` as the visual contract.
+- FAQ (EN + zh) — per-scene visual reference target corrected to `references/scene_<name>.png`; runtime frame capture path documented separately.
+- Active terminology converged on the role-based model — "Stage 1b/4" and "orchestrator" removed from hooks, skills, templates, agents, and tests. Historical references in changelog/glossary/FAQ explanations are kept on purpose.
+- README first-run flow (EN + zh) — entry command is `/gm-scaffold`, with `/gm-gdd` as the per-milestone follow-up.
+- `docs/update/release-checklist.md` — new step 5 covering five cross-layer consistency gates.
+- `templates/TOC.md` — replaced legacy "Stage Execution Records" placeholders with real "Pipeline Records" artifacts.
+- `tests/test_agents.py` drops the PyYAML runtime dependency.
+- CI workflows bumped to `actions/checkout@v6` and `actions/setup-python@v6` (Node 24).
+
+### Fixed
+
+- Hook docstrings, comments, and user-visible block messages no longer say "orchestrator" — `check_file_permissions.py`, `session_start.py`, `stage_reminder.py`, `metrics/highlights.py`, `metrics/schema.py`.
+- `_shared/manifest.json` sanity checks in `check_stage_prerequisites.py` and `stage_reminder.py` now raise `RuntimeError` instead of `assert` (survives `python -O`).
+- All `.godotmaker/verify_result.json` references removed from skills and wiki — that file was documented but never produced.
+
+### Removed
+
+- `templates/TOC.md` "Stage Execution Records" rows (STAGE_3 through STAGE_8).
+
 ## [0.2.1] — 2026-04-28
 
 ### Added
