@@ -7,6 +7,7 @@ This page gives a folder-by-folder tour of the GodotMaker repository, with enoug
 ```
 GodotMaker/
 ├── hooks/                   8 hook scripts + hooks/metrics/ subsystem
+├── agents/                  5 sub-agent definitions (worker, verifier, reviewer, analyst, gdd-auditor)
 ├── skills/
 │   ├── core/                Role skills + supporting skills + _shared/
 │   └── reviewer/            8 reviewer skills (gotchas.md + checklist.md each)
@@ -48,6 +49,22 @@ Hook registration (which script fires on which event) lives in `config/settings.
 A small subsystem for recording what happened during a session. Hooks call `record_event()` to append a JSON line to `.godotmaker/metrics_current.jsonl` (current session) and `.godotmaker/metrics_total.jsonl` (lifetime). The `state.py` module manages mutable per-session counters (block counts, etc.) in `.godotmaker/state.json`. `session_start.py` resets both on every new session.
 
 For details on writing hooks and using the metrics API, see [Writing a hook](writing-a-hook.md).
+
+---
+
+## agents/
+
+Sub-agent definitions, one Markdown file per agent. Each file has YAML front-matter (`name`, `description`, `model`) and a system-prompt body. `publish.py` deploys them to `<target>/.claude/agents/`, where Claude Code picks them up by `subagent_type`.
+
+| Agent | Role | Dispatched by |
+|-------|------|---------------|
+| `worker.md` | Implements one task end-to-end (code + unit tests) | `/gm-build`, `/gm-fixgap` |
+| `verifier.md` | Mechanically checks a worker's output (build, tests, file presence) | `/gm-build`, `/gm-fixgap` |
+| `reviewer.md` | Reads code against `skills/reviewer/<domain>` checklists and reports issues | `/gm-build`, `/gm-fixgap` |
+| `analyst.md` | Analyses user-provided assets and produces a manifest | `/gm-asset` |
+| `gdd-auditor.md` | Independently audits a draft GDD against a 9-category checklist and returns 5–8 follow-up questions per pass | `game-planner` (Rounds 6 + 7) |
+
+The dispatch protocols (call format and brief templates) live in `skills/core/_shared/{worker,verifier,reviewer,analyst}-dispatch.md`. `gdd-auditor` is invoked inline from `skills/core/game-planner/SKILL.md`.
 
 ---
 

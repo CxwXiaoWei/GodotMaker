@@ -30,7 +30,7 @@ Core 技能分为两类：九个通过斜杠命令调用的角色技能，以及
 
 | 技能 | 提供的内容 | 被谁加载 |
 |------|-----------|----------|
-| `game-planner` | 设计阶段的访谈结构与 GDD 模板指导 | `/gm-gdd` |
+| `game-planner` | 设计阶段的访谈结构与 GDD 模板指导，并在定稿前通过 `gdd-auditor` 子 Agent 进行两轮独立审计 | `/gm-gdd` |
 | `project-scaffold` | 项目目录规则、插件安装步骤、ECS 目录约定 | `/gm-scaffold` |
 | `input-mapper` | 管理 `project.godot` 中 Godot 输入动作的参考资料 | `/gm-build`、`/gm-fixgap` |
 

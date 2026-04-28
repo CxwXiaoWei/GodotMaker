@@ -7,6 +7,7 @@
 ```
 GodotMaker/
 ├── hooks/                   8 个 hook 脚本 + hooks/metrics/ 子系统
+├── agents/                  5 个子 Agent 定义（worker、verifier、reviewer、analyst、gdd-auditor）
 ├── skills/
 │   ├── core/                角色技能 + 辅助技能 + _shared/
 │   └── reviewer/            8 个审查技能（各含 gotchas.md + checklist.md）
@@ -48,6 +49,22 @@ Hook 注册关系（哪个脚本响应哪个事件）存储在 `config/settings.
 一个用于记录会话期间发生事件的小型子系统。Hook 通过调用 `record_event()` 将 JSON 行追加到 `.godotmaker/metrics_current.jsonl`（当前会话）和 `.godotmaker/metrics_total.jsonl`（全量生命周期日志）。`state.py` 模块负责在 `.godotmaker/state.json` 中管理可变的会话内计数器（拦截次数等）。`session_start.py` 在每次新会话开始时重置两者。
 
 关于编写 hook 和使用 metrics API 的详细说明，请参阅 [编写 Hook](writing-a-hook.md)。
+
+---
+
+## agents/
+
+子 Agent 定义文件，每个 Agent 对应一个 Markdown 文件。每个文件都带有 YAML front-matter（`name`、`description`、`model`）和系统 prompt 正文。`publish.py` 会将它们部署到 `<target>/.claude/agents/`，Claude Code 通过 `subagent_type` 识别调用。
+
+| Agent | 职责 | 由谁派发 |
+|-------|------|----------|
+| `worker.md` | 端到端实现一个任务（代码 + 单元测试） | `/gm-build`、`/gm-fixgap` |
+| `verifier.md` | 对 Worker 的产出进行机械校验（构建、测试、文件存在性） | `/gm-build`、`/gm-fixgap` |
+| `reviewer.md` | 对照 `skills/reviewer/<domain>` 的 checklist 审查代码并报告问题 | `/gm-build`、`/gm-fixgap` |
+| `analyst.md` | 分析用户提供的资源并输出 manifest | `/gm-asset` |
+| `gdd-auditor.md` | 独立审计 GDD 草稿，对照 9 类 checklist 每轮返回 5–8 个补问 | `game-planner`（Rounds 6 + 7） |
+
+派发协议（调用格式和 brief 模板）位于 `skills/core/_shared/{worker,verifier,reviewer,analyst}-dispatch.md`。`gdd-auditor` 直接由 `skills/core/game-planner/SKILL.md` 内联调用。
 
 ---
 
