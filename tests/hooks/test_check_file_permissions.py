@@ -348,13 +348,52 @@ class TestRoleBased:
     def test_asset_blocked_from_other_files(self, project_dir):
         write_current_role("asset")
         for path in ["assets/sprite.png", "PLAN.md", "STRUCTURE.md", "SCENES.md",
-                     "GAP.md", "src/x.gd", "GDD.md", "subdir/ASSETS.md"]:
+                     "GAP.md", "src/x.gd", "GDD.md"]:
             _, _, parsed = run_hook(HOOK, {
                 "tool_name": "Write",
                 "tool_input": {"file_path": path},
                 "agent_id": "",
             })
             assert is_blocked(parsed), f"asset role must block {path}"
+
+    def test_asset_can_write_root_assets_md_relative_and_absolute(self, project_dir):
+        """Asset role must accept the project-root ASSETS.md whether the
+        agent passes a bare relative name or a fully resolved absolute
+        path. The original bug was matching on full path equality
+        (`path_lower == "assets.md"`), which rejected the absolute form
+        Claude Code emits on Windows."""
+        write_current_role("asset")
+        abs_root = os.path.join(project_dir, "ASSETS.md")
+        for path in ["ASSETS.md", "assets.md", abs_root]:
+            _, _, parsed = run_hook(HOOK, {
+                "tool_name": "Write",
+                "tool_input": {"file_path": path},
+                "agent_id": "",
+            })
+            assert not is_blocked(parsed), (
+                f"asset role must allow project-root ASSETS.md: {path}"
+            )
+
+    def test_asset_blocked_from_non_root_assets_md(self, project_dir):
+        """Project-root ASSETS.md only — a sibling/nested ASSETS.md must
+        be blocked even though the basename matches. The hook's deny
+        message and SKILL.md contract are explicitly project-root, so
+        bare basename matching alone would over-permit."""
+        write_current_role("asset")
+        abs_subdir = os.path.join(project_dir, "subdir", "ASSETS.md")
+        abs_other = os.path.join(
+            os.path.dirname(project_dir.rstrip("/\\")) or project_dir,
+            "other-project", "ASSETS.md",
+        )
+        for path in ["subdir/ASSETS.md", "src/ASSETS.md", abs_subdir, abs_other]:
+            _, _, parsed = run_hook(HOOK, {
+                "tool_name": "Write",
+                "tool_input": {"file_path": path},
+                "agent_id": "",
+            })
+            assert is_blocked(parsed), (
+                f"asset role must block non-root ASSETS.md: {path}"
+            )
 
     def test_verify_is_read_only(self, project_dir):
         write_current_role("verify")

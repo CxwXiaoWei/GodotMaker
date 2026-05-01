@@ -35,6 +35,11 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 
 ## Fixed
 
+- `hooks/check_file_permissions.py` asset-role gate resolves the
+  candidate path against cwd via `_is_project_root_assets_md` —
+  project-root `ASSETS.md` is allowed from bare and absolute path
+  forms; subdirectory variants stay blocked.
+
 ## Removed
 
 - `tools/migrate.py --from <ver> --to <ver>` CLI flags. The

@@ -55,6 +55,26 @@ def _matches_allowed_gm(path_lower: str, allowed: set[str]) -> bool:
     return any(path_lower.endswith(p) for p in allowed)
 
 
+def _is_project_root_assets_md(path_lower: str) -> bool:
+    """True iff path_lower resolves to the project-root ASSETS.md.
+
+    The hook runs with cwd = project root, so abspath() of a relative
+    input is anchored to that root. Accepts both bare `"assets.md"` and
+    any absolute path that resolves to `<cwd>/ASSETS.md`. Subdirectory
+    variants (`subdir/ASSETS.md`) and absolute paths to a different
+    project's ASSETS.md are rejected — the asset role's contract and
+    the deny message in `_check_main` are explicitly project-root only.
+    The abspath comparison is needed because Claude Code may pass
+    either form depending on how the agent constructs the file_path
+    argument.
+    """
+    if path_lower == "assets.md":
+        return True
+    abs_input = os.path.abspath(path_lower).replace("\\", "/").lower()
+    abs_root = os.path.abspath("assets.md").replace("\\", "/").lower()
+    return abs_input == abs_root
+
+
 def _block(reason: str, file_name: str, agent_id: str = "") -> None:
     record_event(EventType.HOOK_BLOCK, hook="check_file_permissions",
                  reason=reason, file=file_name, agent_id=agent_id or "main")
@@ -94,7 +114,7 @@ def _check_main(role: str, path_lower: str, file_name: str, ext: str) -> None:
                "E2E tests are owned by the Evaluator.", file_name)
 
     if role == "asset":
-        if path_lower == "assets.md" or is_godotmaker:
+        if _is_project_root_assets_md(path_lower) or is_godotmaker:
             return
         _block(f"Asset role can only write the project-root ASSETS.md "
                f"or .godotmaker/ (attempted: {file_name}). Image files go "
