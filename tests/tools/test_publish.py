@@ -1,17 +1,22 @@
 """Tests for publish.py."""
 import os
+import subprocess
 import sys
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
     "tools",
 ))
 
+import publish
 from publish import (
     read_godot_path,
+    create_godotmaker_yaml,
     create_project_config,
     ensure_gitignore,
     publish_skills,
+    _verify_godot_path,
     DEFAULT_CONFIG_TEMPLATE,
 )
 
@@ -39,6 +44,168 @@ class TestReadGodotPath:
         f = tmp_path / "godotmaker.yaml"
         f.write_text("godot_path: 'C:/Godot/godot.exe'\n")
         assert read_godot_path(f) == "C:/Godot/godot.exe"
+
+
+def _ok_run(stdout="Godot Engine v4.4-stable\n"):
+    return subprocess.CompletedProcess(args=[], returncode=0, stdout=stdout, stderr="")
+
+
+def _fail_run(returncode=1, stderr="boom"):
+    return subprocess.CompletedProcess(args=[], returncode=returncode, stdout="", stderr=stderr)
+
+
+class TestVerifyGodotPath:
+    def test_returns_ok_when_godot_runs(self):
+        with patch.object(publish.subprocess, "run", return_value=_ok_run()):
+            ok, msg = _verify_godot_path("/fake/godot")
+        assert ok is True
+        assert "v4.4" in msg
+
+    def test_returns_failure_when_executable_missing(self):
+        with patch.object(publish.subprocess, "run", side_effect=FileNotFoundError):
+            ok, msg = _verify_godot_path("/no/such/godot")
+        assert ok is False
+        assert "not found" in msg
+
+    def test_returns_failure_when_godot_exits_nonzero(self):
+        with patch.object(publish.subprocess, "run", return_value=_fail_run()):
+            ok, msg = _verify_godot_path("/fake/godot")
+        assert ok is False
+        assert "exited" in msg
+
+    def test_returns_failure_on_timeout(self):
+        with patch.object(
+            publish.subprocess, "run",
+            side_effect=subprocess.TimeoutExpired(cmd="godot", timeout=15),
+        ):
+            ok, msg = _verify_godot_path("/slow/godot")
+        assert ok is False
+        assert "did not return" in msg
+
+    def test_zero_exit_with_empty_stdout_is_accepted(self):
+        """Lock-in: an executable that exits 0 but prints no version line
+        is treated as 'verified' with `?` as the version. This is
+        intentional — wrapper scripts (`godot.cmd`, ssh wrappers, sandbox
+        runners) sometimes suppress stdout while still launching Godot
+        correctly. If you ever decide to tighten this and require a
+        version pattern in stdout, change this test deliberately."""
+        with patch.object(publish.subprocess, "run",
+                          return_value=_ok_run(stdout="")):
+            ok, msg = _verify_godot_path("/silent/godot")
+        assert ok is True
+        assert msg == "?"
+
+    def test_zero_exit_with_non_version_stdout_is_accepted(self):
+        """Lock-in counterpart to the empty-stdout case — even non-version
+        text (e.g. a wrapper banner) is currently accepted as long as the
+        process returns 0."""
+        with patch.object(publish.subprocess, "run",
+                          return_value=_ok_run(stdout="hello world\n")):
+            ok, msg = _verify_godot_path("/wrapped/godot")
+        assert ok is True
+        assert msg == "hello world"
+
+    def test_returns_failure_on_oserror(self):
+        """An OSError other than FileNotFoundError (e.g. PermissionError,
+        OSError when the path is a directory) is the third hand-written
+        exception branch in `_verify_godot_path` and must surface a
+        readable message instead of crashing."""
+        with patch.object(publish.subprocess, "run",
+                          side_effect=PermissionError("Permission denied")):
+            ok, msg = _verify_godot_path("/no/perms/godot")
+        assert ok is False
+        assert "cannot run" in msg
+        assert "Permission denied" in msg
+
+
+class TestCreateGodotmakerYaml:
+    """create_godotmaker_yaml must reject empty / unverifiable paths and
+    only write godotmaker.yaml when --version succeeds. The previous
+    behaviour silently fell back to godot_path: 'godot' when the user
+    pressed Enter, which then re-asked downstream in /gm-scaffold."""
+
+    def test_skips_when_file_exists(self, tmp_path, capsys):
+        config = tmp_path / "godotmaker.yaml"
+        config.write_text('godot_path: "/existing"\n', encoding="utf-8")
+        create_godotmaker_yaml(config)
+        assert config.read_text(encoding="utf-8") == 'godot_path: "/existing"\n'
+
+    def test_writes_yaml_when_path_verifies(self, tmp_path):
+        config = tmp_path / "godotmaker.yaml"
+        with patch("builtins.input", return_value="/usr/bin/godot"), \
+             patch.object(publish.subprocess, "run", return_value=_ok_run()):
+            create_godotmaker_yaml(config)
+        assert config.exists()
+        content = config.read_text(encoding="utf-8")
+        assert 'godot_path: "/usr/bin/godot"' in content
+
+    def test_strips_quotes_from_user_input(self, tmp_path):
+        config = tmp_path / "godotmaker.yaml"
+        with patch("builtins.input", return_value='"C:/Godot/godot.exe"'), \
+             patch.object(publish.subprocess, "run", return_value=_ok_run()):
+            create_godotmaker_yaml(config)
+        assert 'godot_path: "C:/Godot/godot.exe"' in config.read_text(encoding="utf-8")
+
+    def test_reprompts_on_empty_then_accepts_valid(self, tmp_path):
+        config = tmp_path / "godotmaker.yaml"
+        inputs = iter(["", "  ", "/usr/bin/godot"])
+        with patch("builtins.input", side_effect=lambda _: next(inputs)), \
+             patch.object(publish.subprocess, "run", return_value=_ok_run()):
+            create_godotmaker_yaml(config)
+        assert config.exists(), "must accept the third valid input after two empties"
+
+    def test_reprompts_on_invalid_then_accepts_valid(self, tmp_path):
+        config = tmp_path / "godotmaker.yaml"
+        inputs = iter(["/bogus/path", "/usr/bin/godot"])
+        runs = iter([_fail_run(), _ok_run()])
+        with patch("builtins.input", side_effect=lambda _: next(inputs)), \
+             patch.object(publish.subprocess, "run", side_effect=lambda *a, **k: next(runs)):
+            create_godotmaker_yaml(config)
+        assert 'godot_path: "/usr/bin/godot"' in config.read_text(encoding="utf-8")
+
+    def test_interleaved_empty_invalid_valid_within_budget(self, tmp_path):
+        """Mixed retry path — empty (no subprocess call), invalid (fail),
+        valid (ok). Pins that the same attempt counter governs both kinds
+        of rejection, so an `empty + invalid + ...` sequence still has
+        budget for a final successful attempt."""
+        config = tmp_path / "godotmaker.yaml"
+        inputs = iter(["", "/bogus/path", "/usr/bin/godot"])
+        # `_verify_godot_path` only runs subprocess for non-empty inputs,
+        # so the run side_effect lines up with the 2nd and 3rd entries.
+        runs = iter([_fail_run(), _ok_run()])
+        with patch("builtins.input", side_effect=lambda _: next(inputs)), \
+             patch.object(publish.subprocess, "run",
+                          side_effect=lambda *a, **k: next(runs)):
+            create_godotmaker_yaml(config)
+        assert 'godot_path: "/usr/bin/godot"' in config.read_text(encoding="utf-8")
+
+    def test_does_not_write_when_user_aborts(self, tmp_path):
+        config = tmp_path / "godotmaker.yaml"
+        with patch("builtins.input", side_effect=EOFError):
+            create_godotmaker_yaml(config)
+        assert not config.exists(), (
+            "Ctrl+D / EOF must NOT silently write a fallback path — "
+            "that was the original bug. Better: leave config absent so "
+            "publish can be re-run."
+        )
+
+    def test_does_not_write_when_user_sigints(self, tmp_path):
+        """Sibling of test_does_not_write_when_user_aborts — Ctrl+C
+        (KeyboardInterrupt) must follow the same no-fallback contract.
+        The exception handler catches `(EOFError, KeyboardInterrupt)`
+        as a tuple, but only the EOFError half was previously tested."""
+        config = tmp_path / "godotmaker.yaml"
+        with patch("builtins.input", side_effect=KeyboardInterrupt):
+            create_godotmaker_yaml(config)
+        assert not config.exists()
+
+    def test_gives_up_after_max_attempts_without_writing(self, tmp_path):
+        config = tmp_path / "godotmaker.yaml"
+        # 5 invalid attempts in a row → no file
+        with patch("builtins.input", return_value="/bogus"), \
+             patch.object(publish.subprocess, "run", return_value=_fail_run()):
+            create_godotmaker_yaml(config)
+        assert not config.exists()
 
 
 class TestCreateProjectConfig:

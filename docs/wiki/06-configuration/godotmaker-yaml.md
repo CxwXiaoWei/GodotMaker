@@ -48,7 +48,15 @@ Enter the full path to your Godot executable
 godot_path: _
 ```
 
-If you press Enter without typing anything, the value defaults to `"godot"` (meaning Godot must be on PATH). On every subsequent publish the file is left untouched — your path is never overwritten automatically.
+What you enter is verified by running `<godot_path> --version` before the file is written. The verification has three outcomes:
+
+- **Verified** — the command exits cleanly (return code 0). Whatever it prints on stdout is shown back as the detected version (or `?` if it stayed silent — wrapper scripts and sandbox runners sometimes suppress output, and that is intentionally still treated as success). Publish writes the file and continues.
+- **Empty input or invalid path** — publish prints the error (executable not found, non-zero exit, timeout) and re-prompts. You get up to 5 attempts before the script gives up without writing the file.
+- **Aborted** (Ctrl+C / Ctrl+D) — publish prints an "aborted" message and leaves the file uncreated; re-run publish later to set the path.
+
+If Godot is on your system PATH you can still enter just `"godot"` — it is verified the same way (the validator runs `godot --version`), and only writes if it actually resolves and runs.
+
+The file is only created during the first publish that produces a verified path. On every subsequent publish the file is left untouched — your path is never overwritten automatically.
 
 ## What happens if it's wrong
 

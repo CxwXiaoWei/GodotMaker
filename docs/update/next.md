@@ -17,6 +17,11 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 
 ## Added
 
+- `tools/publish.py` validates `godot_path` interactively before
+  writing `.claude/godotmaker.yaml` — runs `<godot_path> --version`,
+  re-prompts on empty / unverifiable input up to 5 times, and leaves
+  the file uncreated on Ctrl+C / Ctrl+D.
+
 ## Changed
 
 - Versioning policy aligned with standard SemVer — PATCH / MINOR / MAJOR
@@ -37,6 +42,9 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
   `project-scaffold/SKILL.md`, `templates/claude.md.tmpl`, and
   `references/project_settings.md`; `src/world.gd` removed from the
   scaffold directory tree.
+- `docs/wiki/06-configuration/godotmaker-yaml.md` (EN + zh) describes
+  the validation loop — exit code 0 is sufficient, stdout is shown as
+  the detected version (or `?` when wrappers suppress it).
 
 ## Fixed
 

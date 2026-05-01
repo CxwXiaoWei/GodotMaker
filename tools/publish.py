@@ -320,8 +320,43 @@ def deploy_claude_md(repo_root: Path, target: Path):
         print("Created CLAUDE.md")
 
 
+def _verify_godot_path(godot_path: str) -> tuple[bool, str]:
+    """Run `<godot_path> --version` and return (ok, message).
+
+    Empty input is rejected before this is called. A bare 'godot' is also
+    rejected unless it actually resolves on PATH and runs — silently
+    accepting it leads to /gm-scaffold and other downstream tools failing
+    later with a confusing 'godot not found' instead of failing at config
+    time.
+    """
+    try:
+        result = subprocess.run(
+            [godot_path, "--version"],
+            capture_output=True, text=True, timeout=15,
+        )
+    except FileNotFoundError:
+        return False, f"executable not found at {godot_path!r}"
+    except subprocess.TimeoutExpired:
+        return False, f"{godot_path!r} did not return within 15s"
+    except OSError as e:
+        return False, f"cannot run {godot_path!r}: {e}"
+
+    if result.returncode != 0:
+        stderr = (result.stderr or "").strip().splitlines()[-1:] or ["(no stderr)"]
+        return False, f"{godot_path!r} exited {result.returncode}: {stderr[0]}"
+
+    version = (result.stdout or "").strip().splitlines()[-1:] or ["?"]
+    return True, version[0]
+
+
 def create_godotmaker_yaml(config_file: Path):
-    """Interactive godotmaker.yaml generation on first run."""
+    """Interactive godotmaker.yaml generation on first run.
+
+    Re-prompts until the user provides a path that actually launches Godot.
+    The previous behaviour silently fell back to godot_path: "godot" when
+    the user pressed Enter, which caused every downstream skill needing
+    Godot to fail with a confusing PATH error and re-ask the user.
+    """
     if config_file.exists():
         print("godotmaker.yaml already exists, skipping")
         return
@@ -331,14 +366,33 @@ def create_godotmaker_yaml(config_file: Path):
     print("Enter the full path to your Godot executable")
     print("  (e.g. C:/path/to/Godot_v4.4-stable_win64.exe)")
 
-    try:
-        godot_path = input("godot_path: ").strip()
-    except (EOFError, KeyboardInterrupt):
-        godot_path = ""
+    max_attempts = 5
+    godot_path = ""
+    for attempt in range(1, max_attempts + 1):
+        try:
+            entered = input("godot_path: ").strip().strip('"').strip("'")
+        except (EOFError, KeyboardInterrupt):
+            print("\nAborted: godotmaker.yaml not created. "
+                  "Re-run publish to set godot_path.")
+            return
 
-    if not godot_path:
-        print("Warning: no path provided, defaulting to 'godot' (must be on PATH)")
-        godot_path = "godot"
+        if not entered:
+            print("  Path is required — please enter the full path to Godot.")
+            continue
+
+        ok, msg = _verify_godot_path(entered)
+        if ok:
+            print(f"  Verified Godot: {msg}")
+            godot_path = entered
+            break
+
+        print(f"  Could not verify Godot at this path: {msg}")
+        if attempt < max_attempts:
+            print("  Try again, or Ctrl+C to abort.")
+    else:
+        print(f"\nGave up after {max_attempts} attempts. "
+              f"godotmaker.yaml not created. Re-run publish to set godot_path.")
+        return
 
     config_file.write_text(
         f'# Host-specific tool paths — not committed to git\n'
