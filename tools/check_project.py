@@ -7,10 +7,18 @@ ECS setup, tests, planning documents, build readiness.
 Usage:
     python tools/check_project.py <project_dir> --all
     python tools/check_project.py <project_dir> --ecs --tests --plan
+
+`--build` is the gm-scaffold readiness check — it covers everything
+gm-scaffold's Step 4 verifies (project.godot shape, required addon
+directories, godot-e2e plugin, e2e/conftest.py, git HEAD, headless
+parse). The headless step is automatically skipped with a WARN when
+`.claude/godotmaker.yaml` lacks `godot_path`, so offline / partially
+configured projects still get a meaningful overall result.
 """
 import argparse
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -55,23 +63,144 @@ def find_gd_files(project_dir: Path, pattern: str) -> list[Path]:
     return results
 
 
+SCAFFOLD_REQUIRED_ADDONS = ("gecs", "gdunit4", "godot_e2e")
+
+
+def _read_godot_path(project_dir: Path) -> str | None:
+    """Read `godot_path` from `<project>/.claude/godotmaker.yaml`.
+
+    Returns None when the file is missing or the value is empty / blank,
+    so callers can decide whether to skip the headless check or fail.
+    Distinct from `tools/publish.py:read_godot_path`, which takes a
+    config-file path directly and falls back to `"godot"` for caller
+    convenience (used by register_mcp); here we surface the missing
+    state instead so check_build can WARN explicitly.
+    """
+    config = project_dir / ".claude" / "godotmaker.yaml"
+    if not config.exists():
+        return None
+    for line in config.read_text(encoding="utf-8", errors="replace").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("godot_path:"):
+            val = stripped.split(":", 1)[1].strip().strip('"').strip("'")
+            return val or None
+    return None
+
+
+def _run_headless_godot(godot_path: str, project_dir: Path
+                        ) -> tuple[int, str]:
+    """Run `<godot_path> --headless --path <project> --quit` and return
+    (returncode, combined stdout+stderr).
+
+    Wrapped so check_build() can stay readable; also lets tests patch a
+    single function instead of subprocess.run directly.
+    """
+    proc = subprocess.run(
+        [godot_path, "--headless", "--path", str(project_dir), "--quit"],
+        capture_output=True, text=True, timeout=60,
+    )
+    return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
+
+
 def check_build(project_dir: Path, result: CheckResult):
-    """Check that project.godot exists and basic structure is present."""
+    """gm-scaffold readiness check — all of Step 4 in one command.
+
+    Verifies (in order):
+      1. project.godot exists with `[application]`.
+      2. addons/gecs, addons/gdunit4, addons/godot_e2e directories.
+      3. godot-e2e plugin enabled in `[editor_plugins]`.
+      4. e2e/conftest.py imports GodotE2E.
+      5. .git/ resolves HEAD (worker worktree isolation requires it).
+      6. `<godot_path> --headless --quit` exits 0 with no ERROR lines.
+         When `.claude/godotmaker.yaml` lacks `godot_path` this step
+         emits a WARN (not a FAIL) and skips the subprocess, so
+         offline / partially configured projects still get an overall
+         result.
+    """
     print("\n--- Build Readiness ---")
 
+    # 1. project.godot
     project_file = project_dir / "project.godot"
-    if project_file.exists():
-        result.ok("project.godot exists")
-    else:
+    if not project_file.exists():
         result.fail("project.godot not found")
-        return
+        return  # everything else assumes the file
+    result.ok("project.godot exists")
 
-    # Check project.godot has basic required sections
     content = project_file.read_text(encoding="utf-8", errors="replace")
     if "[application]" in content:
         result.ok("project.godot has [application] section")
     else:
         result.fail("project.godot missing [application] section")
+
+    # 2. Required addon directories
+    for addon in SCAFFOLD_REQUIRED_ADDONS:
+        addon_dir = project_dir / "addons" / addon
+        if addon_dir.exists():
+            result.ok(f"addons/{addon}/ present")
+        else:
+            result.fail(f"addons/{addon}/ missing")
+
+    # 3. godot-e2e plugin enabled
+    if "godot_e2e/plugin.cfg" in content or "godot-e2e/plugin.cfg" in content:
+        result.ok("godot-e2e plugin enabled in [editor_plugins]")
+    else:
+        result.fail("godot-e2e plugin not enabled in project.godot")
+
+    # 4. e2e/conftest.py with GodotE2E import
+    conftest = project_dir / "e2e" / "conftest.py"
+    if not conftest.exists():
+        result.fail("e2e/conftest.py missing")
+    elif "GodotE2E" not in conftest.read_text(encoding="utf-8", errors="replace"):
+        result.fail("e2e/conftest.py exists but does not import GodotE2E")
+    else:
+        result.ok("e2e/conftest.py imports GodotE2E")
+
+    # 5. git HEAD resolves
+    if not (project_dir / ".git").exists():
+        result.fail(".git/ missing — worker worktree isolation needs HEAD")
+    else:
+        try:
+            proc = subprocess.run(
+                ["git", "-C", str(project_dir), "rev-parse", "HEAD"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if proc.returncode == 0 and proc.stdout.strip():
+                result.ok(f"git HEAD resolves ({proc.stdout.strip()[:8]})")
+            else:
+                result.fail(".git/ exists but HEAD does not resolve "
+                            "(no commits yet — run `git commit`)")
+        except FileNotFoundError:
+            result.warn("git executable not found — skipping HEAD check")
+        except subprocess.TimeoutExpired:
+            result.warn("git rev-parse timed out — check the repo manually")
+
+    # 6. Headless parse
+    godot_path = _read_godot_path(project_dir)
+    if not godot_path:
+        result.warn(
+            "godot_path missing from .claude/godotmaker.yaml — "
+            "skipping headless parse check (re-run publish to set it)"
+        )
+        return
+    try:
+        rc, output = _run_headless_godot(godot_path, project_dir)
+    except FileNotFoundError:
+        result.fail(f"godot executable not found at {godot_path!r} — "
+                    "fix .claude/godotmaker.yaml or re-run publish")
+        return
+    except subprocess.TimeoutExpired:
+        result.fail("godot --headless --quit did not finish within 60s")
+        return
+    error_lines = [ln for ln in output.splitlines()
+                   if "ERROR" in ln.upper() and "0 ERROR" not in ln.upper()]
+    if rc == 0 and not error_lines:
+        result.ok("godot --headless --quit produces no ERROR lines")
+    elif error_lines:
+        result.fail(f"godot --headless produced {len(error_lines)} ERROR "
+                    f"line(s); first: {error_lines[0][:120]}")
+    else:
+        result.fail(f"godot --headless --quit exited {rc} (no ERROR lines "
+                    "but non-zero return — check for crashes / segfaults)")
 
 
 def check_ecs(project_dir: Path, result: CheckResult):
@@ -343,7 +472,9 @@ def main():
         description="Check GodotMaker project structure and completeness"
     )
     parser.add_argument("project_dir", help="Path to the Godot project directory")
-    parser.add_argument("--build", action="store_true", help="Check build readiness")
+    parser.add_argument("--build", action="store_true",
+                        help="Check gm-scaffold readiness "
+                             "(project.godot, addons, plugin, conftest, git, headless)")
     parser.add_argument("--ecs", action="store_true", help="Check ECS (gecs) setup")
     parser.add_argument("--tests", action="store_true", help="Check unit test coverage")
     parser.add_argument("--e2e", action="store_true", help="Check e2e test setup")

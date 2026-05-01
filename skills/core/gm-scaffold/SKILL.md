@@ -18,6 +18,14 @@ You are scaffolding a brand-new Godot project. This is the **lifetime-once** fou
 
 **FIRST ACTION — before anything else:** Write `scaffold` to `.godotmaker/current_role`.
 
+`session_start.py` deletes `.godotmaker/current_role` on every new session
+(including `/clear`, restart, and resume) so a stale role from a previous
+session can't grant unintended write permissions. That is why every gm-*
+skill re-writes its role as the first action — if a session is interrupted
+mid-scaffold and you don't re-issue `/gm-scaffold`, write hooks will start
+denying file writes silently. Re-issuing the slash command re-establishes
+the role.
+
 ## Resume Check
 
 Read `.godotmaker/stage.jsonl` (treat as empty if missing) — each line is `{"role": X, "ts": Y}`. Find the **last event** in the file.
@@ -46,18 +54,45 @@ Use `AskUserQuestion` to ask for:
 
 Other settings (genre, art style, mechanics) are deferred to `/gm-gdd`.
 
-### 2. Run project-scaffold skill
+### 2a. Run project-scaffold skill
 
 Invoke `.claude/skills/project-scaffold/SKILL.md` with the gathered inputs.
+Tell it to run Steps 1, 2, and 3, and from Step 3's template table fill
+just these four templates:
 
-The scaffold MUST produce:
-- `project.godot` — generic 2D or 3D project, default viewport, default rendering method
-- `addons/gecs/`, `addons/gdunit4/`, `addons/godot-e2e/` — versions from `.claude/config/addon_versions.json`
-- godot-e2e enabled in `[editor_plugins]`
-- Empty `Main` scene (placeholder — actual scenes come during build)
-- `e2e/conftest.py` (template below)
-- Base directories: `src/`, `scenes/`, `assets/`, `references/`
-- `.godotmaker/config.yaml` (created by publish script — verify exists)
+- `project.godot.tmpl` → `project.godot`
+- `main_scene.tmpl` → `scenes/main.tscn`
+- `world_scene.tmpl` → `scenes/game_world.tscn`
+- `gitignore.tmpl` → `.gitignore`
+
+That gives you the directory tree, an empty `Main` entry-point scene, the
+gameplay scene placeholder, and a sensible `.gitignore`.
+
+The remaining items in project-scaffold belong to other parts of the pipeline:
+
+| project-scaffold concern | Owner |
+|--------------------------|-------|
+| Component / System / test files (with or without a Game Plan) | decomposer in `/gm-gdd` writes STRUCTURE.md first; workers in `/gm-build` create the actual `.gd` files |
+| Genre Adaptations — `[physics]` / `[input]` (Step 4) | `/gm-gdd` |
+| Post-Scaffold publish (Step 5) | already done by `tools/publish.py` before scaffold runs |
+| Addon install | step 2b below |
+
+### 2b. Install addons and enable godot-e2e plugin
+
+For each entry in `.claude/config/addon_versions.json` matching the chosen
+Godot version, clone the repo at the listed tag into the listed `install_path`:
+
+- `addons/gecs/` (csprance/gecs)
+- `addons/gdunit4/` (MikeSchulze/gdUnit4)
+- `addons/godot_e2e/` (RandallLiuXin/godot-e2e)
+
+Then enable each addon in `[editor_plugins]` of `project.godot` by
+listing its `plugin.cfg` (consult the `plugin: true|false` flag in
+`addon_versions.json` — at the time of writing, gecs / gdunit4 /
+godot-e2e are all plugin-enabled).
+
+`.godotmaker/config.yaml` is created by `tools/publish.py` before this skill
+runs — verify it exists and move on.
 
 ### E2E conftest.py template
 
@@ -94,13 +129,24 @@ Required for `isolation: "worktree"` in worker dispatch — without `HEAD`, para
 
 ### 4. Verify
 
-Run `python tools/check_project.py <project_dir> --build` and paste the output. Required:
-- `project.godot` exists
-- `addons/gecs/`, `addons/gdunit4/` present
-- godot-e2e plugin enabled
-- `godot --headless --quit` produces zero ERROR lines
-- `e2e/conftest.py` exists with `GodotE2E` import
-- `.git/` exists with at least one commit
+```bash
+python tools/check_project.py <project_dir> --build
+```
+
+`--build` is the gm-scaffold readiness check — it covers all of:
+
+- `project.godot` exists with `[application]`
+- `addons/gecs/`, `addons/gdunit4/`, `addons/godot_e2e/` present
+- `godot-e2e` plugin enabled in `[editor_plugins]`
+- `e2e/conftest.py` imports `GodotE2E`
+- `.git/` resolves `HEAD` (worker worktree isolation needs it)
+- `<godot_path> --headless --quit` exits 0 with no `ERROR` lines
+  (godot_path read from `.claude/godotmaker.yaml`, validated at publish time)
+
+All entries must report `[PASS]` for scaffold to be considered done.
+If `.claude/godotmaker.yaml` lacks `godot_path` the headless check
+emits a `[WARN]` instead and overall verification still passes —
+re-run `tools/publish.py` to set the path.
 
 ## Available Skills & Tools
 

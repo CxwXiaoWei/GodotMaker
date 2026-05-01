@@ -45,6 +45,24 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 - `docs/wiki/06-configuration/godotmaker-yaml.md` (EN + zh) describes
   the validation loop — exit code 0 is sufficient, stdout is shown as
   the detected version (or `?` when wrappers suppress it).
+- `tools/check_project.py --build` covers the full gm-scaffold
+  readiness gate — addon directories (`gecs` / `gdunit4` /
+  `godot_e2e`), godot-e2e plugin enablement, `e2e/conftest.py`
+  `GodotE2E` import, resolvable `git HEAD`, and a headless
+  `<godot_path> --headless --quit` parse. Missing `godot_path` in
+  `.claude/godotmaker.yaml` downgrades the headless step to a `WARN`.
+- `gm-scaffold/SKILL.md` Step 2 split into 2a (project-scaffold writes
+  the four base templates: `project.godot`, `main_scene`,
+  `world_scene`, `.gitignore`) and 2b (gm-scaffold lead clones addons
+  per `.claude/config/addon_versions.json` and enables the godot-e2e
+  plugin); Step 4 collapses to a single `python tools/check_project.py
+  <dir> --build` invocation.
+- `project-scaffold/SKILL.md` Step 5 standalone addon-install list
+  realigned with `.claude/config/addon_versions.json` — adds
+  `godot_e2e -> addons/godot_e2e/` and lowercases `gdunit4`.
+- `gm-scaffold/SKILL.md` Session Setup notes that `session_start.py`
+  clears `.godotmaker/current_role` on every new session, so
+  re-issuing the slash command re-establishes the role.
 
 ## Fixed
 
