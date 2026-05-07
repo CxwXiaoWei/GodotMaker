@@ -9,7 +9,9 @@
   "build": {
     "checks": ["plan_all_verified"]
   },
-  "verify": {},
+  "verify": {
+    "files": [".godotmaker/verify_report.json"]
+  },
   "evaluate": {
     "files": [".godotmaker/evaluation.json"]
   },

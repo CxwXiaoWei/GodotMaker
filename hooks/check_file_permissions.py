@@ -35,7 +35,8 @@ EVAL_ALLOWED_GM_FILES = {".godotmaker/evaluation.json",
                           ".godotmaker/stage.jsonl",
                           ".godotmaker/current_role"}
 VERIFY_ALLOWED_GM_FILES = {".godotmaker/stage.jsonl",
-                            ".godotmaker/current_role"}
+                            ".godotmaker/current_role",
+                            ".godotmaker/verify_report.json"}
 
 
 def _is_e2e_path(path_lower: str) -> bool:
@@ -103,8 +104,9 @@ def _check_main(role: str, path_lower: str, file_name: str, ext: str) -> None:
     if role == "verify":
         if _matches_allowed_gm(path_lower, VERIFY_ALLOWED_GM_FILES):
             return
-        _block(f"Verify is read-only except .godotmaker/stage.jsonl and "
-               f".godotmaker/current_role (attempted: {file_name}).", file_name)
+        _block(f"Verify is read-only except .godotmaker/stage.jsonl, "
+               f".godotmaker/current_role, and .godotmaker/verify_report.json "
+               f"(attempted: {file_name}).", file_name)
 
     if role == "scaffold":
         return

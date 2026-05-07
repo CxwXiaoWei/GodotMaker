@@ -16,7 +16,7 @@ You are performing mechanical verification of a built Godot game project. This i
 
 **FIRST ACTION — before anything else:** Write `verify` to `.godotmaker/current_role`.
 
-**Permission:** Read-only with two exceptions — you may write `.godotmaker/current_role` and append to `.godotmaker/stage.jsonl`. Verify never modifies game code or planning docs.
+**Permission:** Read-only with three exceptions — you may write `.godotmaker/current_role`, append to `.godotmaker/stage.jsonl`, and write `.godotmaker/verify_report.json`. Verify never modifies game code or planning docs.
 
 ## Resume Check
 
@@ -59,6 +59,10 @@ Criteria: no FAIL lines.
 
 ## Output Format
 
+You produce **two outputs**:
+
+### A. Human-readable report (chat)
+
 ```
 ## Verification Report
 
@@ -85,19 +89,96 @@ Output: {paste PASS/FAIL lines}
 ### Overall: PASS | FAIL
 ```
 
+### B. Machine-readable report (`.godotmaker/verify_report.json`)
+
+Write this file every run (PASS or FAIL). `/gm-build` and `/gm-fixgap` read it on their next invocation to translate failures into pending tasks.
+
+Schema:
+
+```json
+{
+  "result": "pass | fail",
+  "ts": "<UTC ISO 8601 timestamp, e.g. 2026-05-07T14:23:00Z>",
+  "checks": {
+    "build": {
+      "result": "pass | fail | error",
+      "errors": [
+        {"file": "src/foo.gd", "line": 42, "message": "Identifier 'bar' not declared"}
+      ]
+    },
+    "unit_tests": {
+      "result": "pass | fail | error",
+      "passed": 624,
+      "failed": 0,
+      "failures": [
+        {"test": "test_player_input::test_jump", "message": "expected 10, got 0"}
+      ]
+    },
+    "lint": {
+      "result": "pass | warn | fail | error",
+      "issues": [
+        {"file": "src/foo.gd", "rule": "max-line-length", "message": "line too long"}
+      ],
+      "format_drift": {
+        "file_count": 92,
+        "command": "gdformat src/ test/ scenes/"
+      }
+    },
+    "static_check": {
+      "result": "pass | fail | error",
+      "issues": [
+        {"check": "missing_unit_test", "detail": "s_level_up_overlay has no test"}
+      ]
+    }
+  },
+  "tooling_notes": [
+    {
+      "tool": "gdlint",
+      "crashed_on": "src/foo.gd",
+      "error": "NotImplementedError at gdtoolkit/linter/class_checks.py:144",
+      "suggested_fallback": "exclude_file",
+
+      "narrowed_command": null,
+      "rule_name": null,
+      "check_name": null
+    }
+  ]
+}
+```
+
+Field rules:
+
+- **Top-level `result`** — `"pass"` iff every `checks.*.result` ∈ {`pass`, `warn`}. Any `fail` / `error` makes overall `fail`. `tooling_notes` alone never makes overall `fail` — the `error` it pairs with does.
+- **`ts`** — UTC ISO 8601 at the moment you write the file. Consumers compare it against their own last-event timestamp for freshness.
+- **All array fields are required** (possibly empty `[]`). Do not omit them.
+- **Per-check `result`** — `pass` / `fail` are project-content. `warn` is lint-only style noise. `error` means the tool itself crashed and the project's actual state is unknown for this check; pair `error` with exactly one `tooling_notes` entry. Consumers fix `error` via config, NOT project code.
+- **`format_drift`** — object when `gdformat --check` reports drift; `null` otherwise.
+- **`suggested_fallback`** + matching operand — the producer fills the operand so the consumer can act deterministically:
+
+  | `suggested_fallback` | Required operand |
+  |---|---|
+  | `exclude_file` | `crashed_on` (already required on every note) |
+  | `scope_narrow` | `narrowed_command` (replacement command, e.g. `"gdlint src/"`) |
+  | `add_gdlintrc_rule` | `rule_name` (e.g. `"class-name"`) |
+  | `skip_check` | `check_name` (e.g. `"missing_unit_test"`) |
+  | `escalate` | — (none) |
+
+  **Producer rule:** if you cannot fill the required operand for a non-`escalate` fallback, emit `escalate` instead.
+
+  **Consumer rule** (open-enum forward-compat): a missing required operand or an unknown `suggested_fallback` value MUST be treated as `escalate` (surface to user, do NOT auto-fix). Never crash.
+
 ## On Failure
 
 If any check fails:
-1. Identify the failing system from the output
-2. Tell the user which checks failed. Suggest the right next step based on context:
-   - If the last state-changing event was `build` → suggest `/gm-build` (the build cycle continues)
-   - If the last state-changing event was `fixgap` → suggest `/gm-fixgap` (the gap-fix cycle continues)
 
-Do NOT dispatch workers or make code changes. Verify only reports — fixing happens in `/gm-build` or `/gm-fixgap`.
+1. Write `.godotmaker/verify_report.json` with `result: "fail"` and the per-check details.
+2. Tell the user which checks failed. Suggest `/gm-build` if the last state-changing event was `build`, `/gm-fixgap` if it was `fixgap`.
+3. Do NOT append a `verify` event to `stage.jsonl` — only PASS records a stage event.
 
 ## When Done
 
 When all checks pass:
 
-1. Append a line to `.godotmaker/stage.jsonl`: `{"role": "verify", "ts": "<UTC ISO timestamp>"}`. Read the existing file (treat as empty if missing), append the new event, and write the full file back.
-2. Inform the user: `Verify complete. Recommended next: /gm-evaluate`
+1. Write `.godotmaker/verify_report.json` with `result: "pass"` (Field rules apply: `tooling_notes == []`, all `checks.*.result` ∈ {`pass`, `warn`}).
+2. Append `{"role": "verify", "ts": "<UTC ISO timestamp>"}` to `.godotmaker/stage.jsonl`.
+3. Inform the user: `Verify complete. Recommended next: /gm-evaluate`

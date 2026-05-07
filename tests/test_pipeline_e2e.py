@@ -79,6 +79,36 @@ def file_write_payload(file_path: str, agent_id: str = "") -> dict:
     }
 
 
+def _minimal_pass_report() -> dict:
+    """Schema-valid verify_report.json with all checks passing.
+
+    Mirrors the schema in skills/core/gm-verify/SKILL.md Output Format
+    Section B — every required field present, all arrays empty. Used by
+    fixtures that need the verify-completion gate to pass without
+    asserting on per-check content.
+    """
+    return {
+        "result": "pass",
+        "ts": "2026-01-01T03:00:00Z",
+        "checks": {
+            "build": {"result": "pass", "errors": []},
+            "unit_tests": {
+                "result": "pass",
+                "passed": 0,
+                "failed": 0,
+                "failures": [],
+            },
+            "lint": {
+                "result": "pass",
+                "issues": [],
+                "format_drift": None,
+            },
+            "static_check": {"result": "pass", "issues": []},
+        },
+        "tooling_notes": [],
+    }
+
+
 @pytest.fixture
 def project_dir():
     """Temp project with deployed stage_schemas.json. Auto-restores cwd."""
@@ -243,6 +273,15 @@ class TestVerifyPhase:
                                  file_write_payload(path))
             assert is_blocked(parsed), f"verify must block {path}"
 
+    def test_verify_can_write_verify_report(self, project_dir):
+        """Verify role's third write exception (per gm-verify SKILL.md
+        'Session Setup'). The other two — stage.jsonl and current_role —
+        are covered in tests/hooks/test_check_file_permissions.py."""
+        write_current_role("verify")
+        _, parsed = run_hook("check_file_permissions.py",
+                             file_write_payload(".godotmaker/verify_report.json"))
+        assert not is_blocked(parsed)
+
     def test_verify_does_not_run_diligence_check(self, project_dir):
         """verify role skips check_completion entirely."""
         write_current_role("verify")
@@ -255,6 +294,27 @@ class TestVerifyPhase:
         })
         assert code == 0
         assert not is_blocked(parsed)
+
+    def test_verify_completion_blocks_without_report(self, project_dir):
+        """stage_reminder must block the verify completion event when
+        .godotmaker/verify_report.json is missing — that file is the
+        feedback channel /gm-build and /gm-fixgap consume to know
+        what failed last verify."""
+        _, parsed = run_hook("stage_reminder.py",
+                             write_stage_payload({"verify": "2026-01-01T03:00:00Z"}))
+        assert is_blocked(parsed)
+        assert "verify_report.json" in parsed.get(
+            "hookSpecificOutput", {}).get("permissionDecisionReason", "")
+
+    def test_verify_completion_succeeds_with_report(self, project_dir):
+        with open(".godotmaker/verify_report.json", "w", encoding="utf-8") as f:
+            json.dump(_minimal_pass_report(), f)
+        code, parsed = run_hook("stage_reminder.py",
+                                write_stage_payload({"verify": "2026-01-01T03:00:00Z"}))
+        assert code == 0
+        assert not is_blocked(parsed)
+        ctx = parsed["hookSpecificOutput"]["additionalContext"]
+        assert "/gm-evaluate" in ctx
 
 
 # ---------------------------------------------------------------------------
@@ -437,6 +497,8 @@ class TestFullLifecycleHappyPath:
         write_completed_roles({"scaffold": "t0", "gdd": "t1",
                                "asset": "t1b", "build": "t2"})
         write_current_role("verify")
+        with open(".godotmaker/verify_report.json", "w", encoding="utf-8") as f:
+            json.dump(_minimal_pass_report(), f)
         _, parsed = run_hook("stage_reminder.py", write_stage_payload(
             {"scaffold": "t0", "gdd": "t1", "asset": "t1b",
              "build": "t2", "verify": "t3"}))

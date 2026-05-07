@@ -410,7 +410,8 @@ class TestRoleBased:
         """Verify needs to update bookkeeping files even though it is otherwise
         read-only (per gm-verify SKILL.md 'Session Setup' + 'When Done')."""
         write_current_role("verify")
-        for path in [".godotmaker/stage.jsonl", ".godotmaker/current_role"]:
+        for path in [".godotmaker/stage.jsonl", ".godotmaker/current_role",
+                     ".godotmaker/verify_report.json"]:
             _, _, parsed = run_hook(HOOK, {
                 "tool_name": "Edit",
                 "tool_input": {"file_path": path},
