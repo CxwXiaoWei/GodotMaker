@@ -218,3 +218,47 @@ class TestRoleLookup:
     def test_lookup_empty_events(self, temp_metrics_dir):
         role = lookup_role_from_events("w1")
         assert role == "unknown"
+
+
+class TestGetCurrentTag:
+    """get_current_tag() reads PLAN.md's `**Tag:** vX.Y.Z` header so
+    session_start (and other helpers) can surface the active tag.
+    """
+
+    @pytest.fixture
+    def in_project_dir(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        return tmp_path
+
+    def test_returns_empty_when_plan_missing(self, in_project_dir):
+        from metrics import get_current_tag
+        assert get_current_tag() == ""
+
+    def test_returns_empty_when_no_tag_header(self, in_project_dir):
+        (in_project_dir / "PLAN.md").write_text(
+            "# Plan\n\nNo tag header in this file.\n", encoding="utf-8"
+        )
+        from metrics import get_current_tag
+        assert get_current_tag() == ""
+
+    def test_extracts_tag_from_header(self, in_project_dir):
+        (in_project_dir / "PLAN.md").write_text(
+            "# Plan\n\n**Tag:** v0.3.0\n\nrest of plan\n", encoding="utf-8"
+        )
+        from metrics import get_current_tag
+        assert get_current_tag() == "v0.3.0"
+
+    def test_handles_extra_whitespace(self, in_project_dir):
+        (in_project_dir / "PLAN.md").write_text(
+            "# Plan\n\n**Tag:**   v1.2.3   \n", encoding="utf-8"
+        )
+        from metrics import get_current_tag
+        assert get_current_tag() == "v1.2.3"
+
+    def test_ignores_non_semver_after_marker(self, in_project_dir):
+        (in_project_dir / "PLAN.md").write_text(
+            "# Plan\n\n**Tag:** alpha-1\n", encoding="utf-8"
+        )
+        from metrics import get_current_tag
+        # Regex requires vX.Y.Z so this should not match
+        assert get_current_tag() == ""

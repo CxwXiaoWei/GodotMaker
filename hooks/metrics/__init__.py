@@ -12,6 +12,7 @@ Generate report:
 """
 import json
 import os
+import re
 
 from .collector import record_event, read_events, read_current_events, start_session
 from .schema import (
@@ -121,6 +122,25 @@ def get_current_role() -> str:
         return ""
 
 
+TAG_HEADER_RE = re.compile(r"^\*\*Tag:\*\*\s*(v\d+\.\d+\.\d+)\s*$", re.MULTILINE)
+
+
+def get_current_tag() -> str:
+    """Read the current tag from PLAN.md's `**Tag:**` header.
+
+    Returns the tag string (e.g. "v0.2.0") or "" if PLAN.md is missing
+    or has no Tag header. Used for session-start banners and other
+    informational displays — DO NOT rely on this for gating; use the
+    git-tag-vs-ROADMAP comparison in gm-gdd's Mode Detection for that.
+    """
+    try:
+        with open("PLAN.md", encoding="utf-8", errors="replace") as f:
+            m = TAG_HEADER_RE.search(f.read())
+            return m.group(1) if m else ""
+    except OSError:
+        return ""
+
+
 __all__ = [
     "record_event", "read_events", "read_current_events", "start_session",
     "EventType", "REPORT_MARKERS", "detect_report_type", "event_has_role",
@@ -137,4 +157,6 @@ __all__ = [
     "get_role_events",
     "is_role_completed",
     "get_current_role",
+    "get_current_tag",
+    "TAG_HEADER_RE",
 ]

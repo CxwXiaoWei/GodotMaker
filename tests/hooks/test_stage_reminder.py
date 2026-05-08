@@ -87,7 +87,7 @@ class TestRoleReminder:
         assert "scaffold" in ctx
 
     def test_gdd_complete_reminds_asset(self, project_dir):
-        for f in ["GDD.md", "PLAN.md", "STRUCTURE.md", "ASSETS.md", "SCENES.md", "TOC.md"]:
+        for f in ["GDD.md", "PLAN.md", "STRUCTURE.md", "ASSETS.md", "SCENES.md", "TOC.md", "ROADMAP.md"]:
             open(f, "w").close()
         _, code, parsed = run_hook(HOOK, {
             "hook_event_name": "PreToolUse",
@@ -151,7 +151,7 @@ class TestRoleReminder:
         assert parsed is None or "additionalContext" not in parsed.get("hookSpecificOutput", {})
 
     def test_windows_path(self, project_dir):
-        for f in ["GDD.md", "PLAN.md", "STRUCTURE.md", "ASSETS.md", "SCENES.md", "TOC.md"]:
+        for f in ["GDD.md", "PLAN.md", "STRUCTURE.md", "ASSETS.md", "SCENES.md", "TOC.md", "ROADMAP.md"]:
             open(f, "w").close()
         _, code, parsed = run_hook(HOOK, {
             "hook_event_name": "PreToolUse",
@@ -167,7 +167,7 @@ class TestRoleReminder:
         assert "/gm-asset" in ctx
 
     def test_edit_tool_for_gdd_event_reminds_asset(self, project_dir):
-        for f in ["GDD.md", "PLAN.md", "STRUCTURE.md", "ASSETS.md", "SCENES.md", "TOC.md"]:
+        for f in ["GDD.md", "PLAN.md", "STRUCTURE.md", "ASSETS.md", "SCENES.md", "TOC.md", "ROADMAP.md"]:
             open(f, "w").close()
         _, code, parsed = run_hook(HOOK, {
             "hook_event_name": "PreToolUse",
@@ -225,6 +225,76 @@ class TestValidation:
         })
         assert code == 0
         # Should produce a reminder, not block
+        assert not is_blocked(parsed)
+
+
+class TestTagArchived:
+    """check_tag_archived runs at finalize completion. Reads PLAN.md's
+    `**Tag:**` header to know which docs/tags/<Tag>/ archive to verify.
+    """
+
+    REQUIRED_FILES = [
+        "GDD-snapshot.md", "PLAN.md", "STRUCTURE.md", "SCENES.md",
+        "MEMORY.md", "evaluation-final.json", "CHANGELOG.md",
+    ]
+
+    def _write_finalize_event(self) -> dict:
+        return {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Write",
+            "tool_input": {
+                "file_path": ".godotmaker/stage.jsonl",
+                "content": stage_jsonl([{"role": "finalize", "ts": "2026-05-07T12:00:00Z"}]),
+            },
+        }
+
+    def test_blocks_when_plan_md_missing(self, project_dir):
+        _, _, parsed = run_hook(HOOK, self._write_finalize_event())
+        assert is_blocked(parsed)
+        reason = parsed["hookSpecificOutput"]["permissionDecisionReason"]
+        assert "PLAN.md" in reason
+
+    def test_blocks_when_plan_lacks_tag_header(self, project_dir):
+        with open("PLAN.md", "w", encoding="utf-8") as f:
+            f.write("# Plan\nno tag header here\n")
+        _, _, parsed = run_hook(HOOK, self._write_finalize_event())
+        assert is_blocked(parsed)
+        reason = parsed["hookSpecificOutput"]["permissionDecisionReason"]
+        assert "Tag" in reason
+
+    def test_blocks_when_tag_directory_missing(self, project_dir):
+        with open("PLAN.md", "w", encoding="utf-8") as f:
+            f.write("# Plan\n\n**Tag:** v0.3.0\n")
+        _, _, parsed = run_hook(HOOK, self._write_finalize_event())
+        assert is_blocked(parsed)
+        reason = parsed["hookSpecificOutput"]["permissionDecisionReason"]
+        assert "docs/tags/v0.3.0/" in reason
+
+    def test_blocks_when_archive_files_missing(self, project_dir):
+        with open("PLAN.md", "w", encoding="utf-8") as f:
+            f.write("# Plan\n\n**Tag:** v0.1.0\n")
+        os.makedirs(os.path.join("docs", "tags", "v0.1.0"), exist_ok=True)
+        # Create only some files
+        for f in ["GDD-snapshot.md", "PLAN.md"]:
+            open(os.path.join("docs", "tags", "v0.1.0", f), "w").close()
+        _, _, parsed = run_hook(HOOK, self._write_finalize_event())
+        assert is_blocked(parsed)
+        reason = parsed["hookSpecificOutput"]["permissionDecisionReason"]
+        # Should list missing files
+        assert "STRUCTURE.md" in reason or "evaluation-final.json" in reason
+
+    def test_passes_when_archive_complete(self, project_dir):
+        with open("PLAN.md", "w", encoding="utf-8") as f:
+            f.write("# Plan\n\n**Tag:** v0.1.0\n")
+        archive = os.path.join("docs", "tags", "v0.1.0")
+        os.makedirs(archive, exist_ok=True)
+        for f in self.REQUIRED_FILES:
+            open(os.path.join(archive, f), "w").close()
+        # finalize schema also requires final_report.json
+        with open(".godotmaker/final_report.json", "w") as f:
+            f.write('{"status": "tag_sealed"}')
+        _, code, parsed = run_hook(HOOK, self._write_finalize_event())
+        assert code == 0
         assert not is_blocked(parsed)
 
 

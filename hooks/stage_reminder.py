@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from metrics import (
     record_event, EventType, PIPELINE_ROLES,
     load_stage_schemas, validate_schema_files,
+    get_current_tag,
 )
 
 ROLE_NEXT = {
@@ -61,6 +62,35 @@ def check_gap_archived() -> str | None:
     return None
 
 
+_TAG_ARCHIVE_FILES = (
+    "GDD-snapshot.md",
+    "PLAN.md",
+    "STRUCTURE.md",
+    "SCENES.md",
+    "MEMORY.md",
+    "evaluation-final.json",
+    "CHANGELOG.md",
+)
+
+
+def check_tag_archived() -> str | None:
+    """Finalize role: docs/tags/<Tag>/ must contain a full archive of the
+    just-finalized tag. The current tag is read from PLAN.md's `**Tag:**`
+    header (still scoped to the tag being finalized at this point).
+    """
+    tag = get_current_tag()
+    if not tag:
+        return ("PLAN.md missing or has no `**Tag:** vX.Y.Z` header — finalize "
+                "needs this to know which docs/tags/<Tag>/ directory to verify.")
+    archive = os.path.join("docs", "tags", tag)
+    if not os.path.isdir(archive):
+        return f"docs/tags/{tag}/ not created — finalize must archive the tag's working docs there."
+    missing = [f for f in _TAG_ARCHIVE_FILES if not os.path.isfile(os.path.join(archive, f))]
+    if missing:
+        return (f"docs/tags/{tag}/ missing required files: {', '.join(missing)}")
+    return None
+
+
 def _check_task_table_all_verified(path: str) -> str | None:
     """Shared: a task table at `path` must have no non-verified tasks."""
     if not os.path.isfile(path):
@@ -85,6 +115,7 @@ def _check_task_table_all_verified(path: str) -> str | None:
 PROGRAMMATIC_CHECKS = {
     "plan_all_verified": check_plan_all_verified,
     "gap_archived": check_gap_archived,
+    "tag_archived": check_tag_archived,
 }
 
 

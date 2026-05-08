@@ -16,10 +16,11 @@ from metrics import record_event, EventType, get_current_role, WORKER_DISPATCH_R
 GAME_CODE_EXTENSIONS = {".gd", ".tscn", ".tres"}
 # Project-root planning artifacts — subagents may NOT modify these unless
 # their agent_type is in PLANNING_WRITER_AGENT_TYPES. Includes the four
-# 1b decomposer outputs (PLAN/STRUCTURE/ASSETS + SCENES/TOC) and GAP.md
+# 1c decomposer outputs (PLAN/STRUCTURE/ASSETS + SCENES/TOC), the
+# tag-iteration roadmap (ROADMAP.md, owned by /gm-gdd), and GAP.md
 # (owned by /gm-fixgap's lead, not subagents).
 PLANNING_DOCS = {"plan.md", "structure.md", "assets.md", "gap.md",
-                 "scenes.md", "toc.md"}
+                 "scenes.md", "toc.md", "roadmap.md"}
 # project.godot is the engine config and changes the whole game. Subagents
 # may not edit it unless their agent_type is in PLANNING_WRITER_AGENT_TYPES.
 PROJECT_GODOT = "project.godot"
@@ -29,14 +30,19 @@ GODOTMAKER_DIR = ".godotmaker/"
 # Subagent types whose entire purpose is writing planning docs — exempt
 # from the general subagent block on PLANNING_DOCS and PROJECT_GODOT.
 PLANNING_WRITER_AGENT_TYPES = {"decomposer"}
-# Per-role narrow write allow-lists under .godotmaker/. Both roles still need
-# current_role + stage.jsonl for bookkeeping; evaluate also writes its verdict.
+# Per-role narrow write allow-lists under .godotmaker/. Each role needs
+# current_role + stage.jsonl for bookkeeping; evaluate / verify also write
+# their structured verdict; rescue is diagnostic-only (chat output only),
+# so it gets ONLY the bookkeeping pair — anything else attempted is a SKILL
+# violation worth blocking.
 EVAL_ALLOWED_GM_FILES = {".godotmaker/evaluation.json",
                           ".godotmaker/stage.jsonl",
                           ".godotmaker/current_role"}
 VERIFY_ALLOWED_GM_FILES = {".godotmaker/stage.jsonl",
                             ".godotmaker/current_role",
                             ".godotmaker/verify_report.json"}
+RESCUE_ALLOWED_GM_FILES = {".godotmaker/stage.jsonl",
+                            ".godotmaker/current_role"}
 
 
 def _is_e2e_path(path_lower: str) -> bool:
@@ -107,6 +113,13 @@ def _check_main(role: str, path_lower: str, file_name: str, ext: str) -> None:
         _block(f"Verify is read-only except .godotmaker/stage.jsonl, "
                f".godotmaker/current_role, and .godotmaker/verify_report.json "
                f"(attempted: {file_name}).", file_name)
+
+    if role == "rescue":
+        if _matches_allowed_gm(path_lower, RESCUE_ALLOWED_GM_FILES):
+            return
+        _block(f"Rescue is diagnostic-only — output goes to chat, not files. "
+               f"Only .godotmaker/stage.jsonl and .godotmaker/current_role "
+               f"may be written (attempted: {file_name}).", file_name)
 
     if role == "scaffold":
         return

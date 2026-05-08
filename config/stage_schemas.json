@@ -3,7 +3,7 @@
     "files": ["project.godot"]
   },
   "gdd": {
-    "files": ["GDD.md", "PLAN.md", "STRUCTURE.md", "ASSETS.md", "SCENES.md", "TOC.md"]
+    "files": ["GDD.md", "PLAN.md", "STRUCTURE.md", "ASSETS.md", "SCENES.md", "TOC.md", "ROADMAP.md"]
   },
   "asset": {},
   "build": {
@@ -20,6 +20,8 @@
   },
   "accept": {},
   "finalize": {
-    "files": [".godotmaker/final_report.json"]
-  }
+    "files": [".godotmaker/final_report.json"],
+    "checks": ["tag_archived"]
+  },
+  "rescue": {}
 }

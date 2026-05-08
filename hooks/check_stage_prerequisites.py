@@ -5,8 +5,9 @@ Only enforces for roles that drive worker orchestration:
   - build → requires gdd completed + scaffold artifacts present
   - fixgap → requires evaluate completed + evaluation.json present
 
-Scaffold artifacts are checked on disk because scaffold events are archived
-per-milestone.
+Scaffold artifacts are checked on disk because gm-finalize truncates
+stage.jsonl at every tag boundary, so the scaffold event is no longer
+in stage.jsonl after the first finalize.
 
 Other dispatching roles (asset → analyst) self-validate via their SKILL.md
 Resume Check; their preconditions don't match this hook's stage-schema model.
@@ -37,7 +38,7 @@ if frozenset(PREREQ_ROLE) != WORKER_DISPATCH_ROLES:
     )
 
 # Roles that need scaffold artifacts on disk (lifetime-once, not in stage.jsonl
-# after first milestone's archive).
+# after the first tag's finalize truncates the log).
 SCAFFOLD_REQUIRED = frozenset({"build"})
 
 

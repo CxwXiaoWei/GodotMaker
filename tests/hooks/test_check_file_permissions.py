@@ -291,7 +291,7 @@ class TestRoleBased:
 
     def test_gdd_can_write_planning_docs(self, project_dir):
         write_current_role("gdd")
-        for path in ["GDD.md", "PLAN.md", "STRUCTURE.md", "ASSETS.md", "SCENES.md", "TOC.md"]:
+        for path in ["GDD.md", "PLAN.md", "STRUCTURE.md", "ASSETS.md", "SCENES.md", "TOC.md", "ROADMAP.md"]:
             _, _, parsed = run_hook(HOOK, {
                 "tool_name": "Write",
                 "tool_input": {"file_path": path},
@@ -471,6 +471,36 @@ class TestRoleBased:
                 "agent_id": "",
             })
             assert not is_blocked(parsed), f"finalize must allow {path}"
+
+    def test_rescue_can_write_bookkeeping(self, project_dir):
+        """Rescue's two carve-outs (per gm-rescue SKILL.md 'Hard rules' +
+        'Session Setup' + 'When Done') — current_role to set the role lock,
+        stage.jsonl to record the rescue event."""
+        write_current_role("rescue")
+        for path in [".godotmaker/stage.jsonl", ".godotmaker/current_role"]:
+            _, _, parsed = run_hook(HOOK, {
+                "tool_name": "Edit",
+                "tool_input": {"file_path": path},
+                "agent_id": "",
+            })
+            assert not is_blocked(parsed), f"rescue must allow {path}"
+
+    def test_rescue_blocked_from_everything_else(self, project_dir):
+        """Rescue is diagnostic-only — chat output, no file mutations beyond
+        the two bookkeeping carve-outs. Includes innocuous .md / .json paths
+        the SKILL never touches but a misbehaving agent might try to write."""
+        write_current_role("rescue")
+        for path in ["scripts/x.gd", "PLAN.md", "MEMORY.md", "GDD.md",
+                     "ROADMAP.md", "GAP.md", ".godotmaker/evaluation.json",
+                     ".godotmaker/verify_report.json",
+                     ".godotmaker/final_report.json",
+                     ".godotmaker/random.json", "e2e/test_x.py"]:
+            _, _, parsed = run_hook(HOOK, {
+                "tool_name": "Write",
+                "tool_input": {"file_path": path},
+                "agent_id": "",
+            })
+            assert is_blocked(parsed), f"rescue must block {path}"
 
 
 class TestSubagentInRole:

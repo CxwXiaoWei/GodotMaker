@@ -53,3 +53,48 @@ class TestSessionStart:
     def test_never_blocks(self, project_dir):
         _, code, parsed = run_hook(HOOK, {})
         assert code == 0
+
+
+class TestSessionStartTagBanner:
+    """SessionStart should surface the current tag (from PLAN.md) in
+    additionalContext so the lead agent knows which tag is active.
+    """
+
+    def _make_version_file(self):
+        os.makedirs(".godotmaker", exist_ok=True)
+        with open(".godotmaker/version", "w") as f:
+            f.write("0.5.0")
+
+    def test_no_version_file_no_banner(self, project_dir):
+        # No version file → no additionalContext at all
+        _, code, parsed = run_hook(HOOK, {})
+        assert code == 0
+        assert parsed is None or "additionalContext" not in parsed.get("hookSpecificOutput", {})
+
+    def test_version_only_no_plan(self, project_dir):
+        self._make_version_file()
+        _, code, parsed = run_hook(HOOK, {})
+        assert code == 0
+        ctx = parsed["hookSpecificOutput"]["additionalContext"]
+        assert "v0.5.0" in ctx
+        assert "no current tag" in ctx
+
+    def test_version_with_plan_tag(self, project_dir):
+        self._make_version_file()
+        with open("PLAN.md", "w", encoding="utf-8") as f:
+            f.write("# Plan\n\n**Tag:** v0.2.0\n")
+        _, code, parsed = run_hook(HOOK, {})
+        assert code == 0
+        ctx = parsed["hookSpecificOutput"]["additionalContext"]
+        assert "v0.5.0" in ctx
+        assert "v0.2.0" in ctx
+        assert "tag:" in ctx
+
+    def test_plan_without_tag_header_treated_as_no_tag(self, project_dir):
+        self._make_version_file()
+        with open("PLAN.md", "w", encoding="utf-8") as f:
+            f.write("# Plan\n\nThis PLAN.md has no Tag header.\n")
+        _, code, parsed = run_hook(HOOK, {})
+        assert code == 0
+        ctx = parsed["hookSpecificOutput"]["additionalContext"]
+        assert "no current tag" in ctx
