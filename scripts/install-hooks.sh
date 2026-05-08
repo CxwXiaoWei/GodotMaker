@@ -19,7 +19,15 @@ if [ -f "$PRECOMMIT_DST" ] && [ ! -L "$PRECOMMIT_DST" ]; then
 fi
 
 ln -sf ../../scripts/pre-commit "$PRECOMMIT_DST"
-echo "  Installed pre-commit hook as symlink (gitleaks secret scanning)"
+echo "  Installed pre-commit hook as symlink (ruff lint + gitleaks secret scan)"
+
+# Verify ruff
+if command -v ruff &> /dev/null; then
+    echo "  ruff found: $(ruff --version)"
+else
+    echo "  WARNING: ruff not installed. Hook will skip lint."
+    echo "  Install: pip install ruff"
+fi
 
 # Verify gitleaks
 if command -v gitleaks &> /dev/null; then

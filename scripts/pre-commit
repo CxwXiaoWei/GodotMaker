@@ -1,17 +1,43 @@
 #!/usr/bin/env bash
-# Pre-commit hook: run gitleaks to detect secrets before commit
+# Pre-commit hook: lint staged Python files + scan for secrets
 # Installed by scripts/install-hooks.sh
+#
+# Order: ruff first (fastest signal on the most common failure), then
+# gitleaks (secret scan). Both run only on staged content, so the hook
+# stays sub-second.
+#
+# To skip in an emergency: git commit --no-verify
 
 set -euo pipefail
 
-# Check if gitleaks is installed
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# 1. ruff on staged Python files only.
+# Why staged-only (vs full repo `ruff check .` like pre-push runs):
+#   - keeps the hook fast on every commit;
+#   - does not penalize an unrelated commit when an old lint error sits
+#     on a file you did not touch.
+# pre-push still runs `ruff check .` on the full repo as a safety net.
+if command -v ruff &> /dev/null; then
+    staged_py=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.py$' || true)
+    if [ -n "$staged_py" ]; then
+        echo "[pre-commit] Running ruff on staged Python files..."
+        # shellcheck disable=SC2086
+        ruff check $staged_py
+    fi
+else
+    echo "[pre-commit] WARNING: ruff not found. Install: pip install ruff"
+    echo "[pre-commit] Skipping lint."
+fi
+
+# 2. gitleaks on staged changes.
 if ! command -v gitleaks &> /dev/null; then
     echo "[pre-commit] WARNING: gitleaks not found. Install it: https://github.com/gitleaks-io/gitleaks"
     echo "[pre-commit] Skipping secret scan."
     exit 0
 fi
 
-# Scan only staged changes (fast, only checks what you're about to commit)
 echo "[pre-commit] Running gitleaks on staged changes..."
 gitleaks protect --staged --config .gitleaks.toml --verbose
 
