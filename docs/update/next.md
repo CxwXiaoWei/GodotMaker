@@ -32,3 +32,5 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 ## Fixed
 
 ## Removed
+
+- `templates/PLAN.md` — "Presentation video" task removed. The template used to ask `/gm-build` to write `test/Presentation.gd` and render a ~30s cinematic MP4 to `screenshots/presentation/gameplay.mp4`; the file served no verification purpose (visual-qa uses `e2e/screenshots/` PNG frames) and confused users who saw an unexplained recording appear in their project. Both the Verify-list bullet and the `| V | Presentation video |` Task Status row are gone.

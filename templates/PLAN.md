@@ -91,9 +91,6 @@
 - DAG check passes (no circular node-creation dependencies)
 - All gdUnit tests pass (pure logic systems + materialization systems)
 - Optional VQA validation on screenshots
-- **Presentation video:** ~30s cinematic MP4 showcasing gameplay
-  - Write test/Presentation.gd (SceneTree script), ~900 frames at 30 FPS
-  - Output: screenshots/presentation/gameplay.mp4
 
 ## Task Status
 
@@ -104,4 +101,3 @@
 | R1 | {Risk task 1} | pending | |
 | R2 | {Risk task 2} | pending | |
 | M | Main build | pending | |
-| V | Presentation video | pending | |
