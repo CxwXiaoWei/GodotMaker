@@ -13,8 +13,10 @@ Usage:
 """
 import argparse
 import json
+import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -186,10 +188,32 @@ def select_migration_action(level: str, force: bool) -> str:
     return "run"
 
 
+def _rmtree_handle_readonly(func, path, _):
+    """rmtree onerror/onexc handler: clear the read-only bit and retry.
+
+    Windows refuses to unlink read-only files (e.g. git pack-*.idx in
+    cloned doc sources are r--r--r--), so plain shutil.rmtree raises
+    PermissionError [WinError 5]. Linux/macOS unlink them without
+    issue, which is why this is a Windows-only crash. The third
+    parameter is exc_info (3.10/3.11 onerror) or an Exception (3.12+
+    onexc); we ignore it either way.
+    """
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+def rmtree_force(path: Path):
+    """shutil.rmtree that survives Windows read-only files."""
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=_rmtree_handle_readonly)
+    else:
+        shutil.rmtree(path, onerror=_rmtree_handle_readonly)
+
+
 def copy_tree(src: Path, dst: Path):
     """Copy directory tree, overwriting destination. Excludes __pycache__ etc."""
     if dst.exists():
-        shutil.rmtree(dst)
+        rmtree_force(dst)
     shutil.copytree(src, dst, ignore=shutil.ignore_patterns(*EXCLUDE_DIRS))
 
 
@@ -634,7 +658,7 @@ def main():
         ]:
             if d.exists():
                 print(f"  Cleaning {d}")
-                shutil.rmtree(d)
+                rmtree_force(d)
         # State files to remove
         for f in [
             target / ".godotmaker" / "state.json",
@@ -650,7 +674,7 @@ def main():
         print("  Preserved: CLAUDE.md, godotmaker.yaml, config.yaml")
     elif args.force and skills_target.exists():
         print(f"Force: cleaning {skills_target}")
-        shutil.rmtree(skills_target)
+        rmtree_force(skills_target)
 
     print(f"Publishing to: {target}")
     skills_target.mkdir(parents=True, exist_ok=True)

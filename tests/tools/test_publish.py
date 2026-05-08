@@ -1,8 +1,11 @@
 """Tests for publish.py."""
 import os
+import stat
 import subprocess
 import sys
 from unittest.mock import patch
+
+import pytest
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -16,6 +19,7 @@ from publish import (
     create_project_config,
     ensure_gitignore,
     publish_skills,
+    rmtree_force,
     _verify_godot_path,
     DEFAULT_CONFIG_TEMPLATE,
 )
@@ -361,3 +365,131 @@ class TestPublishSkills:
         # Second publish
         publish_skills(repo, target)
         assert (target / "gecs" / "SKILL.md").read_text() == "# updated\n"
+
+
+class TestRmtreeForce:
+    """Unit tests for rmtree_force().
+
+    Cross-platform note: the read-only-file scenario only stresses the
+    onerror/onexc handler on Windows, because Linux/macOS happily unlink
+    read-only files when the parent dir is writable. On non-Windows
+    platforms these tests just verify the helper doesn't break the
+    normal-tree path; the real "is the bug fixed" assertion is
+    Windows-only by nature.
+    """
+
+    def test_removes_readonly_files(self, tmp_path):
+        # Mirrors the real failure: cloned godot doc source contains
+        # git pack-*.idx files that git writes as r--r--r--, and
+        # plain shutil.rmtree raises PermissionError on Windows.
+        target = tmp_path / "doc_source"
+        target.mkdir()
+        nested = target / ".git" / "objects" / "pack"
+        nested.mkdir(parents=True)
+        pack = nested / "pack-deadbeef.idx"
+        pack.write_bytes(b"fake pack idx")
+        pack.chmod(stat.S_IREAD)
+        try:
+            rmtree_force(target)
+            assert not target.exists()
+        finally:
+            # Best-effort cleanup if the helper itself failed.
+            if pack.exists():
+                pack.chmod(stat.S_IWRITE)
+
+    def test_removes_normal_tree(self, tmp_path):
+        target = tmp_path / "tree"
+        (target / "a" / "b").mkdir(parents=True)
+        (target / "a" / "b" / "c.txt").write_text("hi")
+        rmtree_force(target)
+        assert not target.exists()
+
+
+class TestPublishMainForceRmtree:
+    """End-to-end: publish.main --force must survive a target whose
+    .claude/skills contains read-only files (e.g. git pack-*.idx from a
+    prior version that cloned godot-docs as a git repo).
+
+    Reproduces the v0.3.2 release-blocker where Windows users upgrading
+    from <=0.3.1 hit PermissionError [WinError 5] in shutil.rmtree because
+    the rmtree call had no read-only handler. This test exercises the
+    elif args.force branch in main(); the MAJOR-force branch above it
+    rmtree's the same files via the same helper, so coverage carries.
+
+    Cross-platform note: Linux/macOS unlink read-only files without
+    needing the onerror handler, so on those platforms the test only
+    proves main() doesn't otherwise break; the actual bug is
+    Windows-only and only this OS exercises the fix path.
+    """
+
+    @pytest.fixture
+    def env(self, tmp_path, monkeypatch):
+        # Stub list mirrors every helper publish.main() calls (excluding
+        # rmtree_force itself, which we want to exercise). If main() gains
+        # a new helper that hits the network or filesystem and isn't stubbed
+        # here, this test will start doing real work or failing — re-sync
+        # with main() at that point.
+        target = tmp_path / "target"
+        target.mkdir()
+
+        def _no_op(*a, **kw):
+            return None
+
+        for name in (
+            "publish_skills", "publish_shared_refs", "publish_directory",
+            "deploy_settings", "deploy_claude_md", "create_godotmaker_yaml",
+            "create_project_config", "deploy_stage_schemas",
+            "create_project_dirs", "register_mcp", "ensure_gitignore",
+            "ensure_git_repo", "write_target_version",
+        ):
+            monkeypatch.setattr(publish, name, _no_op)
+        # Migration entry points must be truthy — main() exits 1 on falsy run.
+        monkeypatch.setattr(publish, "baseline_applied", lambda _: 0)
+        monkeypatch.setattr(publish, "run_migrations", lambda _: True)
+        monkeypatch.setattr(publish, "read_godot_path",
+                            lambda *a, **kw: "godot")
+        return {"target": target}
+
+    def _seed_target_version(self, target, version):
+        gm = target / ".godotmaker"
+        gm.mkdir(exist_ok=True)
+        (gm / "version").write_text(version + "\n")
+
+    def _force_source_version(self, monkeypatch, major, minor, patch):
+        from _version import SemVer
+        monkeypatch.setattr(publish, "read_source_version",
+                            lambda _: SemVer(major, minor, patch))
+
+    def _seed_readonly_pack(self, target):
+        # Mirror the actual on-disk shape: prior versions cloned the
+        # godot doc repo into .claude/skills/godot-api/doc_source, and
+        # git writes pack-*.idx as r--r--r--.
+        pack_dir = (target / ".claude" / "skills" / "godot-api"
+                    / "doc_source" / ".git" / "objects" / "pack")
+        pack_dir.mkdir(parents=True)
+        pack = pack_dir / "pack-deadbeef.idx"
+        pack.write_bytes(b"fake pack idx")
+        pack.chmod(stat.S_IREAD)
+        return pack
+
+    def test_force_patch_upgrade_clears_readonly_skill_files(
+        self, env, monkeypatch
+    ):
+        target = env["target"]
+        self._seed_target_version(target, "0.3.1")
+        self._force_source_version(monkeypatch, 0, 3, 3)
+        readonly_pack = self._seed_readonly_pack(target)
+
+        monkeypatch.setattr(sys, "argv",
+                            ["publish.py", str(target), "--force"])
+        try:
+            publish.main()  # would raise PermissionError before the fix
+        finally:
+            if readonly_pack.exists():
+                readonly_pack.chmod(stat.S_IWRITE)
+
+        # The elif branch in main() rmtree's only skills_target then
+        # mkdir's it back empty; the seeded read-only file must be gone.
+        skills = target / ".claude" / "skills"
+        assert skills.exists()
+        assert list(skills.iterdir()) == []
