@@ -71,10 +71,10 @@ The pipeline runs **per tag** (SemVer: v0.1.0, v0.2.0, …). One full pass throu
 - On resume, reads `.godotmaker/verify_report.json` if a fresh failure report exists from the previous `/gm-verify`, and translates each per-check failure into a `pending` task in the current tag's `PLAN.md` before continuing
 - Reads the current tag's `PLAN.md` to find pending tasks, starting with the riskiest ones
 - Dispatches Workers (up to 3 in parallel) — each Worker implements one game system and its unit tests, then reports back
-- After every 5 or so workers, dispatches a Verifier — a helper that compiles the project headlessly and runs the unit tests
-- After the Verifier passes, dispatches a Reviewer — a helper with domain knowledge about Godot pitfalls (physics, UI, animation, etc.) that checks for common mistakes
-- If the Reviewer finds problems, new tasks are added to `PLAN.md` and the cycle continues
-- The build ends only when every task in `PLAN.md` is marked `verified` and the last review round found nothing new
+- Once every task in `PLAN.md` is `completed`, dispatches a Verifier (compiles headlessly, runs unit tests) and then a Reviewer (domain knowledge about Godot pitfalls — physics, UI, animation, etc.) — one verify+review pass per cycle iteration, not per worker
+- For each reviewer finding the main agent picks one of three options: ACCEPT (add a new fix task to `PLAN.md`), REJECT (the finding is wrong — record in `MEMORY.md`'s **Reviewer Triage Log**), or SKIP (the finding is real but not worth fixing now — same MEMORY.md section). Defaults: critical/major → ACCEPT; minor → SKIP. REJECT/SKIP for critical/major requires a mandatory citation (gotcha entry, API doc, prior decision, or task ID)
+- If any findings were ACCEPTED, the cycle loops back to dispatching Workers
+- The build ends only when every task in `PLAN.md` is `verified` and the last review round added zero ACCEPTED tasks
 
 **What you get:** Game code in `src/`, scenes in `scenes/`, unit tests in `tests/` — all scoped to this tag's additions / refactors.
 

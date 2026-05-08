@@ -55,7 +55,7 @@ disable-model-invocation: true
 name: gm-build
 description: |
   Implement game systems via worker dispatch. Covers risk-first then main implementation.
-  Dispatches workers continuously, triggers verification every ≥5 completed workers.
+  Dispatches workers until PLAN is clean, then runs one verify+review pass; loops until convergence.
   Explicit invocation only — use /gm-build.
 disable-model-invocation: true
 ---

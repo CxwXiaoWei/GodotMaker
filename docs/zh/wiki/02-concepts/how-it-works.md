@@ -34,7 +34,7 @@ flowchart TD
 
 ### 构建阶段 — `/gm-build`
 
-`/gm-build` 读取 `PLAN.md`，实现整个游戏。它不会自己直接写代码，而是把每项任务交给专门的 Worker（执行者）——一个聚焦的辅助 Agent，每次只负责实现一个游戏系统并附带单元测试，完成后汇报结果。每完成大约 5 个 Worker 之后，Verifier（验证者）会启动，无界面运行 Godot 构建并检查测试是否通过。接着，Reviewer（评审者）会根据 Godot 特有的易错点（物理陷阱、UI 布局规则、动画注意事项等）检查代码质量。如果 Reviewer 发现问题，新任务会被追加到计划中，循环继续，直到全部清零。
+`/gm-build` 读取 `PLAN.md`，实现整个游戏。它不会自己直接写代码，而是把每项任务交给专门的 Worker（执行者）——一个聚焦的辅助 Agent，每次只负责实现一个游戏系统并附带单元测试，完成后汇报结果。当 `PLAN.md` 中所有任务都 `completed` 后，Verifier（验证者）会启动，无界面运行 Godot 构建并检查测试是否通过，接着 Reviewer（评审者）根据 Godot 特有的易错点（物理陷阱、UI 布局规则、动画注意事项等）检查代码质量。主 Agent 对每个评审 finding 做 triage，三选一：ACCEPT（在 `PLAN.md` 追加新任务）、REJECT（finding 是误报）或 SKIP（finding 是对的但暂时不修）。REJECT 和 SKIP 都记录到 `MEMORY.md` 的 **Reviewer Triage Log** 段，附引证（critical/major 必须），并会在 `/gm-accept` 摘要里展示给你。循环持续到没有任何新 finding 被 ACCEPT 为止。
 
 ### 检查阶段 — `/gm-verify`、`/gm-evaluate`
 

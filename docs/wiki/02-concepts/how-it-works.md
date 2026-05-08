@@ -34,7 +34,7 @@ These three commands prepare everything the game needs before a single line of g
 
 ### Make — `/gm-build`
 
-`/gm-build` reads `PLAN.md` and implements the game. It does not write code itself. Instead, it hands each task to a specialised "Worker" — a focused helper that writes one system at a time and includes unit tests. Every few workers, a "Verifier" runs the headless Godot build and checks that the tests pass. Then a "Reviewer" checks the output against Godot-specific pitfalls (physics gotchas, UI layout rules, animation traps, etc.). If the reviewer finds issues, new tasks are added and the cycle continues until everything is clean.
+`/gm-build` reads `PLAN.md` and implements the game. It does not write code itself. Instead, it hands each task to a specialised "Worker" — a focused helper that writes one system at a time and includes unit tests. Once every task in `PLAN.md` is `completed`, a "Verifier" runs the headless Godot build and checks that the tests pass, then a "Reviewer" checks the output against Godot-specific pitfalls (physics gotchas, UI layout rules, animation traps, etc.). The main agent triages each reviewer finding into one of three options: ACCEPT (add a new task to `PLAN.md`), REJECT (the finding is wrong), or SKIP (the finding is real but not worth fixing now). REJECT and SKIP both go to `MEMORY.md`'s **Reviewer Triage Log** with a citation (mandatory for critical/major) and are surfaced to you in `/gm-accept`. The cycle loops until no new findings are ACCEPTED.
 
 ### Check — `/gm-verify`, `/gm-evaluate`
 

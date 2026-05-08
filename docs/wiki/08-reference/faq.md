@@ -52,7 +52,7 @@ No. Each `/gm-*` skill writes its name to `.godotmaker/current_role` when it sta
 
 ### What happens inside `/gm-build`?
 
-`/gm-build` works through the task list in `PLAN.md` by dispatching a chain of sub-agents for each task: a **Worker** implements the code and tests, a **Verifier** builds the project headlessly and runs the tests, and a **Reviewer** checks for Godot-specific pitfalls. If the reviewer finds new issues they are added back to `PLAN.md` and picked up in the next batch. The `check_completion.py` hook refuses to let `/gm-build` end if any batch ran workers but skipped verifier or reviewer.
+`/gm-build` works through the task list in `PLAN.md` by dispatching **Workers** until every task is `completed`, then runs one verify+review pass — a **Verifier** builds the project headlessly and runs the tests, then a **Reviewer** checks for Godot-specific pitfalls. The main agent triages each finding into one of three options: ACCEPT (add as a new task in `PLAN.md`), REJECT (the finding is wrong — record in `MEMORY.md`'s **Reviewer Triage Log**), or SKIP (the finding is real but not worth fixing now — same MEMORY.md section). REJECT/SKIP for critical/major findings requires a citation; both are shown to you in `/gm-accept`. The cycle loops until no new findings are ACCEPTED. The `check_completion.py` hook refuses to let `/gm-build` end if workers ran but the verifier or reviewer never did.
 
 ### Why does the AI need git worktrees?
 
