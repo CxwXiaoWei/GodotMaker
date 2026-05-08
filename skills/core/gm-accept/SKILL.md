@@ -72,6 +72,19 @@ Format a clear summary:
 ### Known Limitations
 - {from MEMORY.md and evaluation minor_issues}
 
+### Reviewer Triage Decisions for This Tag
+
+(Read MEMORY.md "Reviewer Triage Log" section, filter to entries whose
+Tag matches the current tag from PLAN.md. If none → write "(none)".)
+
+| Time | File/Area | Severity | Decision | Finding | Reason | Citation |
+|------|-----------|----------|----------|---------|--------|----------|
+| ...  | ...       | ...      | ...      | ...     | ...    | ...      |
+
+(If the user thinks any REJECT or SKIP was wrong, they choose "Fix
+issues" in Step 4 and tell me which finding to revisit; gm-fixgap will
+pick it up.)
+
 ### How to Run
 {instructions}
 

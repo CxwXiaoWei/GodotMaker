@@ -2,7 +2,7 @@
 name: gm-build
 description: |
   Implement game systems via worker dispatch. Covers risk-first then main implementation.
-  Dispatches workers continuously, triggers verification every ≥5 completed workers.
+  Dispatches workers until PLAN is clean, then runs one verify+review pass; loops until convergence.
   Explicit invocation only — use /gm-build.
 disable-model-invocation: true
 ---
@@ -42,8 +42,8 @@ Then read context:
 2. **You and your workers CANNOT write to e2e/ directory.** E2E tests are owned by the Evaluator.
 3. **Workers CANNOT modify PLAN.md/STRUCTURE.md/ASSETS.md.**
 4. **Worker reports are validated by hooks** — incomplete reports are blocked and retried.
-5. **MUST NOT skip stages.** Fix issues first; report to user after 3 attempts.
-6. **MUST NOT self-certify completion.** Dispatch verifiers, then reviewers.
+5. **MUST NOT skip stages.** Fix issues first; report to user after 5 attempts.
+6. **MUST NOT self-certify completion.** Dispatch verifiers, then reviewers. Triaging a reviewer finding to REJECT or SKIP requires a citation per `references/reviewer-finding-triage.md` (mandatory for critical/major; optional for minor).
 7. **Tag scope discipline.** Workers MAY touch files from previous tags **only if** PLAN.md has an explicit refactor / fix task naming those files. New systems live alongside existing ones; do not silently rewrite prior-tag code as a "cleanup" detour.
 
 ## Honest Reporting
@@ -65,7 +65,7 @@ pending → in_progress → completed → verified
 - **Never** skip states
 - Update PLAN.md IMMEDIATELY when a task changes status
 
-**When the reviewer finds problems with verified tasks:** Do NOT change the existing task's state. Add a NEW task (status `pending`) describing the fix. The original task stays `verified`. The new task goes through the full lifecycle.
+**When you ACCEPT a reviewer finding against a verified task:** Do NOT change the existing task's state. Add a NEW task (status `pending`) describing the fix. The original task stays `verified`. The new task goes through the full lifecycle. (REJECT or SKIP findings go to MEMORY.md instead — see `references/reviewer-finding-triage.md`.)
 
 This way the state is always monotonic and the audit trail is preserved.
 
@@ -73,7 +73,10 @@ A `failed` task requires a new task or user escalation — do not retry in place
 
 ## Build Cycle
 
-Track a running count of workers completed since the last verification round.
+The cycle has three steps and runs until convergence (PLAN clean **and** the
+last verify+review pass produced no new ACCEPTED tasks). Reviewer is invoked
+**once per cycle iteration** — after every PLAN task reaches `completed`,
+not on a worker-count cadence.
 
 ### Step 0 — Process Verify Feedback
 
@@ -96,40 +99,41 @@ Translate failures into `pending` tasks at the bottom of `PLAN.md`.
 
 Do NOT delete project code as a "fix" for a tool crash.
 
-### Step 1 — Dispatch Workers
+### Step 1 — Dispatch Workers (until PLAN is clean)
 
 - Read `references/worker-dispatch.md` for the brief template
 - Use `subagent_type: "worker"`. Each worker implements ONE system + its unit tests.
 - Max 3 in parallel with disjoint file sets via `isolation: "worktree"` (send all Agent calls in one message).
 - After each worker reports DONE, mark its task in PLAN.md as `completed`.
+- Continue dispatching until PLAN.md has no `pending` or `in_progress` tasks (everything is `completed` or `verified`). Then go to Step 2.
 
-### Step 2 — Trigger Verification Round (every ≥5 completed workers)
+### Step 2 — Verify + Review Pass
 
-Once 5 or more workers have completed since the last verification round:
+Run ONE verifier, then ONE reviewer, on the integrated state:
 
 **Verifier:**
 - Read `references/verifier-dispatch.md` for the brief template
-- Use `subagent_type: "verifier"`. Pass each worker's deliverables since the last round.
-- On FAIL: add a NEW pending task in PLAN.md to fix it. The failed task stays `completed`.
+- Use `subagent_type: "verifier"`. Pass all `completed`-but-not-yet-`verified` workers' deliverables.
+- On FAIL: add NEW `pending` fix tasks in PLAN.md. Failed tasks stay `completed`. Go back to Step 1.
 - On PASS: update those tasks from `completed` → `verified`.
 
 **Reviewer** (after verifier passes):
 - Read `references/reviewer-dispatch.md` for the brief template
 - Use `subagent_type: "reviewer"`. Reviewer reports back; do not let it modify project files.
-- For each critical/major finding: add a NEW pending task in PLAN.md.
-- For minor findings: record in MEMORY.md (you write, not the reviewer).
+- Triage each finding per `references/reviewer-finding-triage.md` into one of three options:
+  - **ACCEPT** → add NEW `pending` fix task to PLAN.md.
+  - **REJECT** → finding is wrong; append a record to MEMORY.md "Reviewer Triage Log" section (citation required for critical/major).
+  - **SKIP** → finding is real but not worth fixing now; same MEMORY.md section (citation required for critical/major).
+- Defaults when uncertain: critical/major → ACCEPT; minor → SKIP.
+- If you ACCEPTED any findings → go back to Step 1.
+- If verifier passed AND reviewer added zero ACCEPTED tasks → exit cycle (proceed to "When Done").
 
-Reset the worker counter after this round. Continue dispatching (which now includes the new fix tasks).
-
-### Step 3 — Final Verification Round
-
-After ALL tasks are `verified` (PLAN.md has no `pending`/`in_progress`/`completed`), if any workers completed since the last verification round, run one final verifier + reviewer to cover the remainder.
-
-If the final reviewer adds new tasks, go back to Step 1. The build cycle continues until ALL tasks are `verified` AND the most recent verification round produced no new tasks.
+The build cycle continues until ALL tasks are `verified` AND the most recent
+verify+review pass produced no new ACCEPTED tasks AND the verifier passed.
 
 ## Retry Limits
 
-Max 3 attempts to fix the same task. After 3 failures, stop and escalate to
+Max 5 attempts to fix the same task. After 5 failures, stop and escalate to
 the user with a summary of what was tried — do not retry the identical
 action, do not suppress errors, do not claim success without verification.
 
@@ -178,7 +182,7 @@ Your context window is finite. Protect it:
 
 ## When Done
 
-When ALL PLAN.md tasks are `verified` AND the most recent verification round produced no new fix tasks:
+When ALL PLAN.md tasks are `verified` AND the most recent verify+review pass produced no new ACCEPTED fix tasks:
 
 1. Append a line to `.godotmaker/stage.jsonl`: `{"role": "build", "ts": "<UTC ISO timestamp>"}`. Read the existing file (treat as empty if missing), append the new event, and write the full file back.
 2. Inform the user: `Build complete. Recommended next: /gm-verify`

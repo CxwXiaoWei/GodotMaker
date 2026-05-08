@@ -47,6 +47,31 @@
 
 - {issue}: {workaround applied}
 
+## Reviewer Triage Log
+
+<!-- Reviewer findings the build/fixgap agent decided NOT to add to
+     PLAN/GAP — covers both REJECT (finding is wrong) and SKIP (finding
+     is real but not worth fixing now). Each entry records: timestamp,
+     Tag, file/area, finding (verbatim), severity, decision (REJECT |
+     SKIP), reason (1-2 sentences), and a citation.
+
+     Citation is required for critical/major findings (gotcha entry /
+     Godot or ECS API doc reference / prior MEMORY entry / PLAN or GAP
+     task ID). For minor findings the citation is optional.
+
+     Cross-tag accumulation — consult before writing a new triage entry
+     so the same class of finding is not re-triaged from scratch.
+
+     /gm-accept reads this section, filters by current Tag, and shows
+     every entry to the user as a final-gate audit trail. -->
+
+### {ts} — {Tag} — {File:Line or area}
+- **Finding:** {verbatim from reviewer report}
+- **Severity:** critical | major | minor
+- **Decision:** REJECT | SKIP
+- **Reason:** {1-2 sentence explanation}
+- **Citation:** {gotcha path / API doc ref / prior MEMORY entry / PLAN or GAP task ID — required for critical/major; "n/a" for minor}
+
 ## Component Design Decisions
 
 <!-- Rationale for component structure choices.

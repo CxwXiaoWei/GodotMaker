@@ -48,7 +48,7 @@ Then read context:
 3. **Workers CANNOT modify GAP.md/PLAN.md/STRUCTURE.md/ASSETS.md.**
 4. **Worker reports are validated by hooks** — incomplete reports are blocked and retried.
 5. **Only fix what `evaluation.json` or a fresh `verify_report.json` identified.** Do not add features or refactor unrelated code.
-6. **MUST NOT self-certify completion.** Dispatch verifiers, then reviewers.
+6. **MUST NOT self-certify completion.** Dispatch verifiers, then reviewers. Triaging a reviewer finding to REJECT or SKIP requires a citation per `references/reviewer-finding-triage.md` (mandatory for critical/major; optional for minor).
 
 ## Honest Reporting
 
@@ -69,7 +69,7 @@ pending → in_progress → completed → verified
 - **Never** skip states
 - Update GAP.md IMMEDIATELY when a task changes status
 
-**When the reviewer finds problems with verified tasks:** Do NOT change the existing task's state. Add a NEW task (status `pending`) in GAP.md describing the fix. The original task stays `verified`. The new task goes through the full lifecycle.
+**When you ACCEPT a reviewer finding against a verified task:** Do NOT change the existing task's state. Add a NEW task (status `pending`) in GAP.md describing the fix. The original task stays `verified`. The new task goes through the full lifecycle. (REJECT or SKIP findings go to MEMORY.md instead — see `references/reviewer-finding-triage.md`.)
 
 This way the state is always monotonic and the audit trail is preserved.
 
@@ -160,11 +160,15 @@ after **all** GAP.md tasks reach `completed`.
 **Reviewer** (after verifier passes):
 - Read `references/reviewer-dispatch.md` for the brief template
 - Use `subagent_type: "reviewer"`. Reviewer reports back; do not let it modify project files.
-- For each critical/major finding: add a NEW `pending` task in GAP.md. Loop back to Step 3.
-- For minor findings: record in MEMORY.md (you write, not the reviewer).
+- Triage each finding per `references/reviewer-finding-triage.md` into one of three options:
+  - **ACCEPT** → add NEW `pending` task to GAP.md.
+  - **REJECT** → finding is wrong; append a record to MEMORY.md "Reviewer Triage Log" section (citation required for critical/major).
+  - **SKIP** → finding is real but not worth fixing now; same MEMORY.md section (citation required for critical/major).
+- Defaults when uncertain: critical/major → ACCEPT; minor → SKIP.
+- If you ACCEPTED any findings → loop back to Step 3.
 
 The cycle ends when ALL GAP.md tasks are `verified` AND the most recent
-review round added no new tasks.
+review round added no ACCEPTED tasks.
 
 ### Step 5 — Archive GAP.md
 
@@ -173,7 +177,7 @@ so the project root is clean for the next round.
 
 ## Retry Limits
 
-Max 3 attempts to fix the same task. After 3 failures, stop and escalate to
+Max 5 attempts to fix the same task. After 5 failures, stop and escalate to
 the user with a summary of what was tried — do not retry the identical
 action, do not suppress errors, do not claim success without verification.
 
