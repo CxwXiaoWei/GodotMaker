@@ -1,5 +1,10 @@
 # Memory: {Project Name}
 
+<!-- Cross-tag accumulating notebook. Append-only across the whole project
+     lifetime — discoveries from v0.1.0 still apply in v0.5.0 unless
+     explicitly superseded. Outdated entries should be edited in place
+     (mark with "(superseded by ...)") rather than deleted. -->
+
 ## System Index
 
 <!-- Each implemented system/module has a detail file in the memory/ subdirectory

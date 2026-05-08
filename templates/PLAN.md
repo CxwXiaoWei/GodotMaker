@@ -1,10 +1,34 @@
 # Game Plan: {Name}
 
-<!-- Decomposed from GDD.md by /gm-gdd. See GDD.md for full game design. -->
+<!-- Decomposed from GDD.md by /gm-gdd. See GDD.md for full game design.
+     Scoped to a single tag (see ROADMAP.md). -->
+
+**Tag:** {vX.Y.Z}
 
 ## Game Description
 
 {Summary from GDD §1 (Game Overview) and §2 (Core Gameplay Loop).}
+
+## Tag Mechanics
+
+<!-- Mechanics this tag MUST deliver. Each gets a stable id `<Tag>-M<N>`
+     so later tags can reference it as something they inherit. State the
+     observable behavior — not how it'll be verified. -->
+
+- [{Tag}-M1] {what mechanic + observable behavior, e.g. "WASD player movement: holding D moves the player right"}
+- [{Tag}-M2] {...}
+- [{Tag}-M3] {...}
+
+## Inherited Mechanics
+
+<!-- Mechanics from already-shipped tags that THIS tag must keep working.
+     Copied forward by /gm-gdd subsequent-mode from previous tags' Tag
+     Mechanics sections. If this tag intentionally removes one, drop it
+     here AND add a Main Build refactor task that prunes the corresponding
+     code/tests. Omit this entire section for the very first tag (v0.1.0). -->
+
+- [v0.1.0-M1] {inherited mechanic id and behavior}
+- [v0.1.0-M2] {...}
 
 ## Risk Tasks
 

@@ -1,5 +1,11 @@
 # {Project Name}
 
+<!-- Scoped to a single tag (see ROADMAP.md). Captures the structure as
+     it exists at the END of this tag — i.e., previous tags' systems +
+     this tag's additions / refactors. -->
+
+**Tag:** {vX.Y.Z}
+
 ## Dimension: {2D or 3D}
 
 ## Input Actions
