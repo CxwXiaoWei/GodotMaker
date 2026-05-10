@@ -31,6 +31,19 @@ Read `.godotmaker/stage.jsonl` (treat as empty if missing) — each line is `{"r
   > If you need to redo this step or have other plans, just tell me."
 - Otherwise → proceed.
 
+## Resolve `godot` binary
+
+Read `godot_path` from `.claude/godotmaker.yaml` and substitute it
+verbatim for `<godot_path>` in every `godot --headless …` command
+below. The path was validated at publish time and is the source of
+truth for which Godot binary this project uses.
+
+If `.claude/godotmaker.yaml` is missing the `godot_path` field, fall
+back to plain `godot` (PATH lookup). If THAT also fails, STOP and tell
+the user `Godot binary not configured — re-run tools/publish.py to set
+godot_path in .claude/godotmaker.yaml`. Do NOT spelunk through PATH
+directories or guess install locations.
+
 ## Process
 
 ### 1. Read the current tag
@@ -39,7 +52,7 @@ Read `PLAN.md`, extract `**Tag:**` header value (e.g. `v0.2.0`). All later steps
 
 ### 2. Quick Sanity Check
 
-- `godot --headless --quit 2>&1` — builds clean
+- `"<godot_path>" --headless --quit 2>&1` — builds clean
 - `PLAN.md` — no `pending` or `in_progress` tasks; all `verified`
 - `.godotmaker/evaluation.json` exists with `result: "approve"`
 

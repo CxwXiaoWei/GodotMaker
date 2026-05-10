@@ -35,6 +35,19 @@ Read `.godotmaker/stage.jsonl` (treat as empty if missing) — each line is `{"r
   > If you need to redo this step or have other plans, just tell me."
 - Otherwise → proceed (evaluate is naturally re-invoked after each verify pass).
 
+## Resolve `godot` binary
+
+Read `godot_path` from `.claude/godotmaker.yaml` and substitute it
+verbatim for `<godot_path>` in every `godot --headless …` command
+below. The path was validated at publish time and is the source of
+truth for which Godot binary this project uses.
+
+If `.claude/godotmaker.yaml` is missing the `godot_path` field, fall
+back to plain `godot` (PATH lookup). If THAT also fails, STOP and tell
+the user `Godot binary not configured — re-run tools/publish.py to set
+godot_path in .claude/godotmaker.yaml`. Do NOT spelunk through PATH
+directories or guess install locations.
+
 ## Evaluation Process
 
 ### Phase 1 — Understand Requirements
@@ -70,7 +83,7 @@ After this phase the `e2e/` directory must contain exactly one test file per mec
 All of these must pass for `result == "approve"`. Failure of any is a `critical_issue`.
 
 **Playable closed loop (composite hard gate):**
-1. **Builds clean:** `godot --headless --quit 2>&1` — zero ERROR lines.
+1. **Builds clean:** `"<godot_path>" --headless --quit 2>&1` — zero ERROR lines.
 2. **Boots into main scene:** `project.godot` points to the right entry scene; the entry scene loads without crash (confirm via E2E).
 3. **At least one core mechanic runs end-to-end:** at least one mechanic in the expected-mechanics checklist has a passing E2E test in `e2e/`.
 4. **At least one of {death, win, exit} ending exists and is reachable:** confirmed by either an E2E test that triggers it, or by static evidence (a scene transition / `quit()` call wired to a UI element).

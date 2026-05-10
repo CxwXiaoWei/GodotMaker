@@ -28,21 +28,34 @@ Read `.godotmaker/stage.jsonl` (treat as empty if missing) — each line is `{"r
   > If you need to redo this step or have other plans, just tell me."
 - Otherwise → proceed (verify is naturally re-invoked after each build/fixgap cycle).
 
+## Resolve `godot` binary
+
+Read `godot_path` from `.claude/godotmaker.yaml` and substitute it
+verbatim for `<godot_path>` in every `godot --headless …` command
+below. The path was validated at publish time and is the source of
+truth for which Godot binary this project uses.
+
+If `.claude/godotmaker.yaml` is missing the `godot_path` field, fall
+back to plain `godot` (PATH lookup). If THAT also fails, STOP and tell
+the user `Godot binary not configured — re-run tools/publish.py to set
+godot_path in .claude/godotmaker.yaml`. Do NOT spelunk through PATH
+directories or guess install locations.
+
 ## Verification Checklist
 
 Run each check in order. Record exact command and output.
 
 ### 1. Build
 ```bash
-godot --headless --quit 2>&1
+"<godot_path>" --headless --quit 2>&1
 ```
 Criteria: zero ERROR lines in output.
 
 ### 2. Unit Tests
 ```bash
-godot --headless -s addons/gdunit4/bin/gdunit4_run.gd
+"<godot_path>" --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd --ignoreHeadlessMode --add test/
 ```
-Criteria: all tests pass (N passed, 0 failed).
+Criteria: all tests pass (N passed, 0 failed). Note the path is `gdUnit4` (capital U) and the entry is `GdUnitCmdTool.gd`; `--ignoreHeadlessMode` is required for gdUnit4 v4.x to run under `--headless`.
 
 ### 3. Lint
 ```bash
@@ -69,7 +82,7 @@ You produce **two outputs**:
 ## Verification Report
 
 ### Build
-Command: godot --headless --quit 2>&1
+Command: "<godot_path>" --headless --quit 2>&1
 Result: PASS | FAIL
 Output: {paste actual output}
 
