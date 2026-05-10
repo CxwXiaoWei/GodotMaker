@@ -4,6 +4,31 @@ All notable changes to GodotMaker will be documented in this file.
 
 Format: [Semantic Versioning](https://semver.org/) — MAJOR.MINOR.PATCH
 
+## [0.3.4] — 2026-05-10
+
+### Removed
+
+- **gdtoolkit (gdlint + gdformat) disabled across the pipeline.** Recurring `gdtoolkit/linter/class_checks.py:144 NotImplementedError` crashes on ECS-style class shapes had zero project-code signal — value is style consistency only. `verify_report.json` lint schema preserved so consumers don't need to special-case. Tracked as ROADMAP `R-112`; rationale + restore guide in [`docs/decisions/disable-gdtoolkit.md`](docs/decisions/disable-gdtoolkit.md).
+- **Stale `--all` e2e gating in `gm-verify` static check.** `python tools/check_project.py --all` replaced with `--build --ecs --tests --plan --mcp`. The `e2e/` suite is owned by the Evaluator (per `gm-build` Hard Rule 2 / `gm-evaluate` Phase 2); gating it during verify caused phantom failures on every fresh tag's first verify.
+
+### Fixed
+
+- **`gm-verify`, `gm-evaluate`, `gm-finalize` assumed `godot` was on `PATH`.** Each SKILL now reads `godot_path` from `.claude/godotmaker.yaml` (written by `tools/publish.py` at first install) and substitutes it for `<godot_path>` in every `godot --headless …` command. Falls back to plain `godot` if the field is missing; STOPs and asks for re-publish if both fail.
+- **`gm-verify` gdUnit4 invocation was stale.** Updated to gdUnit4 v4.x syntax: `addons/gdUnit4/bin/GdUnitCmdTool.gd` (capital U, different entry script) and `--ignoreHeadlessMode` (required under `--headless`).
+- **`tools/check_project.py` `check_e2e()` fallback misclassified `conftest.py`.** Fallback now skips `conftest.py` / `__init__.py` and requires `test_*.py` / `*_test.py` naming before adding to `e2e_files`. Defense-in-depth alongside the `--all` removal in `gm-verify`.
+- **`tools/migrate.py` halted on legacy targets it could deterministically resolve.** Legacy targets (`.godotmaker/version` present but no `applied_migrations.json`) with migration scripts on disk previously raised `LegacyTargetWithMigrationsError` and forced manual recovery. They couldn't have been applied yet (predate the migrations' introduction), so `migrate.py` now auto-creates `{"applied": []}` and falls through to the pending-application path. `migrate.py --baseline` remains for the hand-applied edge case. Dead `LegacyTargetWithMigrationsError` class + handlers + wiki entries removed.
+- **`gm-verify` "When Done" step 2 specified WHAT but not HOW for the stage event append** — verifier picked `Edit` (replace semantics), which silently no-op'd on non-matching `old_string` and stalled cli despite a passing `verify_report.json`. Aligned to the sibling SKILLs' explicit Read → append → write-back idiom plus a `Do NOT use Edit` warning.
+- **Reviewer agent over-read context regardless of change size.** `agents/reviewer.md` Execution Steps reordered: read deliverables FIRST, discover reviewer skills via directory pattern (glob `.claude/skills/*/checklist.md` — convention is `SKILL.md` + `gotchas.md` + `checklist.md` trio; reference skills like `gecs/` with only `gotchas.md` are excluded), match by evidence in the deliverables, load gotchas + checklist ONLY for matched domains. Hardcoded 8-reviewer list removed — the directory IS the catalog. New scope-size rule: skip ECS general review when all deliverables are test files (`test_*.gd` / `*_test.gd`) AND ≤3 of them.
+
+### Added
+
+- **`.worktreeinclude` written by `publish.py`.** New project-root file (gitignore syntax) carrying `.claude/` (minus `.claude/worktrees/`) into sub-agent worktrees so workers can read `godotmaker.yaml` and `skills/` from their isolated cwd. Anthropic-documented mechanism — see https://code.claude.com/docs/en/worktrees.
+
+### Changed
+
+- **`godot-e2e` SKILL synced to upstream v1.2.0** — adds `Locator` (semantic node queries), `expect(locator)` auto-retry assertions, and engine log capture (`GodotE2EError.logs`). Projects on Godot 4.3 / 4.4 stay on godot-e2e v1.1.0 per `config/addon_versions.json` — older SKILL revision required, do not mix.
+- **Documentation updated** to reflect the disables and fixes: `docs/wiki/02-concepts/the-9-roles.md`, `docs/wiki/03-skills/core-skills.md`, `docs/wiki/07-contributing/codebase-guide.md` (plus `docs/zh/` mirrors), `CLAUDE.md`, and `CONTRIBUTING.md`.
+
 ## [0.3.3] — 2026-05-09
 
 PATCH bump fixing a Windows-only `--force` upgrade crash that surfaced as soon as users started upgrading from baselines that had cloned `godot-docs` into `.claude/skills/godot-api/doc_source/`.
