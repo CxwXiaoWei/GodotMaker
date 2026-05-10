@@ -195,5 +195,5 @@ If any check fails:
 When all checks pass:
 
 1. Write `.godotmaker/verify_report.json` with `result: "pass"` (Field rules apply: `tooling_notes == []`, all `checks.*.result` ∈ {`pass`, `warn`}).
-2. Append `{"role": "verify", "ts": "<UTC ISO timestamp>"}` to `.godotmaker/stage.jsonl`.
+2. Append a line to `.godotmaker/stage.jsonl`: `{"role": "verify", "ts": "<UTC ISO timestamp>"}`. Read the existing file (treat as empty if missing), append the new event, and write the full file back. Do NOT use Edit — its replace semantics fail silently on append.
 3. Inform the user: `Verify complete. Recommended next: /gm-evaluate`
