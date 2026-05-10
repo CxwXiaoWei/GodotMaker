@@ -15,7 +15,7 @@
       "gdunit4": {
         "repo": "MikeSchulze/gdUnit4",
         "tag": "v5.1.1",
-        "install_path": "addons/gdunit4",
+        "install_path": "addons/gdUnit4",
         "plugin": true,
         "notes": "v5.x series for Godot 4.3/4.4. v6.x requires Godot 4.5+."
       },
@@ -39,7 +39,7 @@
       "gdunit4": {
         "repo": "MikeSchulze/gdUnit4",
         "tag": "v5.1.1",
-        "install_path": "addons/gdunit4",
+        "install_path": "addons/gdUnit4",
         "plugin": true,
         "notes": "v5.x series for Godot 4.3/4.4. v6.x requires Godot 4.5+."
       },
@@ -63,7 +63,7 @@
       "gdunit4": {
         "repo": "MikeSchulze/gdUnit4",
         "tag": "v6.1.0",
-        "install_path": "addons/gdunit4",
+        "install_path": "addons/gdUnit4",
         "plugin": true,
         "notes": "v6.x series for Godot 4.5+."
       },

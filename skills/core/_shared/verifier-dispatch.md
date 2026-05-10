@@ -25,7 +25,7 @@ Agent({
 
 ### Commands to Run (run ALL, do not skip)               [REQUIRED]
 1. Build: godot --headless --quit 2>&1
-2. Unit tests: godot --headless -s addons/gdunit4/bin/gdunit4_run.gd --single --file {test_file}
+2. Unit tests: godot --headless --path . -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd --ignoreHeadlessMode --add res://{test_file}
 3. E2E test: {exact e2e run command — MUST actually run the game and exercise the feature}
 4. {additional commands}
 

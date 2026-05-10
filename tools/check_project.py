@@ -63,7 +63,7 @@ def find_gd_files(project_dir: Path, pattern: str) -> list[Path]:
     return results
 
 
-SCAFFOLD_REQUIRED_ADDONS = ("gecs", "gdunit4", "godot_e2e")
+SCAFFOLD_REQUIRED_ADDONS = ("gecs", "gdUnit4", "godot_e2e")
 
 
 def _read_godot_path(project_dir: Path) -> str | None:
@@ -107,7 +107,7 @@ def check_build(project_dir: Path, result: CheckResult):
 
     Verifies (in order):
       1. project.godot exists with `[application]`.
-      2. addons/gecs, addons/gdunit4, addons/godot_e2e directories.
+      2. addons/gecs, addons/gdUnit4, addons/godot_e2e directories.
       3. godot-e2e plugin enabled in `[editor_plugins]`.
       4. e2e/conftest.py imports GodotE2E.
       5. .git/ resolves HEAD (worker worktree isolation requires it).
@@ -264,11 +264,11 @@ def check_tests(project_dir: Path, result: CheckResult):
     print("\n--- Unit Tests (gdUnit4) ---")
 
     # Check gdUnit4 addon
-    gdunit_dir = project_dir / "addons" / "gdunit4"
+    gdunit_dir = project_dir / "addons" / "gdUnit4"
     if gdunit_dir.exists():
         result.ok("gdUnit4 addon found")
     else:
-        result.fail("gdUnit4 addon not found (expected addons/gdunit4/)")
+        result.fail("gdUnit4 addon not found (expected addons/gdUnit4/)")
 
     # Find all system files
     system_files = []

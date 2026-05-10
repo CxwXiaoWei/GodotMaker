@@ -83,12 +83,12 @@ For each entry in `.claude/config/addon_versions.json` matching the chosen
 Godot version, clone the repo at the listed tag into the listed `install_path`:
 
 - `addons/gecs/` (csprance/gecs)
-- `addons/gdunit4/` (MikeSchulze/gdUnit4)
+- `addons/gdUnit4/` (MikeSchulze/gdUnit4)
 - `addons/godot_e2e/` (RandallLiuXin/godot-e2e)
 
 Then enable each addon in `[editor_plugins]` of `project.godot` by
 listing its `plugin.cfg` (consult the `plugin: true|false` flag in
-`addon_versions.json` — at the time of writing, gecs / gdunit4 /
+`addon_versions.json` — at the time of writing, gecs / gdUnit4 /
 godot-e2e are all plugin-enabled).
 
 `.godotmaker/config.yaml` is created by `tools/publish.py` before this skill
@@ -136,7 +136,7 @@ python tools/check_project.py <project_dir> --build
 `--build` is the gm-scaffold readiness check — it covers all of:
 
 - `project.godot` exists with `[application]`
-- `addons/gecs/`, `addons/gdunit4/`, `addons/godot_e2e/` present
+- `addons/gecs/`, `addons/gdUnit4/`, `addons/godot_e2e/` present
 - `godot-e2e` plugin enabled in `[editor_plugins]`
 - `e2e/conftest.py` imports `GodotE2E`
 - `.git/` resolves `HEAD` (worker worktree isolation needs it)

@@ -42,12 +42,12 @@ def _seed_scaffolded_project(project_dir: str):
             '[editor_plugins]\n'
             'enabled=PackedStringArray('
             '"res://addons/gecs/plugin.cfg",'
-            '"res://addons/gdunit4/plugin.cfg",'
+            '"res://addons/gdUnit4/plugin.cfg",'
             '"res://addons/godot_e2e/plugin.cfg"'
             ')\n'
         )
     # Required addon dirs
-    for addon in ("gecs", "gdunit4", "godot_e2e"):
+    for addon in ("gecs", "gdUnit4", "godot_e2e"):
         os.makedirs(os.path.join(project_dir, "addons", addon), exist_ok=True)
     # e2e/conftest.py with GodotE2E import
     e2e_dir = os.path.join(project_dir, "e2e")
@@ -84,7 +84,7 @@ class TestBuildCheck:
         assert code == 0, f"expected pass, got:\n{stdout}"
         assert "project.godot exists" in stdout
         assert "[application] section" in stdout
-        for addon in ("gecs", "gdunit4", "godot_e2e"):
+        for addon in ("gecs", "gdUnit4", "godot_e2e"):
             assert f"addons/{addon}/ present" in stdout
         assert "godot-e2e plugin enabled" in stdout
         assert "e2e/conftest.py imports GodotE2E" in stdout
@@ -191,7 +191,7 @@ class TestTestsCheck:
         assert "gdUnit4" in stdout
 
     def test_system_without_test(self, project_dir):
-        os.makedirs(os.path.join(project_dir, "addons", "gdunit4"))
+        os.makedirs(os.path.join(project_dir, "addons", "gdUnit4"))
         sys_dir = os.path.join(project_dir, "systems")
         os.makedirs(sys_dir)
         with open(os.path.join(sys_dir, "move.gd"), "w") as f:
@@ -203,7 +203,7 @@ class TestTestsCheck:
         assert "test" in stdout.lower()
 
     def test_system_with_test(self, project_dir):
-        os.makedirs(os.path.join(project_dir, "addons", "gdunit4"))
+        os.makedirs(os.path.join(project_dir, "addons", "gdUnit4"))
         sys_dir = os.path.join(project_dir, "systems")
         os.makedirs(sys_dir)
         with open(os.path.join(sys_dir, "move.gd"), "w") as f:

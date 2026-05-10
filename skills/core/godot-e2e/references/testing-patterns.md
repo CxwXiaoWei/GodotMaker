@@ -493,7 +493,7 @@ Log assertions are powerful but can be brittle if the engine's log
 phrasing changes. Don't anchor tests on:
 - exact GDScript runtime error strings (Godot version-sensitive)
 - log line counts (timing-sensitive)
-- warnings from third-party addons (gecs, gdunit4, etc. may emit
+- warnings from third-party addons (gecs, gdUnit4, etc. may emit
   routine warnings unrelated to your code)
 
 Anchor instead on:

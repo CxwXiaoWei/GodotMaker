@@ -43,7 +43,7 @@ If `"plugin": true` in the mapping:
 If `"plugin": true` in the mapping:
 - Add to `[editor_plugins]` in project.godot:
   ```
-  enabled=PackedStringArray("res://addons/gecs/plugin.cfg", "res://addons/gdunit4/plugin.cfg")
+  enabled=PackedStringArray("res://addons/gecs/plugin.cfg", "res://addons/gdUnit4/plugin.cfg")
   ```
 
 ### godot-e2e (E2E Testing)
@@ -51,7 +51,7 @@ If `"plugin": true` in the mapping:
 If `"plugin": true` in the mapping:
 - Add to `[editor_plugins]` in project.godot alongside gecs and gdUnit4:
   ```
-  enabled=PackedStringArray("res://addons/gecs/plugin.cfg", "res://addons/gdunit4/plugin.cfg", "res://addons/godot_e2e/plugin.cfg")
+  enabled=PackedStringArray("res://addons/gecs/plugin.cfg", "res://addons/gdUnit4/plugin.cfg", "res://addons/godot_e2e/plugin.cfg")
   ```
 
 The plugin automatically registers the `AutomationServer` autoload.

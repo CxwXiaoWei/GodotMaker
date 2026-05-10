@@ -55,7 +55,7 @@ Criteria: zero ERROR lines in output.
 ```bash
 "<godot_path>" --headless --path . -s addons/gdUnit4/bin/GdUnitCmdTool.gd --ignoreHeadlessMode --add test/
 ```
-Criteria: all tests pass (N passed, 0 failed). Note the path is `gdUnit4` (capital U) and the entry is `GdUnitCmdTool.gd`; `--ignoreHeadlessMode` is required for gdUnit4 v4.x to run under `--headless`.
+Criteria: all tests pass (N passed, 0 failed). Path casing is `addons/gdUnit4/` (capital U — matches the upstream repo layout) and the runner is `bin/GdUnitCmdTool.gd`; `--ignoreHeadlessMode` is required for `--headless` runs.
 
 ### 3. Lint
 **Currently disabled.** `gdtoolkit` (gdlint + gdformat) is not invoked

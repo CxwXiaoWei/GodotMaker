@@ -29,7 +29,7 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
    ```bash
    # Run tests
    pytest
-   godot --headless -s addons/gdunit4/bin/gdunit4_run.gd
+   godot --headless --path . -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd --add res://test/ --ignoreHeadlessMode
 
    # Gitleaks (runs automatically via pre-commit hook)
    gitleaks detect --source .

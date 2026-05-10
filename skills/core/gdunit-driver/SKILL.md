@@ -27,43 +27,10 @@ GODOT=$(bash "${CLAUDE_SKILL_DIR}/../_read_config.sh" godot_path)
 
 ## 2. Run tests
 
-### Detect the runner version first
-
-gdUnit4 has two CLI runner variants across versions. Before running tests, check which one is installed:
-
-```bash
-# v6+ (newer): gdunit4_run.gd — uses --single --file
-ls addons/gdunit4/bin/gdunit4_run.gd 2>/dev/null
-
-# v4.2–v4.4 (older): GdUnitCmdTool.gd — uses --add
-ls addons/gdUnit4/bin/GdUnitCmdTool.gd 2>/dev/null
-```
-
-Note the **case difference**: newer versions use `gdunit4/` (lowercase), older use `gdUnit4/` (capital U). Check the actual directory name on disk.
-
-### Runner A: gdunit4_run.gd (v6+)
+The CLI runner across all supported versions (v4.x, v5.x, v6.x) is `addons/gdUnit4/bin/GdUnitCmdTool.gd`. The path uses capital-U `gdUnit4/` to match the upstream repo layout — Windows is case-insensitive but Godot's global script registry de-duplicates by exact path string, so a casing mismatch between the runner invocation and the on-disk directory triggers `Class "..." hides a global script class` parse errors and a non-zero exit.
 
 ```bash
 # Single file
-"$GODOT" --headless -s addons/gdunit4/bin/gdunit4_run.gd \
-  --single --file res://test/test_example.gd
-
-# Single method
-"$GODOT" --headless -s addons/gdunit4/bin/gdunit4_run.gd \
-  --single --file res://test/test_example.gd::test_specific_method
-
-# All tests in a directory
-"$GODOT" --headless -s addons/gdunit4/bin/gdunit4_run.gd \
-  --single --file res://test/
-
-# All tests in the project
-"$GODOT" --headless -s addons/gdunit4/bin/gdunit4_run.gd
-```
-
-### Runner B: GdUnitCmdTool.gd (v4.2–v4.4)
-
-```bash
-# Single file (use --add, not --single --file)
 "$GODOT" --headless -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
   --add res://test/test_example.gd --ignoreHeadlessMode
 
@@ -77,29 +44,28 @@ Note the **case difference**: newer versions use `gdunit4/` (lowercase), older u
   --add res://test/ --ignoreHeadlessMode
 ```
 
-Key differences for Runner B:
-- **`--ignoreHeadlessMode` is required** — without it, the runner exits with code 103 and refuses to run
-- Uses `--add` instead of `--single --file`
-- Runner path needs `res://` prefix and correct casing (`gdUnit4` not `gdunit4`)
-- No `::method` syntax for single test methods — run the whole file instead
+Notes:
+- **`--ignoreHeadlessMode` is required** — without it, the runner exits with code 103 and refuses to run.
+- Use `--add` to enqueue test files or directories (repeat the flag for multiples).
+- Runner path needs the `res://` prefix and the capital-U `addons/gdUnit4/` casing.
+- No `::method` syntax for single test methods — run the whole file instead.
 
 ### C# tests
 
-Both runners support C# test files, but ensure `dotnet build` passes first — gdUnit4 runs compiled assemblies, not source files.
+`GdUnitCmdTool.gd` supports C# test files too, but ensure `dotnet build` passes first — gdUnit4 runs compiled assemblies, not source files.
 
 ```bash
-dotnet build && "$GODOT" --headless -s <runner_path> <flags> res://test/csharp/TestExample.cs
+dotnet build && "$GODOT" --headless -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
+  --add res://test/csharp/TestExample.cs --ignoreHeadlessMode
 ```
 
 ### Useful flags
 
-| Flag | Runner | Purpose |
-|------|--------|---------|
-| `--single --file <path>` | A only | Run specific file or directory |
-| `--add <path>` | B only | Add test path to execution |
-| `--continue` | A only | Don't stop on first failure |
-| `--ignoreHeadlessMode` | B only | Allow headless execution (required!) |
-| `--report-dir <path>` | Both | Override report output directory |
+| Flag | Purpose |
+|------|---------|
+| `--add <path>` | Add test path to execution (file or directory; repeat to enqueue multiple) |
+| `--ignoreHeadlessMode` | Allow headless execution (required!) |
+| `--report-dir <path>` | Override report output directory |
 
 ### Timeout
 
@@ -112,24 +78,7 @@ gdUnit4 has a default test timeout (configurable in `GdUnitSettings`). If tests 
 
 ### Stdout parsing
 
-gdUnit4 stdout format varies by version. Both contain ANSI color codes — strip them before parsing.
-
-**Runner A (v6+):**
-
-```
-[gdUnit4] Running test suite: res://test/test_example.gd
-  [gdUnit4] test_basic_math          passed  (0.002s)
-  [gdUnit4] test_will_fail           FAILED  (0.003s)
-    Expecting:
-      '2'
-     but was
-      '1'
-    at: res://test/test_example.gd:15
-
-[gdUnit4] Total: 4  Passed: 2  Failed: 1  Skipped: 1  Errors: 0
-```
-
-**Runner B (v4.2–v4.4):**
+`GdUnitCmdTool.gd` output contains ANSI color codes — strip them before parsing. Format:
 
 ```
 Run Test Suite res://test/test_example.gd
@@ -148,22 +97,22 @@ Total time:        128ms
 Exit code: 100
 ```
 
-Key differences in Runner B output:
-- No `[gdUnit4]` prefix — uses `Run Test:` and `Run Test Suite`
-- Duration in milliseconds (`38ms`) not seconds (`0.038s`)
-- Failure line numbers may show `line <n/a>` instead of exact lines
-- Summary uses `Statistics:` with pipe-delimited counts, not `Total:` line
-- Exit code 100 = test failures (not 1)
+Notes:
+- Per-test lines start with `Run Test:`; suite lines with `Run Test Suite`.
+- Duration is reported in milliseconds (`38ms`).
+- Failure line numbers may show `line <n/a>` instead of exact lines.
+- Summary uses `Statistics:` with pipe-delimited counts.
+- Exit code 100 = test failures (not 1).
 
 Extract from each test line:
-- **Name**: the `test_*` function name (after `>` in Runner B)
-- **Status**: `passed`/`PASSED` or `FAILED`, `skipped`, `ERROR`
-- **Duration**: `(N.NNNs)` in Runner A, `Nms` in Runner B
-- **Failure message**: indented lines following a FAILED test (assertion details + source location if available)
+- **Name**: the `test_*` function name (after `>`).
+- **Status**: `PASSED`, `FAILED`, `SKIPPED`, `ERROR`.
+- **Duration**: `Nms` after the status.
+- **Failure message**: indented `Report:` lines following a FAILED test (assertion details + source location if available).
 
 ### JUnit XML report
 
-gdUnit4 can generate JUnit XML reports (default location: `res://.godot/gdunit4/reports/`). If XML exists, prefer it over stdout parsing — it's more structured:
+gdUnit4 can generate JUnit XML reports when `--report-dir <path>` is supplied to `GdUnitCmdTool.gd`. If you opt in and the XML exists, prefer it over stdout parsing — it's more structured:
 
 ```xml
 <testsuites>
@@ -414,21 +363,20 @@ public partial class TestMySystem : TestSuite
 - For C#: run `dotnet build` before running tests
 
 ### "Headless mode is not supported" (exit 103)
-- Runner B (GdUnitCmdTool) refuses headless by default
+- `GdUnitCmdTool` refuses headless by default
 - Add `--ignoreHeadlessMode` to the command line — this is safe for non-UI tests
 - Input simulation tests won't work in headless (InputEvents are not transported)
 
 ### "Cannot load script" for the runner itself
-- Check the **actual directory name** on disk: `gdunit4/` vs `gdUnit4/` (case matters on some systems)
-- Check the runner filename: `gdunit4_run.gd` (v6+) vs `GdUnitCmdTool.gd` (v4.x)
-- If using Runner B, the path must start with `res://` (e.g. `res://addons/gdUnit4/bin/GdUnitCmdTool.gd`)
+- Path must start with `res://` and use capital-U casing: `res://addons/gdUnit4/bin/GdUnitCmdTool.gd`.
+- On case-sensitive filesystems (Linux/macOS), a directory named `addons/gdunit4/` will not resolve at all; on Windows it resolves but Godot's class registry will double-register classes under the two casings and emit `Class "..." hides a global script class` parse errors.
+- The runner filename is `GdUnitCmdTool.gd` for every supported version (v4.x / v5.x / v6.x).
 
 ### CSharpScript errors on mono builds
 - `Nonexistent function 'new' in base 'CSharpScript'` — this happens when gdUnit4 tries to load C# support but the C# assembly isn't built. Run `dotnet build` first, or ignore these errors if you only run GDScript tests.
 
 ### Exit code interpretation
 - **Exit 0**: all tests passed
-- **Exit 1**: one or more tests failed (Runner A)
-- **Exit 100**: one or more tests failed (Runner B)
+- **Exit 100**: one or more tests failed
 - **Exit 103**: headless mode refused — add `--ignoreHeadlessMode`
-- **Exit > 103**: runner itself crashed (check Godot error output)
+- **Exit 101 / others**: runner itself crashed or Godot bailed before tests ran (check stderr)

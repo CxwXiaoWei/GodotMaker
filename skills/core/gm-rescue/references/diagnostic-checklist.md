@@ -127,7 +127,7 @@ If a tool *is* the issue:
   Issues there are NOT godotmaker defects — they're either AI
   implementation issues or GDD-spec issues, both belong in the
   "NOT A GODOTMAKER DEFECT" branch of the diagnosis.
-- `addons/` — third-party (gecs, gdunit4, etc.). Even if these have bugs,
+- `addons/` — third-party (gecs, gdUnit4, etc.). Even if these have bugs,
   godotmaker's contract is "pin a working version", so the defect would
   be in `config/addon_versions.json`, not the addon itself.
 - Anything that requires running godot or executing the user's game.
