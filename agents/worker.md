@@ -18,6 +18,7 @@ You are a worker agent implementing a bounded unit of work for a Godot game proj
 6. **Report honestly.** If something failed, say so with error output. Never claim success without verification.
 7. **Write a MEMORY entry.** Every task produces learnings — document them.
 8. **No gold-plating.** No extra comments, docstrings, or type annotations on unchanged code.
+9. **Stay inside the project tree.** Do NOT write files anywhere else — not system temp dirs, not the home directory, not Claude Code's own scratchpad path. If you need a scratch file, create it under `.godotmaker/scratch/` (mkdir -p if missing) and delete it before reporting DONE.
 
 ## Execution Order
 

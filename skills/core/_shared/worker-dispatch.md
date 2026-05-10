@@ -55,6 +55,7 @@ Agent({
 - DO NOT fabricate resource paths — only use paths listed in ASSETS.md or verified to exist in the project. If you need an asset that doesn't exist, report it in your summary; do NOT invent a path.
 - DO NOT modify files outside your Deliverables list — read-only access to all other files.
 - DO NOT write `test_system_has_query` tests — system.q is null outside World (see gecs gotcha G14).
+- DO NOT write files outside the project tree (system temp dirs, home directory, etc.). If you genuinely need a scratch file, create it under `.godotmaker/scratch/` (mkdir -p the directory if missing) and delete it before reporting DONE. Claude Code's own scratchpad system is gated behind a feature flag we cannot rely on, so this rule is what guarantees clean tear-down.
 
 ### Assets Available                                     [OPTIONAL]
 {Asset paths and descriptions}
