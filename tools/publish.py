@@ -24,7 +24,6 @@ from typing import NamedTuple
 
 from _version import SemVer, parse_version
 from migrate import (
-    LegacyTargetWithMigrationsError,
     TrackerCorruptionError,
     baseline_applied,
     run_migrations,
@@ -173,10 +172,9 @@ def select_migration_action(level: str, force: bool) -> str:
     - All other resolved upgrade levels — SAME, PATCH, MINOR, DOWNGRADE
       with `--force` — already have a tracked state → "run" (apply
       pending migrations). A legacy target lacking the tracker file is
-      handled inside `run_migrations()`: empty `migrations/` →
-      bootstrap an empty tracker; non-empty → raise
-      `LegacyTargetWithMigrationsError` and force the user to choose a
-      recovery path.
+      handled inside `run_migrations()` itself: an empty tracker is
+      auto-created, then any pending migrations run normally through
+      the standard pending-application path.
 
     MAJOR without `--force` is filtered out by check_version_upgrade()
     before this function is called, so the (level="MAJOR", force=False)
@@ -716,10 +714,10 @@ def main():
     #     has nothing to migrate from).
     #   "run" — apply any pending migrations
     #     (SAME / PATCH / MINOR / DOWNGRADE: target has tracked state.
-    #     Legacy targets without applied_migrations.json are bootstrapped
-    #     to an empty tracker if migrations/ is empty, or rejected with
-    #     LegacyTargetWithMigrationsError if it isn't — handled inside
-    #     run_migrations() itself.)
+    #     Legacy targets without applied_migrations.json are auto-
+    #     bootstrapped to an empty tracker — pending migrations then
+    #     run through the standard path. Handled inside run_migrations()
+    #     itself.)
     action = select_migration_action(level, args.force)
     if action == "baseline":
         n = baseline_applied(target)
@@ -733,10 +731,6 @@ def main():
             print(f"\nERROR: applied-migrations tracker is corrupt:\n  {e}",
                   file=sys.stderr)
             sys.exit(2)
-        except LegacyTargetWithMigrationsError as e:
-            print(f"\nERROR: legacy target needs explicit handling:\n  {e}",
-                  file=sys.stderr)
-            sys.exit(3)
         if not ok:
             print("\nMigration failed. Published files are updated but migrations incomplete.")
             print("Fix the issue and re-run publish, or use --force for clean install.")

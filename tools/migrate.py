@@ -72,15 +72,6 @@ class TrackerCorruptionError(Exception):
     """
 
 
-class LegacyTargetWithMigrationsError(Exception):
-    """Raised when a pre-tracking target meets a release with non-empty
-    `migrations/`. We cannot safely decide whether those migrations were
-    already applied (in older state we can't observe) or still need to
-    run, so we surface the ambiguity and require an explicit decision
-    from the user. See `migrations/README.md` (Transition note).
-    """
-
-
 # ── Filename / discovery ──────────────────────────────────────────
 
 
@@ -306,7 +297,7 @@ def run_migrations(target: Path) -> bool:
 
     Legacy target handling — a target that has `.godotmaker/version` but
     no `applied_migrations.json` (created by a pre-tracking GodotMaker
-    version) splits into two cases:
+    version) splits into two cases, both auto-handled:
 
     - **No migrations on disk:** bootstrap an empty tracker. The release
       that introduces applied-tracking should ship with empty
@@ -314,20 +305,23 @@ def run_migrations(target: Path) -> bool:
       become "tracked but with zero applied", which makes subsequent
       releases proceed normally through the pending-application path.
 
-    - **Migrations exist on disk:** raise `LegacyTargetWithMigrationsError`.
-      We cannot safely decide whether those V files were already applied
-      to the target's old state (in which case we should baseline) or
-      still need to run (in which case we should execute). Force the
-      user to make the call — auto-baseline would risk silently skipping
-      required cleanup work.
+    - **Migrations exist on disk:** auto-bootstrap an empty tracker and
+      fall through to the pending-application path. By construction, a
+      target stamped at `.godotmaker/version` from a pre-tracking release
+      pre-dates every migration in `migrations/` (those scripts shipped
+      with the same release that introduced tracking, or later), so they
+      cannot have been applied to it. The opt-out for the rare hand-applied
+      case is `python tools/migrate.py <target> --baseline`, which marks
+      every migration as applied without executing — left as a separate
+      path so silent re-execution of an already-applied migration cannot
+      happen by accident.
 
     Each successful script is recorded immediately, so a mid-chain failure
     leaves a clean partially-applied state for the next re-run.
 
     Returns True on success (including no-op), False if any script failed.
     Raises TrackerCorruptionError if applied_migrations.json exists but
-    cannot be parsed / validated. Raises LegacyTargetWithMigrationsError
-    on the ambiguous legacy-plus-migrations case.
+    cannot be parsed / validated.
     """
     applied_file = target / APPLIED_FILE_REL
     version_file = target / ".godotmaker" / "version"
@@ -335,35 +329,17 @@ def run_migrations(target: Path) -> bool:
     migrations = discover_migrations()
 
     if is_legacy:
-        if migrations:
-            raise LegacyTargetWithMigrationsError(
-                f"{target} has .godotmaker/version (was published before "
-                f"applied-tracking was introduced) but no "
-                f"applied_migrations.json, AND there are "
-                f"{len(migrations)} migration script(s) on disk. We "
-                f"cannot safely decide whether those migrations were "
-                f"already applied to the target's old state or still "
-                f"need to run. Pick one:\n"
-                f"  - If your project is on the latest format and these "
-                f"migrations are already reflected in its state: "
-                f"`python tools/migrate.py {target} --baseline`, then "
-                f"re-run publish.\n"
-                f"  - If your project pre-dates these migrations and you "
-                f"want them to actually execute: create an empty tracker "
-                f"with the cross-platform command "
-                f"`python -c \"open(r'{target / APPLIED_FILE_REL}', 'w', "
-                f"encoding='utf-8').write('{{\\\"applied\\\": []}}')\"` "
-                f"and re-run publish. (Avoid `echo > file` on Windows "
-                f"PowerShell 5.1 — it writes UTF-16 with BOM and the next "
-                f"publish will fail with TrackerCorruptionError.)"
-            )
-        # Legacy target with no migrations on disk — bootstrap an empty
-        # tracker so the next release that ships V files goes through
-        # the normal pending path instead of hitting this branch again.
         write_applied(target, {"applied": []})
-        print("  Bootstrapped empty applied tracker for legacy target "
-              "(no migrations on disk).")
-        return True
+        if migrations:
+            print(f"  Legacy target detected — auto-created empty applied "
+                  f"tracker; {len(migrations)} pending migration(s) will "
+                  f"run below. (Use `python tools/migrate.py <target> "
+                  f"--baseline` instead if you applied them by hand.)")
+            # fall through to the pending-application path
+        else:
+            print("  Bootstrapped empty applied tracker for legacy target "
+                  "(no migrations on disk).")
+            return True
 
     if not migrations:
         return True
@@ -507,9 +483,6 @@ def main():
     except TrackerCorruptionError as e:
         print(f"\nERROR: {e}", file=sys.stderr)
         sys.exit(2)
-    except LegacyTargetWithMigrationsError as e:
-        print(f"\nERROR: {e}", file=sys.stderr)
-        sys.exit(3)
     sys.exit(0 if success else 1)
 
 

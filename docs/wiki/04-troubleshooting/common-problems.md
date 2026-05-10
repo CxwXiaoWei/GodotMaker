@@ -313,27 +313,6 @@ Migration scripts are designed to be re-run safely — already-completed steps a
 
 1. **Restore from VCS** if the user committed it: `git checkout <target>/.godotmaker/applied_migrations.json`. (Note: GodotMaker's default `.gitignore` excludes this file, so VCS will only have it if you opted to track it explicitly.)
 2. **Restart tracking from current state**: `python tools/migrate.py <target> --baseline`. Marks every current `migrations/<YYYYMMDDhhmmss>_<slug>.py` as applied without executing them — appropriate when the actual project state matches the latest format.
-3. **Delete the file**: `rm <target>/.godotmaker/applied_migrations.json`. Treats the project as a legacy target on the next publish — see the `LegacyTargetWithMigrationsError` entry below for what happens then.
+3. **Delete the file**: `rm <target>/.godotmaker/applied_migrations.json`. The next publish treats the project as a legacy target — `migrate.py` auto-creates an empty tracker and runs any pending migrations through the normal path. Any migrations the user had hand-applied on the legacy version will execute again; if that's a concern, pick option 2 (`--baseline`) instead.
 
 The system raises an explicit error here (instead of silently treating the tracker as empty) because a silent fallback would re-run every historical migration on the next publish — potentially corrupting state.
-
----
-
-### `LegacyTargetWithMigrationsError`
-
-**Symptom:** Publish or `migrate.py` aborts with `LegacyTargetWithMigrationsError: ... has .godotmaker/version ... but no applied_migrations.json, AND there are N migration script(s) on disk.` (Exit code 3 from `publish.py`.)
-
-**Why it happens:** Your target was published by a pre-tracking GodotMaker version (so it has `.godotmaker/version` but no `applied_migrations.json`), and the GodotMaker version you're upgrading to ships migration scripts. We can't safely guess whether those scripts were already reflected in the target's old state or still need to run — silently picking either answer risks corrupting your project (auto-skipping required cleanup, or re-running migrations that have already been applied).
-
-**Fix:** Pick the recovery option that matches your project's reality:
-
-1. **Project is on the latest format already** (e.g., you've been keeping it manually in sync, or this is a freshly cloned repo): `python tools/migrate.py <target> --baseline`. Marks every current migration as applied without executing them, then re-run publish.
-2. **Project genuinely pre-dates these migrations and you want them to actually run**: create an empty tracker manually so publish treats this as a normal "fresh tracker" upgrade. Use the cross-platform Python form below — `echo '{"applied": []}' > file` works on bash but on **Windows PowerShell 5.1** it writes UTF-16 LE with BOM, which the next publish will reject as `TrackerCorruptionError`.
-   ```bash
-   python -c "open(r'<target>/.godotmaker/applied_migrations.json', 'w', encoding='utf-8').write('{\"applied\": []}')"
-   ```
-   Then re-run publish — the migrations will go through the normal pending-application path.
-
-> Why no `--force` recovery? `publish.py --force` only triggers the full cleanup loop on MAJOR upgrades. For PATCH/MINOR/SAME the `--force` path still calls `run_migrations()` and will hit the same `LegacyTargetWithMigrationsError` again. Use options 1 or 2 above.
-
-This error is by design, not a bug — the previous behaviour silently auto-baselined legacy + migrations, which could skip required cleanup work without any signal.

@@ -110,8 +110,8 @@ python tools/migrate.py --new fix-state-path
 # 创建 migrations/<当前-utc-时间戳>_fix_state_path.py
 ```
 
-完整说明——命名规则、脚本约束、legacy target bootstrap 规则
-（空 `migrations/` → 写空 tracker；非空 → `LegacyTargetWithMigrationsError`）——
+完整说明——命名规则、脚本约束、legacy target 自动 bootstrap 规则
+（首次接触时自动创建空 tracker；pending 迁移走正常路径）——
 见 `migrations/README.md`。
 
 ### MAJOR 升级

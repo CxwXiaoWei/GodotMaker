@@ -121,35 +121,31 @@ which marks every current migration as applied without executing it:
 A third edge case is handled inside `run_migrations()` itself: a
 **legacy target** (has `.godotmaker/version` but no
 `applied_migrations.json` — created by a pre-tracking GodotMaker version)
-splits into two cases:
+auto-creates an empty tracker (`{"applied": []}`) and proceeds:
 
-- **Legacy target + empty `migrations/`**: bootstrap an empty tracker
-  (`{"applied": []}`) and return successfully. The target is now
-  "tracked but with zero applied", so the next release that ships V
+- **Legacy target + empty `migrations/`**: emerges as "tracked, zero
+  applied" and returns successfully. The next release that ships V
   files will go through the normal pending-application path.
-- **Legacy target + non-empty `migrations/`**: raise
-  `LegacyTargetWithMigrationsError` and abort. We cannot safely decide
-  whether those V files were already applied to the target's old state
-  (in which case we should baseline) or still need to run (in which
-  case we should execute) — auto-deciding either way risks silent data
-  loss. The error message tells the user how to recover: either
-  `--baseline` (mark everything applied without running) or manually
-  create an empty tracker (so the next publish runs everything as
-  pending). `publish.py --force` is **not** a recovery option here:
-  the `--force` cleanup loop only runs on MAJOR upgrades, so for a
-  legacy + migrations collision on PATCH/MINOR/SAME the user would
-  just hit the same exit 3 again.
+- **Legacy target + non-empty `migrations/`**: same auto-create, then
+  falls through to run every pending migration. By construction, a
+  target stamped at a `.godotmaker/version` from a pre-tracking release
+  pre-dates every script in `migrations/` (those scripts shipped with
+  the same release that introduced tracking, or later), so they cannot
+  have been applied yet. The hand-applied edge case (user manually ran
+  the migration logic on the old version) is the one place this auto-
+  decision could be wrong — `python tools/migrate.py <target> --baseline`
+  is the explicit opt-out, marking every migration applied without
+  executing. `run_migrations()` itself never picks that path; only an
+  operator running `migrate.py` directly with `--baseline` does.
 
 > **Transition note for the version that introduces applied tracking.**
-> Ship the tracking machinery in one release with an empty `migrations/`.
-> Legacy targets reaching that release will hit the bootstrap branch
-> above and emerge as "tracked, zero applied" — fully safe. Then later
-> releases can ship V files normally; legacy users who *skipped* the
-> tracking-introduction release will hit `LegacyTargetWithMigrationsError`
-> on first contact with V files and pick a recovery path explicitly.
-> The previous design tried to auto-baseline legacy + V silently, which
-> would skip required cleanup work — the explicit error is by design,
-> not a regression.
+> Either rollout shape works. The cleaner shape is to ship the tracking
+> machinery in one release with an empty `migrations/` (legacy targets
+> emerge as "tracked, zero applied" before any V files exist), then ship
+> V files in subsequent releases. Shipping V files in the same release
+> as the machinery also works — legacy targets auto-bootstrap and run
+> the V files as pending in one step — but you forgo the chance to land
+> the tracker in isolation. Pick based on review surface, not safety.
 
 Each baseline entry carries `"source": "baseline"` in
 `applied_migrations.json`; entries from real execution carry
@@ -166,9 +162,9 @@ treating the file as empty (which would re-run every historical
 migration on the next publish). Recover from VCS, run
 `python tools/migrate.py <target> --baseline` to reset tracking from
 the current state, or delete the file to treat the project as a legacy
-target (which then takes the legacy bootstrap branch above:
-`migrations/` empty → empty tracker; non-empty → explicit
-`LegacyTargetWithMigrationsError`).
+target (which then takes the legacy auto-bootstrap branch above:
+empty tracker is auto-created; pending migrations run if any are on
+disk).
 
 ## Same-version republish
 

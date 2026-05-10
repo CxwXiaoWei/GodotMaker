@@ -33,21 +33,17 @@ Steps to follow when publishing a new version of GodotMaker.
      after re-deploy.
    - **Recommended — release that introduces applied-tracking machinery.**
      The release that *first* ships the applied-tracking subsystem (see
-     `migrations/README.md` Transition note) should ship with `migrations/`
-     **empty**. That way legacy targets reach the bootstrap branch and
-     emerge as "tracked, zero applied", and the next release that ships
-     V files just goes through the normal pending path. **This is the
-     preferred path.** If V files do ship in the same release as the
-     machinery, legacy users will hit `LegacyTargetWithMigrationsError`
-     on first contact and have to pick a recovery path manually
-     (`--baseline` if their project is already on the latest format,
-     or manually creating an empty tracker if the V files actually need
-     to run) — supported but a worse user experience than the
-     empty-migrations rollout. (Note: `publish --force` is NOT a
-     recovery option for non-MAJOR upgrades; the cleanup loop only
-     runs on MAJOR.) Once
-     applied-tracking is in any released version, this guidance no
-     longer applies — drop it from your release notes for that release.
+     `migrations/README.md` Transition note) prefers shipping with
+     `migrations/` **empty**. Legacy targets reach the bootstrap branch
+     and emerge as "tracked, zero applied"; the next release that ships
+     V files goes through the normal pending path. Shipping V files in
+     the same release as the machinery also works — `run_migrations()`
+     auto-bootstraps the legacy target and runs the V files as pending
+     in one step — but you forgo the chance to land the tracker change
+     in isolation, which makes the diff harder to review. Pick based on
+     review surface, not safety. Once applied-tracking is in any
+     released version, this guidance no longer applies — drop it from
+     your release notes for that release.
 
 3. **Update version numbers** — these MUST stay in lockstep. Skipping any one ships a half-bumped release.
    - **`VERSION`** — single-line file at the repo root, content is the bare `X.Y.Z` (no leading `v`, no trailing newline issues). This is the **source-of-truth** `tools/publish.py` reads (`read_source_version()` at `tools/publish.py:43`) and writes into target projects' `.godotmaker/version`. Forgetting this bump causes downstream consumers (`godotmaker-cli`, `publish.py` upgrade detection) to see `installed_version != target_version` on every run, triggering an infinite "framework upgrade X.Y.Z-1 → X.Y.Z" loop that never converges.

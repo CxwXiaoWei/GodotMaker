@@ -123,8 +123,9 @@ python tools/migrate.py --new fix-state-path
 ```
 
 Full details — naming convention, scripting rules, the legacy-target
-bootstrap rules (empty `migrations/` → empty tracker; non-empty →
-`LegacyTargetWithMigrationsError`) — live in `migrations/README.md`.
+auto-bootstrap rules (empty tracker is auto-created on first contact;
+pending migrations run through the normal path) — live in
+`migrations/README.md`.
 
 ### MAJOR Upgrades
 

@@ -14,7 +14,6 @@ sys.path.insert(0, os.path.join(
 
 from migrate import (
     APPLIED_FILE_REL,
-    LegacyTargetWithMigrationsError,
     TrackerCorruptionError,
     applied_ids,
     baseline_applied,
@@ -427,46 +426,59 @@ class TestRunMigrations:
             "20260101000000_ok", "20260202000000_boom",
         }
 
-    def test_legacy_target_with_migrations_raises(self, tmp_path, monkeypatch):
-        """Legacy target (no tracker) + non-empty migrations/ must raise
-        instead of silently auto-baselining. We can't safely decide
-        whether those V scripts were already applied to the target's old
-        state — the previous auto-baseline behaviour skipped required
-        cleanup work. Force the user to choose --baseline (already
-        applied) or fresh-init (run them all)."""
+    def test_legacy_target_with_migrations_auto_bootstraps(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        """Legacy target (no tracker) + non-empty migrations/ now
+        auto-creates `{"applied": []}` and runs every pending migration.
+
+        Reasoning: for any project stamped at a version predating a given
+        migration's introduction, the migration could not have run yet
+        (it didn't exist when the project was stamped), so the answer is
+        unambiguously "no, not applied". The previous behaviour raised
+        an error to force the user through manual recovery — that
+        friction had no payoff, since the auto-decision is correct in
+        this code path. The hand-applied edge case (user ran migrations
+        manually on the old version) still has the explicit
+        `python tools/migrate.py <target> --baseline` opt-out —
+        run_migrations doesn't override that; main() exits before
+        run_migrations on `--baseline`.
+        """
         migrations, target = self._setup(tmp_path, monkeypatch)
         (migrations / "20260101000000_legacy_target_v.py").write_text(
             textwrap.dedent("""\
                 from pathlib import Path
                 def migrate(target: Path) -> None:
-                    (target / "should_not_run.txt").write_text("x")
+                    (target / "migration_ran.txt").write_text("yes")
             """)
         )
-        # Mark target as a previously published project (legacy)
+        # Mark target as a previously published project (legacy).
         (target / ".godotmaker").mkdir()
         (target / ".godotmaker" / "version").write_text("0.2.0\n")
 
-        with pytest.raises(LegacyTargetWithMigrationsError) as exc:
-            run_migrations(target)
+        assert run_migrations(target) is True
 
-        # Error message must mention the recovery options so users can act
-        msg = str(exc.value)
-        assert "--baseline" in msg
-        assert "applied_migrations.json" in msg
-        # Cross-platform "create empty tracker" command — must NOT use
-        # bare `echo > file` because PowerShell 5.1 writes UTF-16 BOM
-        # which then crashes on the next publish (round-4 codex MAJOR-1).
-        assert "python -c" in msg
-        # `publish.py --force` is NOT a real recovery option here: the
-        # cleanup loop only runs on MAJOR + force, so for legacy + V on
-        # PATCH/MINOR/SAME the user would just hit the same exit 3 again.
-        # Lock that line out (round-4 codex MAJOR-2).
-        assert "--force" not in msg
+        # The auto-bootstrap created the tracker file (was: assert NOT exists).
+        assert (target / APPLIED_FILE_REL).exists()
 
-        # Migration body did NOT run — no silent skip
-        assert not (target / "should_not_run.txt").exists()
-        # No tracker was created — keeps the user's options open
-        assert not (target / APPLIED_FILE_REL).exists()
+        # Migration body actually ran (was: assert NOT run). This is the
+        # whole point of auto-bootstrap — the migration could not have
+        # run on the legacy stamp, so we run it now.
+        assert (target / "migration_ran.txt").exists()
+        assert (target / "migration_ran.txt").read_text() == "yes"
+
+        # The migration that ran is recorded so the next publish skips it.
+        assert applied_ids(read_applied(target)) == {
+            "20260101000000_legacy_target_v",
+        }
+
+        # User-facing print explains what happened and how to opt out.
+        # The auto-bootstrap path needs to surface --baseline as the
+        # alternative for hand-applied state, otherwise a user who DID
+        # apply migrations manually has no way to discover the override.
+        out = capsys.readouterr().out
+        assert "Legacy target detected" in out
+        assert "--baseline" in out
 
     def test_legacy_then_new_migration_runs_normally(
         self, tmp_path, monkeypatch
@@ -893,31 +905,6 @@ class TestPublishMainMigrationRouting:
         err = capsys.readouterr().err
         assert "tracker is corrupt" in err
         assert "simulated tracker corruption" in err
-
-    def test_run_migrations_legacy_target_exits_3(
-        self, env, monkeypatch, capsys
-    ):
-        """publish.main() must catch LegacyTargetWithMigrationsError,
-        print recovery options to stderr, and exit with code 3 — a
-        distinct exit code so external automation can tell 'corrupt
-        tracker' from 'needs explicit user decision'."""
-        import publish
-        self._force_source_version(monkeypatch, 0, 4, 1)
-        self._seed_target_version(env["target"], "0.4.0")
-
-        def _raise_legacy(_target):
-            raise LegacyTargetWithMigrationsError(
-                "simulated legacy + migrations collision"
-            )
-        monkeypatch.setattr(publish, "run_migrations", _raise_legacy)
-
-        with pytest.raises(SystemExit) as exc:
-            self._run_main(monkeypatch, env["target"])
-        assert exc.value.code == 3
-        err = capsys.readouterr().err
-        assert "legacy target needs explicit handling" in err
-        assert "simulated legacy + migrations collision" in err
-
 
 # ---------------------------------------------------------------------------
 # migrate.py CLI error handling
