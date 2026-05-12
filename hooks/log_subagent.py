@@ -3,7 +3,10 @@
 
 Records all subagent dispatches and completions to metrics.
 Parses worker/verifier reports for status, files changed, and report type.
-Saves full prompts and outputs to .godotmaker/traces/ for debugging.
+Subagent prompt + final output capture lives in `log_agent_tool.py`,
+which uses the documented PreToolUse/PostToolUse `Agent` API rather
+than SubagentStart's payload (which has no `prompt` field) — see that
+file's header for rationale.
 
 Never blocks (always exit 0).
 """
@@ -33,21 +36,6 @@ def _debug(msg: str) -> None:
             f.write(f"[{ts}] {msg}\n")
     except OSError:
         pass
-
-
-def _save_trace(agent_id: str, suffix: str, content: str) -> None:
-    """Save content to .godotmaker/traces/{agent_id}_{suffix}.md."""
-    if not content:
-        return
-    traces_dir = os.path.join(".godotmaker", "traces")
-    os.makedirs(traces_dir, exist_ok=True)
-    safe_id = agent_id.replace("/", "_").replace("\\", "_").replace("..", "_")
-    path = os.path.join(traces_dir, f"{safe_id}_{suffix}.md")
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(content)
-    except OSError as e:
-        print(f"[trace] write failed: {e}", file=sys.stderr)
 
 
 def extract_status(message: str) -> str:
@@ -147,24 +135,24 @@ def main():
             _debug(f"  {k}: {v!r}")
 
     if event == "SubagentStart":
-        raw_desc = data.get("description")
-        raw_prompt = data.get("prompt")
-        description = raw_desc or ""
-        prompt = raw_prompt or ""
-        # Detect role: custom agent type first, then description fallback
+        # NOTE: SubagentStart's payload schema (claude-code-src
+        # `coreSchemas.ts:540`) does NOT include `description` or `prompt`.
+        # `data.get("description")` and `data.get("prompt")` reliably return
+        # None — the `_save_trace(agent_id, "prompt", ...)` and
+        # description-based role detection that previously lived here were
+        # silent dead code. Prompt capture moved to `log_agent_tool.py`
+        # (PreToolUse + matcher Agent). Role detection here now relies on
+        # agent_type alone, which IS in the payload.
         if agent_type in KNOWN_ROLES:
             role = agent_type
         else:
-            role = detect_role_from_description(description)
+            role = ROLE_UNKNOWN
         record_event(
             EventType.SUBAGENT_START,
             agent_id=agent_id,
             agent_type=agent_type,
             role=role,
-            description=description,
         )
-        # Save full prompt for debugging
-        _save_trace(agent_id, "prompt", prompt)
 
     elif event == "SubagentStop":
         handle_stop(data)
@@ -193,7 +181,8 @@ def handle_stop(data: dict) -> None:
         role = agent_type
     else:
         role = lookup_role_from_events(agent_id)
-    _save_trace(agent_id, "output", message)
+    # Final-output capture moved to log_agent_tool.py PostToolUse — see
+    # this file's header for rationale.
 
     record_event(
         EventType.SUBAGENT_STOP,

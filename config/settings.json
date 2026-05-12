@@ -17,15 +17,24 @@
         ]
       },
       {
-        "matcher": "Agent",
+        "matcher": "Agent|Task",
         "hooks": [
-          {"type": "command", "command": "python .godotmaker/hooks/check_stage_prerequisites.py"}
+          {"type": "command", "command": "python .godotmaker/hooks/check_stage_prerequisites.py"},
+          {"type": "command", "command": "python .godotmaker/hooks/log_agent_tool.py"}
         ]
       },
       {
         "matcher": "Read",
         "hooks": [
           {"type": "command", "command": "python .godotmaker/hooks/check_asset_access.py"}
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {"type": "command", "command": "python .godotmaker/hooks/log_agent_tool.py"}
         ]
       }
     ],
