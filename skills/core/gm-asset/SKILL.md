@@ -24,15 +24,19 @@ This skill is **per-tag re-runnable**: a user can call `/gm-asset` between build
 
 ## Resume Check
 
-Asset is re-runnable per tag, so the gate is the current state of `ASSETS.md`, not events in `stage.jsonl`.
+Asset is re-runnable per tag, so the gate is the current state of `ASSETS.md` plus the scene-reference snapshot under `references/`, not events in `stage.jsonl`.
 
 - If `project.godot` does not exist → STOP. Tell user to run `/gm-scaffold` first.
 - If `ROADMAP.md` does not exist → STOP. Tell user to run `/gm-gdd` first.
 - If `ASSETS.md` does not exist → STOP. Tell user to run `/gm-gdd` first.
+- If `SCENES.md` does not exist → STOP. Tell user to run `/gm-gdd` first.
 - If `PLAN.md` is missing the `**Tag:**` header → STOP. Tell user the file is stale and to re-run `/gm-gdd` to regenerate it for the current tag.
-- Read `ASSETS.md` Asset Table. Filter rows where `Tag` matches the current tag. If no current-tag rows have status `MISSING` (all are `provided`/`generated`/`N/A`/`deferred`) → STOP. Tell the user:
-  > "No MISSING assets for the current tag. Recommended next: /gm-build.
-  > If you've added new art files since last run, just tell me and I'll re-scan."
+- Build two work-pending checks for the current tag:
+  1. **ASSETS.md gap:** any current-tag row in the Asset Table whose status is `MISSING` (i.e. not `provided` / `generated` / `N/A` / `deferred`).
+  2. **Scene-reference gap:** any scene listed in `SCENES.md` for the current tag whose `references/scene_{name}.png` is absent on disk.
+- If **both** checks come back empty → STOP. Tell the user:
+  > "No MISSING assets and no missing scene references for the current tag. Recommended next: /gm-build.
+  > If you've added new art files or scenes since last run, just tell me and I'll re-scan."
 - Otherwise → proceed.
 
 ## Hard Rules
