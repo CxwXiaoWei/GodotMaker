@@ -79,6 +79,23 @@ Each task in PLAN.md must reference a specific system — not "implement movemen
 
 If the GDD or this tag's ROADMAP entry implies project-level config changes (viewport size, rendering method, new autoload), update `project.godot` accordingly. Skip if defaults still fit. Never overwrite the whole file — use targeted Edit. `main_scene` is not in this list.
 
+**Art-style preset.** If GDD §4 "Art style" describes pixel art (semantic match, not literal) AND `renderer/rendering_method == "gl_compatibility"`, apply the **pixel preset** below.
+
+| Field | Pixel value |
+|---|---|
+| `display/window/size/viewport_width` | `480` |
+| `display/window/size/viewport_height` | `270` |
+| `display/window/size/window_width_override` | `1920` |
+| `display/window/size/window_height_override` | `1080` |
+| `display/window/stretch/mode` | `"viewport"` |
+| `display/window/stretch/aspect` | `"keep"` |
+| `display/window/stretch/scale_mode` | `"integer"` |
+| `rendering/textures/canvas_textures/default_texture_filter` | `0` (Nearest) |
+| `rendering/2d/snap_2d_transforms_to_pixel` | `true` |
+| `rendering/2d/snap_2d_vertices_to_pixel` | `true` |
+
+If GDD names a different pixel resolution (e.g. 320×180), override viewport_width/height only.
+
 ### Step 6: TOC.md
 
 Update the document index (overwrite from template if missing, otherwise targeted Edit). Entries to ensure are present: `ROADMAP.md`, `docs/tags/<Tag>/` archive list, `e2e/` (single suite, cross-tag).

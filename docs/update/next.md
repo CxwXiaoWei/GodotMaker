@@ -34,6 +34,7 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 - gecs `patterns.md` documents the pure-static helper convention (`*_math.gd` / `*_logic.gd` next to a System) and the `simulate_*` static seam on Systems — both used as the shared entry point for unit tests and e2e drivers.
 - `worker-dispatch.md` "When to parallelize" now includes a batch design rule: inspect every pending task's Affected files and group disjoint sets up to 3-wide, rather than dispatching task-by-task.
 - `gdunit-driver` SKILL adds a "Stub design" rule: a unit-test stub class must expose every property and method the system-under-test reads or calls on it, with a NodeRef-style WRONG/RIGHT example and a grep-before-submit check.
+- `decomposer` Step 5 patches `project.godot` for pixel-art games (detected from GDD §4): 480×270 viewport, 1920×1080 window override, integer stretch, Nearest filter, snap-to-pixel.
 
 ## Fixed
 
