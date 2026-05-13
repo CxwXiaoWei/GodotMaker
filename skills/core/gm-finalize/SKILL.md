@@ -26,7 +26,7 @@ Read `.godotmaker/stage.jsonl` (treat as empty if missing) — each line is `{"r
 - If `PLAN.md` does not exist or is missing the `**Tag:**` header → STOP. Tell the user the project is in a bad state; re-run `/gm-gdd` to regenerate the current tag's working docs.
 - If **no event with `role == "accept"` and `decision == "accept"`** exists anywhere in the file → STOP. Tell user to run `/gm-accept` first.
   (Events with `decision == "fix"` or `decision == "done"` are trace records, not completions.)
-- If `docs/tags/<Tag>/` already contains a full archive **and** `git tag <Tag>` already exists → STOP. Tell the user:
+- If `.godotmaker/final_report.json` exists **and** `git tag <Tag>` already exists → STOP. Tell the user:
   > "Tag {Tag} already finalized. Run /gm-gdd to start the next tag, or stop here.
   > If you need to redo this step or have other plans, just tell me."
 - Otherwise → proceed.
@@ -73,30 +73,46 @@ For any inconsistency: update the doc to match reality. Do NOT change code here 
 
 ### 4. Archive into `docs/tags/<Tag>/`
 
-Create `docs/tags/<Tag>/` if it doesn't exist. Copy these files in (overwriting any earlier partial archive):
+From the project root run:
+
+```bash
+python tools/seal_tag.py archive <Tag>
+```
+
+The helper copies six per-tag working docs (overwriting any earlier partial archive):
 
 | Destination | Source |
 |---|---|
-| `docs/tags/<Tag>/GDD-snapshot.md` | `GDD.md` (full snapshot of north-star at this moment) |
+| `docs/tags/<Tag>/GDD-snapshot.md` | `GDD.md` |
 | `docs/tags/<Tag>/PLAN.md` | `PLAN.md` |
 | `docs/tags/<Tag>/STRUCTURE.md` | `STRUCTURE.md` |
 | `docs/tags/<Tag>/SCENES.md` | `SCENES.md` |
-| `docs/tags/<Tag>/MEMORY.md` | `MEMORY.md` (full cumulative state at this moment) |
+| `docs/tags/<Tag>/MEMORY.md` | `MEMORY.md` |
 | `docs/tags/<Tag>/evaluation-final.json` | `.godotmaker/evaluation.json` |
 
-Do NOT archive `ASSETS.md`. Do NOT archive `.godotmaker/stage.jsonl`, `metrics.jsonl`, or `traces/` — those are runtime artifacts (metrics + traces accumulate cross-tag in `.godotmaker/`; stage gets reset in step 7).
+Exit codes: 2 if any source is missing, 1 if a copy fails mid-loop.
+
+Then verify the archive landed — list `docs/tags/<Tag>/` and confirm all six destination files are present. If the directory is missing a file or has stale content (size or mtime mismatching the source), STOP and report to the user.
+
+Do not Edit/Write these destinations yourself.
+
+Do NOT archive `ASSETS.md`, `.godotmaker/stage.jsonl`, `metrics.jsonl`, or `traces/`.
 
 ### 5. Generate `docs/tags/<Tag>/CHANGELOG.md`
 
-Write a per-tag changelog entry. Source material:
+From the project root run:
 
-- ROADMAP.md entry for this `<Tag>` → headline + bullet features
-- PLAN.md → Tag Mechanics list (mechanics that passed evaluation this round)
-- PLAN.md task table → which subsystems / scenes / assets were added
-- evaluation.json `minor_issues` → known limitations
-- git log between previous tag and HEAD (if any prior tag exists) → file-level summary
+```bash
+python tools/seal_tag.py bundle <Tag>
+```
 
-Format:
+The bundle JSON on stdout has:
+- `roadmap_entry` (heading + body from ROADMAP.md for `<Tag>`)
+- `plan_tag_mechanics` (list of `<Tag>-Mn` IDs)
+- `previous_tag` + `git_log_since_previous_tag` (`--oneline` slice)
+- `test_count.unit` (count of `tests/**/*.gd`) + `test_count.e2e` (count of `e2e/**/test_*.py`)
+
+Combine that with PLAN.md task table and `evaluation.json` `minor_issues`, and write `docs/tags/<Tag>/CHANGELOG.md` in this format:
 
 ```markdown
 # Changelog — <Tag>
@@ -128,21 +144,35 @@ Format:
 git tag <Tag>
 ```
 
-If the tag already exists locally (e.g. retrying finalize after a partial failure), skip silently — the archive in step 4 is the ground truth, the tag just marks the commit. If git is unavailable in the project, log the gap and continue (the archive still seals the tag).
+If the tag already exists locally, skip silently. If git is unavailable in the project, log the gap and continue.
 
 Do NOT push the tag. Pushing is a separate user decision.
 
 ### 7. Reset per-tag runtime state
 
-Clear the working state so the next `/gm-gdd` starts on a clean slate:
+From the project root run:
 
-- Truncate `.godotmaker/stage.jsonl` to empty
-- Delete `.godotmaker/metrics_current.jsonl` (session-scoped; permanent log in `metrics.jsonl` stays)
-- Leave alone: `.godotmaker/metrics.jsonl`, `.godotmaker/traces/`, `.godotmaker/config.yaml`, `.godotmaker/hooks/`, `.godotmaker/version`, `.godotmaker/evaluation.json` (will be overwritten by next gm-evaluate), `.godotmaker/current_role` (cleared in step 10 below — must stay set as `finalize` so steps 8/9's writes still match the finalize role's permission scope)
+```bash
+python tools/seal_tag.py reset
+```
 
-The root-level per-tag working docs (`PLAN.md`, `STRUCTURE.md`, `SCENES.md`) are **kept** at root. The next `/gm-gdd` subsequent-mode will overwrite them with the next tag's working set; until then they reflect what was just shipped.
+That truncates `.godotmaker/stage.jsonl` and deletes `.godotmaker/metrics_current.jsonl`. Exit 1 if `.godotmaker/` is missing or the truncate/delete fails.
+
+It does NOT touch: `.godotmaker/metrics.jsonl` (cross-session history), `.godotmaker/traces/`, `.godotmaker/config.yaml`, `.godotmaker/hooks/`, `.godotmaker/version`, `.godotmaker/evaluation.json`, `.godotmaker/current_role` (step 10 clears it).
+
+Then verify the reset landed — `.godotmaker/stage.jsonl` is empty (0 bytes) and `.godotmaker/metrics_current.jsonl` does not exist. If either check fails, STOP and report.
+
+The root-level per-tag working docs (`PLAN.md`, `STRUCTURE.md`, `SCENES.md`) stay at root.
 
 ### 8. Generate Final Report
+
+Field sources for the schema below:
+- `summary.tag_mechanics` — bundle `plan_tag_mechanics` (from step 5)
+- `summary.test_count.unit` — bundle `test_count.unit` (direct)
+- `summary.test_count.e2e_tag` + `e2e_regression` — split bundle `test_count.e2e` by which test files were added this tag (use PLAN's task table / git log to decide)
+- `summary.systems_added` + `components_added` — PLAN task table (already in context from step 3)
+- `known_limitations` — `evaluation.json` `minor_issues` + MEMORY.md's "Known limitations" entries
+- `doc_updates` — root docs you edited in step 3
 
 Write `.godotmaker/final_report.json`:
 
