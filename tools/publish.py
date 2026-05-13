@@ -526,6 +526,60 @@ def register_mcp(target: Path, godot_path: str):
         print("WARNING: godot-mcp registration failed. Register manually if needed.")
 
 
+def _escape_permission_rule_content(content: str) -> str:
+    """Mirror claude-code's permissionRuleParser.ts `escapeRuleContent`.
+
+    Permission rule strings use `Tool(content)` syntax, so backslashes and
+    parentheses in `content` must be escaped or the parser mis-extracts the
+    tool name and content. Escaping order matters — backslashes first, then
+    parentheses — so the round-trip with `unescapeRuleContent` is stable.
+
+    Without this, godot paths under `C:\\Program Files (x86)\\...` produce
+    rules whose `(x86)` confuses the outer `Tool(...)` boundary parser.
+    """
+    return (
+        content
+        .replace("\\", "\\\\")
+        .replace("(", "\\(")
+        .replace(")", "\\)")
+    )
+
+
+def register_godot_permissions(settings_path: Path, godot_path: str) -> None:
+    """Pre-approve `<godot_path> ...` Bash invocations in `.claude/settings.json`.
+
+    Without this, every `/gm-build` and `/gm-verify` headless run triggers
+    a Claude Code permission prompt because the user-specific absolute
+    `godot_path` doesn't match any built-in allow pattern. Sub-agents in
+    worktrees are also affected — `settings.local.json` is gitignored and
+    not carried into worktrees, so an interactive "yes don't ask again"
+    by the parent doesn't propagate. The project-level `settings.json`
+    does propagate, so this is the durable fix.
+
+    Idempotent: skips when the entry is already present, safe to re-run
+    on every publish.
+    """
+    if not settings_path.exists():
+        print("WARNING: .claude/settings.json missing; skipping godot permission entry")
+        return
+    try:
+        data = json.loads(settings_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        print(f"WARNING: .claude/settings.json invalid JSON ({e}); skipping godot permission entry")
+        return
+    perms = data.setdefault("permissions", {})
+    allow = perms.setdefault("allow", [])
+    entry = f"Bash({_escape_permission_rule_content(godot_path)}:*)"
+    if entry in allow:
+        return
+    allow.append(entry)
+    settings_path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    print(f"Registered godot permission: {entry}")
+
+
 def ensure_git_repo(target: Path):
     """Initialize git repo with initial commit if needed.
 
@@ -752,6 +806,7 @@ def main():
     # Register MCP server
     godot_path = read_godot_path(config_file)
     register_mcp(target, godot_path)
+    register_godot_permissions(config_dir / "settings.json", godot_path)
 
     # Ensure .gitignore
     ensure_gitignore(target)

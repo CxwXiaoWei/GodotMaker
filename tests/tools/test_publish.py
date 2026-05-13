@@ -12,6 +12,8 @@ sys.path.insert(0, os.path.join(
     "tools",
 ))
 
+import json
+
 import publish
 from publish import (
     read_godot_path,
@@ -20,6 +22,7 @@ from publish import (
     ensure_gitignore,
     ensure_worktreeinclude,
     publish_skills,
+    register_godot_permissions,
     rmtree_force,
     _verify_godot_path,
     DEFAULT_CONFIG_TEMPLATE,
@@ -211,6 +214,78 @@ class TestCreateGodotmakerYaml:
              patch.object(publish.subprocess, "run", return_value=_fail_run()):
             create_godotmaker_yaml(config)
         assert not config.exists()
+
+
+class TestRegisterGodotPermissions:
+    def _seed(self, tmp_path, body):
+        settings = tmp_path / "settings.json"
+        settings.write_text(json.dumps(body), encoding="utf-8")
+        return settings
+
+    def test_skips_when_settings_missing(self, tmp_path, capsys):
+        register_godot_permissions(tmp_path / "nope.json", "/usr/bin/godot")
+        assert "missing" in capsys.readouterr().out
+        assert not (tmp_path / "nope.json").exists()
+
+    def test_adds_entry_to_empty_permissions(self, tmp_path):
+        settings = self._seed(tmp_path, {"hooks": {}})
+        register_godot_permissions(settings, "C:/Godot/godot.exe")
+        data = json.loads(settings.read_text(encoding="utf-8"))
+        assert data["permissions"]["allow"] == ["Bash(C:/Godot/godot.exe:*)"]
+        assert data["hooks"] == {}  # untouched
+
+    def test_appends_alongside_existing_allow_entries(self, tmp_path):
+        settings = self._seed(tmp_path, {
+            "permissions": {"allow": ["Bash(npm:*)", "Bash(git:*)"]}
+        })
+        register_godot_permissions(settings, "/usr/bin/godot")
+        allow = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+        assert allow == ["Bash(npm:*)", "Bash(git:*)", "Bash(/usr/bin/godot:*)"]
+
+    def test_idempotent(self, tmp_path):
+        settings = self._seed(tmp_path, {})
+        register_godot_permissions(settings, "/usr/bin/godot")
+        register_godot_permissions(settings, "/usr/bin/godot")
+        register_godot_permissions(settings, "/usr/bin/godot")
+        allow = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+        assert allow == ["Bash(/usr/bin/godot:*)"]
+
+    def test_invalid_json_skipped_with_warning(self, tmp_path, capsys):
+        settings = tmp_path / "settings.json"
+        settings.write_text("{not json", encoding="utf-8")
+        register_godot_permissions(settings, "/usr/bin/godot")
+        assert "invalid JSON" in capsys.readouterr().out
+        assert settings.read_text(encoding="utf-8") == "{not json"
+
+    def test_windows_backslash_path_is_escaped(self, tmp_path):
+        # claude-code's permissionRuleParser unescapes \\ -> \ on read, so we
+        # must double backslashes when storing or single \X sequences inside
+        # the path will be misinterpreted on round-trip.
+        settings = self._seed(tmp_path, {})
+        register_godot_permissions(settings, r"D:\Godot\godot.exe")
+        allow = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+        assert allow == [r"Bash(D:\\Godot\\godot.exe:*)"]
+
+    def test_path_with_parens_is_escaped(self, tmp_path):
+        # `C:\Program Files (x86)\...` would break the outer Tool(...) parser
+        # without escaping the embedded parentheses.
+        settings = self._seed(tmp_path, {})
+        register_godot_permissions(
+            settings, r"C:\Program Files (x86)\Godot\godot.exe"
+        )
+        allow = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+        assert allow == [
+            r"Bash(C:\\Program Files \(x86\)\\Godot\\godot.exe:*)"
+        ]
+
+    def test_idempotency_holds_for_escaped_path(self, tmp_path):
+        # The dedupe check compares the escaped form, so re-registering the
+        # same Windows path must not produce two visually-different entries.
+        settings = self._seed(tmp_path, {})
+        register_godot_permissions(settings, r"D:\Godot\godot.exe")
+        register_godot_permissions(settings, r"D:\Godot\godot.exe")
+        allow = json.loads(settings.read_text(encoding="utf-8"))["permissions"]["allow"]
+        assert len(allow) == 1
 
 
 class TestCreateProjectConfig:
@@ -497,7 +572,8 @@ class TestPublishMainForceRmtree:
             "publish_skills", "publish_shared_refs", "publish_directory",
             "deploy_settings", "deploy_claude_md", "create_godotmaker_yaml",
             "create_project_config", "deploy_stage_schemas",
-            "create_project_dirs", "register_mcp", "ensure_gitignore",
+            "create_project_dirs", "register_mcp", "register_godot_permissions",
+            "ensure_gitignore",
             "ensure_worktreeinclude", "ensure_git_repo", "write_target_version",
         ):
             monkeypatch.setattr(publish, name, _no_op)
