@@ -102,3 +102,13 @@ Design-level constraints — intentional engine behaviors, not bugs. Stable acro
 **Correct approach**: keep visual nodes in a separate Control or Node2D subtree. Use a render system that maps entity IDs to visual nodes via a Dictionary. The visual nodes live in the UI/render tree; the entity data lives in ECS.
 
 **Wrong approach**: adding ColorRect or Sprite2D as children of an Entity node and expecting them to be visible. Trying to fix with z_index (the problem is not ordering, it's that the branch has no CanvasItem ancestor).
+
+## G11. Control under CanvasLayer needs explicit layout_mode = 1 [GDScript] [C#]
+
+**Symptom**: a TextureRect / Panel / Container placed directly under a CanvasLayer renders at its raw texture / minimum size (e.g. 256×256 for a default TextureRect) and ignores `anchors_preset`, `anchor_*`, and `offset_*` properties.
+
+**Root cause**: when a Control's parent is not a Control (CanvasLayer, Node, Node2D, …), `layout_mode` defaults to 0 (Position mode). Anchor and offset properties are stored on the Control but the layout engine never runs in Position mode, so they have no visible effect. Only `layout_mode = 1` (Anchors mode) activates the anchor/offset pipeline.
+
+**Correct approach**: in the .tscn, set `layout_mode = 1` explicitly on every Control whose parent is a CanvasLayer or any non-Control node. Combine with `anchors_preset = 15` (or whatever preset) + `offset_*` for the full anchor-based stretch.
+
+**Wrong approach**: setting `anchors_preset = 15` alone under a CanvasLayer expecting Full Rect coverage. Setting `anchor_right = 1.0` without `layout_mode = 1`. Wrapping the Control in another empty Control instead of fixing `layout_mode` (the inner Control still defaults to Position mode against its Control parent's empty layout).

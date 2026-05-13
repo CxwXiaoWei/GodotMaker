@@ -23,3 +23,4 @@
 | G17 | NodePath `@export` in `.tscn` unreliable for gecs World | `entity_nodes_root` and `system_nodes_root` set via `.tscn` `node_paths=PackedStringArray(...)` may not apply before `_ready()`. Set them in `_init()` instead. |
 | G18 | Area2D overlap data only updates in `_physics_process` | `get_overlapping_bodies()`/`get_overlapping_areas()` return stale data in `_process`. Systems using Area2D overlap MUST run in the `physics` group. |
 | G19 | GDScript `:=` type inference fails with ternary + null | `var x := expr if cond else fallback` fails when types are ambiguous. Use explicit type: `var x: Vector2 = expr if cond else fallback`. |
+| G20 | `@export var x: Node` on Component fails to parse | Component extends Resource; Node fields cannot be `@export`-ed on Resource-derived classes. Use `var x: Node = null` (runtime ref, not serialized) and resolve via NodeRef component or system query. |

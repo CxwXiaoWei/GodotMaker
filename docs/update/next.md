@@ -26,6 +26,8 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 ## Changed
 
 - Verifier and worker docs no longer prescribe authoring or running e2e — `/gm-evaluate` is the single source of truth for `e2e/`.
+- gecs gotcha G20: `@export var x: Node` fails on Component (extends Resource) — store Node refs as runtime `var` instead of `@export`.
+- UI reviewer gotcha G11: Control under CanvasLayer needs explicit `layout_mode = 1` — anchor presets are silently ignored when `layout_mode` defaults to 0.
 - `visual-qa` SKILL now lists each mode's exact argv shape in a decision table and rejects ambiguous shapes (e.g. `--screenshot ... --requirements ...`) instead of degrading to Question mode.
 - `/gm-evaluate` Phase 4 must populate `phase4_review` with at least one `{category, verdict}` entry (categories picked per game) so the gameplay-reasoning step can no longer be silently skipped; `gameplay_issues` remains as a flat mirror for `/gm-fixgap`.
 - `SCENES.md` template carries a per-scene `Acceptance criteria` block; the decomposer populates it from PLAN tag mechanics and `/gm-evaluate` pastes it verbatim into the visual-qa `Verify:` field.

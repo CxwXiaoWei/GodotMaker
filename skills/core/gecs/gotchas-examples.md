@@ -303,3 +303,24 @@ var jump_pos := body.position if body else Vector2.ZERO
 # CORRECT — explicit type:
 var jump_pos: Vector2 = body.position if body else Vector2.ZERO
 ```
+
+---
+
+## G20. @export var x: Node fails on Component
+
+```gdscript
+# WRONG:
+class_name C_NodeRef extends Component
+@export var node: Node          # Parse Error: "Node export is only supported in Node-derived classes"
+```
+
+```gdscript
+# CORRECT:
+class_name C_NodeRef extends Component
+var node: Node = null           # runtime reference, not serialized
+
+# Set the ref after add_entity (e.g. inside a RenderSystem):
+entity.get_component(C_NodeRef).node = sprite_node
+```
+
+Component extends Resource (for serialization). `@export` only works with Resource-compatible types — primitives, Vector*, Resource subclasses, etc. Node references must be assigned at runtime, not declared as exports.
