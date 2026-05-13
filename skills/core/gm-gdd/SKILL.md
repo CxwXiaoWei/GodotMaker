@@ -189,4 +189,5 @@ So a partial 1c can still slip past `/gm-asset` if you skip the `stage_reminder`
 After all three gates (1a, 1b, 1c) pass:
 
 1. From the project root run `python tools/append_stage_event.py gdd --tag=<current tag>` to append a `{"role": "gdd", "ts": "<server-generated UTC>", "tag": "<current tag>"}` line to `.godotmaker/stage.jsonl`. Do NOT hand-write the JSON or the timestamp — the helper exists so the timestamp comes from the system clock, not your own output.
-2. Inform the user: `GDD complete for <Tag>. Recommended next: /gm-asset` (or skip straight to `/gm-build` if no new assets are needed for this tag — `/gm-asset` is manual and will simply STOP if there's nothing MISSING).
+2. `git add -A && git commit -m "chore(gdd): <Tag>"`
+3. Inform the user: `GDD complete for <Tag>. Recommended next: /gm-asset` (or skip straight to `/gm-build` if no new assets are needed for this tag — `/gm-asset` is manual and will simply STOP if there's nothing MISSING).

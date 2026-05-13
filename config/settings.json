@@ -58,7 +58,8 @@
       {
         "matcher": "",
         "hooks": [
-          {"type": "command", "command": "python .godotmaker/hooks/check_completion.py"}
+          {"type": "command", "command": "python .godotmaker/hooks/check_completion.py"},
+          {"type": "command", "command": "python .godotmaker/hooks/check_clean_workspace.py"}
         ]
       }
     ]

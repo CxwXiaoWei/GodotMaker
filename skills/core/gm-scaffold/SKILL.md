@@ -160,4 +160,5 @@ re-run `tools/publish.py` to set the path.
 After verification passes:
 
 1. From the project root run `python tools/append_stage_event.py scaffold` to append a `{"role": "scaffold", "ts": "<server-generated UTC>"}` line to `.godotmaker/stage.jsonl`. Do NOT hand-write the JSON or the timestamp — the helper exists so the timestamp comes from the system clock, not your own output.
-2. Inform the user: `Scaffold complete. Recommended next: /gm-gdd`
+2. `git add -A && git commit -m "chore(scaffold): stage event"`
+3. Inform the user: `Scaffold complete. Recommended next: /gm-gdd`

@@ -138,33 +138,7 @@ Combine that with PLAN.md task table and `evaluation.json` `minor_issues`, and w
 - <minor issues from evaluation.json that ship as-is>
 ```
 
-### 6. Run `git tag <Tag>`
-
-```bash
-git tag <Tag>
-```
-
-If the tag already exists locally, skip silently. If git is unavailable in the project, log the gap and continue.
-
-Do NOT push the tag. Pushing is a separate user decision.
-
-### 7. Reset per-tag runtime state
-
-From the project root run:
-
-```bash
-python tools/seal_tag.py reset
-```
-
-That truncates `.godotmaker/stage.jsonl` and deletes `.godotmaker/metrics_current.jsonl`. Exit 1 if `.godotmaker/` is missing or the truncate/delete fails.
-
-It does NOT touch: `.godotmaker/metrics.jsonl` (cross-session history), `.godotmaker/traces/`, `.godotmaker/config.yaml`, `.godotmaker/hooks/`, `.godotmaker/version`, `.godotmaker/evaluation.json`, `.godotmaker/current_role` (step 10 clears it).
-
-Then verify the reset landed — `.godotmaker/stage.jsonl` is empty (0 bytes) and `.godotmaker/metrics_current.jsonl` does not exist. If either check fails, STOP and report.
-
-The root-level per-tag working docs (`PLAN.md`, `STRUCTURE.md`, `SCENES.md`) stay at root.
-
-### 8. Generate Final Report
+### 6. Generate Final Report
 
 Field sources for the schema below:
 - `summary.tag_mechanics` — bundle `plan_tag_mechanics` (from step 5)
@@ -196,17 +170,53 @@ Write `.godotmaker/final_report.json`:
 
 `final_report.json` is **per-tag overwritten** — only the latest tag's report is kept at this path. Historical reports are recoverable from the `docs/tags/<Tag>/` archives via git history if needed.
 
-This step MUST run before step 9: the `finalize` schema declares `final_report.json` as a required output, and `stage_reminder.py` validates declared files exist at the moment the stage event is appended. Writing the event first would be denied.
+### 7. Commit pre-tag state
 
-### 9. Append finalize event
+`git add -A && git commit -m "chore(finalize): seal <Tag>"`
+
+This is the commit `git tag <Tag>` will point at — it includes the archive (step 4), CHANGELOG (step 5), final_report.json (step 6), and the full pre-truncation `.godotmaker/stage.jsonl` for this tag.
+
+### 8. Run `git tag <Tag>`
+
+```bash
+git tag <Tag>
+```
+
+If the tag already exists locally, skip silently. If git is unavailable in the project, log the gap and continue.
+
+Do NOT push the tag. Pushing is a separate user decision.
+
+### 9. Reset per-tag runtime state
+
+From the project root run:
+
+```bash
+python tools/seal_tag.py reset
+```
+
+That truncates `.godotmaker/stage.jsonl` and deletes `.godotmaker/metrics_current.jsonl`. Exit 1 if `.godotmaker/` is missing or the truncate/delete fails.
+
+It does NOT touch: `.godotmaker/metrics.jsonl` (cross-session history), `.godotmaker/traces/`, `.godotmaker/config.yaml`, `.godotmaker/hooks/`, `.godotmaker/version`, `.godotmaker/evaluation.json`, `.godotmaker/current_role` (step 12 clears it).
+
+Then verify the reset landed — `.godotmaker/stage.jsonl` is empty (0 bytes) and `.godotmaker/metrics_current.jsonl` does not exist. If either check fails, STOP and report.
+
+The root-level per-tag working docs (`PLAN.md`, `STRUCTURE.md`, `SCENES.md`) stay at root.
+
+### 10. Append finalize event
 
 From the project root run `python tools/append_stage_event.py finalize --tag=<Tag>` to append a `{"role": "finalize", "ts": "<server-generated UTC>", "tag": "<Tag>"}` line to `.godotmaker/stage.jsonl`. Do NOT hand-write the JSON or the timestamp — the helper exists so the timestamp comes from the system clock, not your own output.
 
-> Note: this re-creates `stage.jsonl` after step 7 truncated it. The single finalize event is the only thing that lives in the new tag's stage.jsonl until /gm-gdd subsequent-mode adds its own event.
+> Note: this re-creates `stage.jsonl` after step 9 truncated it. The single finalize event is the only thing that lives in the new tag's stage.jsonl until /gm-gdd subsequent-mode adds its own event.
 
-### 10. Clear current_role and inform user
+### 11. Commit post-tag stage event
 
-Delete `.godotmaker/current_role` AFTER steps 8 and 9 have completed — those writes need the role lock in place so `check_file_permissions.py` keeps the finalize permission scope active for them.
+`git add -A && git commit -m "chore(finalize): post-seal stage event"`
+
+Captures the truncated stage.jsonl plus the new finalize marker — runtime metadata for the next `/gm-gdd` round, not part of `<Tag>`.
+
+### 12. Clear current_role and inform user
+
+Delete `.godotmaker/current_role` AFTER step 10 has completed — that write needs the role lock in place so `check_file_permissions.py` keeps the finalize permission scope active.
 
 Then print:
 

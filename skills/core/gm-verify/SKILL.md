@@ -201,4 +201,5 @@ When the script's JSON has `result: "pass"`:
 
 1. Write the script's JSON verbatim to `.godotmaker/verify_report.json`. (Field rules apply: `tooling_notes == []`, all `checks.*.result` ∈ {`pass`, `warn`} — the script enforces these but spot-check them once more before writing.)
 2. From the project root run `python tools/append_stage_event.py verify` to append a `{"role": "verify", "ts": "<server-generated UTC>"}` line to `.godotmaker/stage.jsonl`. Do NOT hand-write the JSON or the timestamp — the helper exists so the timestamp comes from the system clock, not your own output.
-3. Inform the user: `Verify complete. Recommended next: /gm-evaluate`
+3. `git add -A && git commit -m "chore(verify): <Tag>"`
+4. Inform the user: `Verify complete. Recommended next: /gm-evaluate`

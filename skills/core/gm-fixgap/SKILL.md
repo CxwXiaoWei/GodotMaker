@@ -228,4 +228,5 @@ Your context window is finite. Protect it:
 After all GAP.md tasks are `verified`, the final reviewer added no new tasks, and GAP.md has been archived:
 
 1. From the project root run `python tools/append_stage_event.py fixgap` to append a `{"role": "fixgap", "ts": "<server-generated UTC>"}` line to `.godotmaker/stage.jsonl`. Do NOT hand-write the JSON or the timestamp — the helper exists so the timestamp comes from the system clock, not your own output.
-2. Inform the user: `Fixgap complete. Recommended next: /gm-verify` (then re-run `/gm-evaluate` to confirm the gaps are closed).
+2. `git add -A && git commit -m "chore(fixgap): <Tag>"`
+3. Inform the user: `Fixgap complete. Recommended next: /gm-verify` (then re-run `/gm-evaluate` to confirm the gaps are closed).

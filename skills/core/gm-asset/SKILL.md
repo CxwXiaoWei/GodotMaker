@@ -145,4 +145,5 @@ After ASSETS.md has no MISSING rows (or all remaining are deferred audio with us
 
 1. From the project root run `python tools/append_stage_event.py asset` to append a `{"role": "asset", "ts": "<server-generated UTC>"}` line to `.godotmaker/stage.jsonl`. Do NOT hand-write the JSON or the timestamp — the helper exists so the timestamp comes from the system clock, not your own output.
    (The Resume Check above reads `ASSETS.md`, not this event — the stage.jsonl entry exists so `stage_reminder.py` can suggest `/gm-build` next.)
-2. Inform the user: `Asset complete. Recommended next: /gm-build` (or re-invoke /gm-asset later if you add more art).
+2. `git add -A && git commit -m "chore(asset): <Tag>"`
+3. Inform the user: `Asset complete. Recommended next: /gm-build` (or re-invoke /gm-asset later if you add more art).

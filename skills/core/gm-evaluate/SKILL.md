@@ -174,6 +174,8 @@ Write evaluation results to `.godotmaker/evaluation.json`:
 
 After writing evaluation.json, from the project root run `python tools/append_stage_event.py evaluate --tag=<Tag>` to append a `{"role": "evaluate", "ts": "<server-generated UTC>", "tag": "<Tag>"}` line to `.godotmaker/stage.jsonl`. Do NOT hand-write the JSON or the timestamp — the helper exists so the timestamp comes from the system clock, not your own output.
 
+Then: `git add -A && git commit -m "chore(evaluate): <Tag>"`.
+
 ## When Done
 
 - If `result` is `"reject"` → inform user: `Evaluation rejected for <Tag>. Recommended next: /gm-fixgap`

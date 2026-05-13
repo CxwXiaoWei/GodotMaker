@@ -116,6 +116,8 @@ python tools/append_stage_event.py accept --decision=<accept|fix|done>
 
 This appends a `{"role": "accept", "ts": "<server-generated UTC>", "decision": "<accept|fix|done>"}` line. Do NOT hand-write the JSON or the timestamp — the helper exists so the timestamp comes from the system clock, not your own output.
 
+Then: `git add -A && git commit -m "chore(accept): <Tag> <decision>"`.
+
 Then, based on the decision:
 - **accept** → Inform the user: `Accepted. Recommended next: /gm-finalize`
 - **fix** → Inform the user to run `/gm-fixgap` with specific fix instructions

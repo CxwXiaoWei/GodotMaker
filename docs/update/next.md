@@ -18,6 +18,7 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 ## Added
 
 - (WIP) Diagnostic log at `.godotmaker/log_agent_tool_debug.log` that records every phase of `log_agent_tool.py` so the next failure mode is localizable from artifacts.
+- Each gm-* skill commits its stage outputs in When Done; new Stop hook `check_clean_workspace.py` reminds the agent once when the working tree is dirty at end of a skill.
 - `tools/seal_tag.py` — three subcommands (`archive` / `reset` / `bundle`) replacing the per-call fs/git work in `/gm-finalize` Steps 4/5/7/8.
 - `tools/run_verify.py` — wraps `/gm-verify`'s four mechanical checks (build / unit tests / lint / static check) into a single JSON-emitting command so the SKILL agent validates and reports instead of orchestrating four bash invocations.
 
@@ -33,6 +34,7 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 - Parallel workers under `isolation: "worktree"` are now actually isolated — briefs use cwd-relative paths, dispatching agent pre-commits, workers commit before reporting.
 - fix the issue that `/gm-asset` exits early when every art row in `ASSETS.md` is `provided` but `references/scene_*.png` is still missing
 - `godot-e2e` SKILL Critical Rules now flag `wait_process_frames` as a frame budget not wall-clock, and the Quick Start conftest reminds you to swap `/root/Main` for your project's entry-scene root
+- `/gm-finalize` writes `final_report.json` and commits the tag archive before `git tag <Tag>`, so the tag points at a committed state including the final report (previously the tag landed on an uncommitted working tree).
 - `/gm-finalize` partial-failure retries between Steps 4 and 8 now re-enter the skill instead of being misclassified as already-finalized.
 
 ## Removed
