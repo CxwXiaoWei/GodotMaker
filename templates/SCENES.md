@@ -24,6 +24,20 @@
 |---------|----------|------|-------------|
 | {element name} | {top-center, bottom-left, center, etc.} | {width% × height%} | {what it is and looks like} |
 
+### Acceptance criteria
+
+<!-- Observable facts to mark PASS/FAIL from the spawn-state screenshot
+     alone (no GDD lookup). For each scene, list:
+       - entities/elements that must be visible (or explicitly off-screen)
+       - mechanic ids ([<Tag>-Mn]) this scene exercises, with how a frozen
+         screenshot proves them (or "exercised in dynamic mode only")
+       - camera framing constraints (e.g. "player at x=128 with keys/locks
+         700+px off-screen to the right — intentional") -->
+
+- {observable fact 1, e.g. "Player sprite visible centered-left, facing right"}
+- {observable fact 2, e.g. "HUD score counter visible top-right, value `0`"}
+- {observable fact 3, e.g. "Mechanic [<Tag>-M1] jump: not provable from frozen frame — exercised in dynamic-mode test only"}
+
 ### Transitions
 - {Element} → Scene: {target scene name}
 

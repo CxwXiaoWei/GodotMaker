@@ -26,6 +26,9 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 ## Changed
 
 - Verifier and worker docs no longer prescribe authoring or running e2e — `/gm-evaluate` is the single source of truth for `e2e/`.
+- `visual-qa` SKILL now lists each mode's exact argv shape in a decision table and rejects ambiguous shapes (e.g. `--screenshot ... --requirements ...`) instead of degrading to Question mode.
+- `/gm-evaluate` Phase 4 must populate `phase4_review` with at least one `{category, verdict}` entry (categories picked per game) so the gameplay-reasoning step can no longer be silently skipped; `gameplay_issues` remains as a flat mirror for `/gm-fixgap`.
+- `SCENES.md` template carries a per-scene `Acceptance criteria` block; the decomposer populates it from PLAN tag mechanics and `/gm-evaluate` pastes it verbatim into the visual-qa `Verify:` field.
 
 ## Fixed
 
@@ -37,5 +40,7 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 - `godot-e2e` SKILL Critical Rules now flag `wait_process_frames` as a frame budget not wall-clock, and the Quick Start conftest reminds you to swap `/root/Main` for your project's entry-scene root
 - `/gm-finalize` writes `final_report.json` and commits the tag archive before `git tag <Tag>`, so the tag points at a committed state including the final report (previously the tag landed on an uncommitted working tree).
 - `/gm-finalize` partial-failure retries between Steps 4 and 8 now re-enter the skill instead of being misclassified as already-finalized.
+- `/gm-evaluate` halts with a `critical_issue` instead of degrading to Question mode when `references/scene_*.png` is missing.
+- `/gm-evaluate` records every visual-qa call in `visual_checks.<scene>.vqa_calls[]`; any agent-side override of the recorded verdict lands in `.notes` so the chain from initial call to final `result` stays auditable.
 
 ## Removed

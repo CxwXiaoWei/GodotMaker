@@ -64,6 +64,7 @@ SCENES.md is an **end-of-tag snapshot** (same model as STRUCTURE.md) — overwri
 - `**Tag:** {Current Tag}` header at the top.
 - Initial mode (v0.1.0): cover all scenes the MVP needs. Minimum required for a playable closed loop: a Main Menu (or auto-start), a Gameplay scene (with HUD overlay), and a Game Over / Results scene.
 - Subsequent mode: read prior tags' archived SCENES.md, carry forward every scene unchanged, then add this tag's new scenes. For scenes this tag redesigns, replace the prior description with the new one and tag the section header `(redesigned in {Current Tag})`. For scenes this tag intentionally removes (paired with a Main Build refactor task), drop the section.
+- Populate each scene's `Acceptance criteria` block with observable facts a screenshot reader can mark PASS/FAIL on. Source: this tag's PLAN Tag Mechanics + Inherited Mechanics that the scene exercises (each line referenced as `[<Tag>-Mn]`) + GDD acceptance language for the scene. If a mechanic is animation-only and cannot be proven from a frozen frame, say so explicitly (e.g. `Mechanic [<Tag>-M1] jump — not provable from spawn-state screenshot; exercised in dynamic-mode test`). Carried-forward scenes in subsequent mode: copy their Acceptance criteria from the prior archive verbatim unless this tag adds visible elements.
 
 ### Step 4: STRUCTURE.md
 

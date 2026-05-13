@@ -94,30 +94,34 @@ All of these must pass for `result == "approve"`. Failure of any is a `critical_
 
 **Visual cross-check (per scene listed in SCENES.md):**
 7. Capture a screenshot via `game.screenshot("e2e/screenshots/scene_{name}.png")`. For scenes with motion/animation, capture a frame sequence per `.claude/skills/screenshot/SKILL.md` § "Frame Sequence for VQA Dynamic Mode". Screenshots overwrite per run (they're verification artifacts, not history; `e2e/screenshots/` is gitignored or sparingly committed at the user's choice).
-8. Compare against the reference image in `references/scene_{name}.png` by invoking the `visual-qa` skill — do not eyeball it yourself:
+8. Compare against the reference image in `references/scene_{name}.png` by invoking the `visual-qa` skill.
+
+   **Precondition — reference must exist.** Before calling visual-qa, confirm `references/scene_{name}.png` exists. If missing → record `critical_issue: "missing reference for scene_{name}"` and skip the visual-qa call for this scene. Do NOT degrade to Question mode against the screenshot alone.
+
+   **Context construction.** Pull the `Acceptance criteria` block from SCENES.md for this scene; paste it verbatim into the `Verify:` field. If the block is absent, fall back to the mechanic ids from PLAN.md Tag Mechanics + Inherited Mechanics that this scene exercises, each with its one-line description. Never leave `Requirements:` or `Verify:` as a placeholder.
+
    ```
    # Static scene
-   Skill(skill="visual-qa") "Check references/scene_{name}.png against e2e/screenshots/scene_{name}.png — Goal: {scene goal from SCENES.md}, Requirements: {key elements + layout}, Verify: no placeholder textures, no all-black/all-white frames, layout matches reference."
+   Skill(skill="visual-qa") "Check references/scene_{name}.png against e2e/screenshots/scene_{name}.png — Goal: {scene goal from SCENES.md}, Requirements: {key elements + layout}, Verify: {acceptance criteria block, or mechanic-id list fallback}."
 
    # Dynamic scene (frame sequence in per-scene subdir)
    Skill(skill="visual-qa") "Check references/scene_{name}.png against e2e/screenshots/scene_{name}/frame_*.png — Goal: ..., Requirements: ..., Verify: motion is fluid, no stuck entities, animation matches movement."
    ```
-   - Verdict mapping: `fail` → critical_issue; `warning` → major_issue; `pass` → recorded under `visual_checks`.
+
+   **Audit trail.** Record every visual-qa call (verdict + context + mode + output digest) in `visual_checks.{scene_name}.vqa_calls[]` (schema below). If you override a recorded verdict for the final `result` — for instance you read the PNGs yourself and disagree — write the reason and what you saw into `visual_checks.{scene_name}.notes`. Either way, `result` reflects the chain transparently.
+
+   If a `fail` looks wrong, prefer re-calling visual-qa with refined `--context` or `--both` (Gemini + native aggregated) before overriding by hand.
+
+   - Verdict mapping (on the final recorded verdict): `fail` → critical_issue; `warning` → major_issue; `pass` → recorded under `visual_checks`.
    - Backend defaults to Gemini Flash; pass `--native` for Claude vision or `--both` for aggregated verdict if a check is ambiguous.
 
 For each check, record: **PASS** or **FAIL** with evidence (E2E output, screenshot path, error message).
 
 ### Phase 4 — Gameplay Reasoning
 
-Before final assessment, think critically about the game experience. Tests can't catch:
+Pick the experience categories that fit this game (e.g. readability, control feel, attack feedback, fresh-player guidance, character framing, pacing — whatever this game's design hinges on) and write your assessment for each into `phase4_review`. An empty `phase4_review` is not acceptable.
 
-- Character obscured by UI / camera framing wrong
-- Scene too dark to see
-- Attacks that visually connect but don't register
-- Controls that are technically responsive but feel sluggish
-- Player has no idea what to do without the GDD in front of them
-
-Record any such issues. These become `gameplay_issues` in the output.
+Each entry: `{ "category": "<name>", "verdict": "ok" | "issue: <one-line description>" }`. Mirror each `issue:` verdict into `gameplay_issues` as a one-line entry.
 
 ### Phase 5 — Final Assessment (Pass/Fail)
 
@@ -160,9 +164,23 @@ Write evaluation results to `.godotmaker/evaluation.json`:
       "screenshot": "e2e/screenshots/scene_<name>.png",
       "reference": "references/scene_<name>.png",
       "result": "pass | fail | warning",
-      "notes": ""
+      "notes": "",
+      "vqa_calls": [
+        {
+          "ts": "<UTC ISO 8601>",
+          "mode": "static | dynamic | question | both",
+          "backend": "native | gemini | both",
+          "context": "Goal: ... Requirements: ... Verify: ...",
+          "verdict": "pass | fail | warning",
+          "output_summary": "<first line or 1-sentence digest of the visual-qa response>"
+        }
+      ]
     }
   },
+  "phase4_review": [
+    {"category": "scene_readability", "verdict": "ok"},
+    {"category": "control_feel", "verdict": "issue: jump feels sluggish — coyote-time window too short"}
+  ],
   "e2e_tests": {"total": 0, "passed": 0, "failed": 0},
   "orphan_tests": [],
   "gameplay_issues": ["..."],
