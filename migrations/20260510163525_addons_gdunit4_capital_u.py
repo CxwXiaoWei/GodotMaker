@@ -41,7 +41,7 @@ def migrate(target: Path) -> None:
         print(f"  [skip] addons/{ADDONS_DIRNAME}/ already at expected casing or absent")
 
     if _rewrite_project_godot(target):
-        print(f"  [done] rewrite project.godot enabled=PackedStringArray(...) to capital-U casing")
+        print("  [done] rewrite project.godot enabled=PackedStringArray(...) to capital-U casing")
     else:
         print(f"  [skip] project.godot already references {ADDONS_DIRNAME}/ (or no plugin entry)")
 

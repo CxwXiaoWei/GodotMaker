@@ -73,7 +73,7 @@ def migrate(target: Path) -> None:
     if _inject_tag_header(plan, INITIAL_TAG):
         print(f"  [done] inject `**Tag:** {INITIAL_TAG}` header into PLAN.md")
     else:
-        print(f"  [skip] PLAN.md already has **Tag:** header")
+        print("  [skip] PLAN.md already has **Tag:** header")
 
     archive_dir.mkdir(parents=True, exist_ok=True)
     snapshot = archive_dir / "GDD-snapshot.md"
