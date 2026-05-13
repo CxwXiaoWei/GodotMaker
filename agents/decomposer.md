@@ -30,11 +30,33 @@ The lead does NOT want to see the file content come back. Your report is a short
 5. `Manifest Path` (optional) — if present, ASSETS.md `provided` rows derive from it.
 6. `Prior Tag Archives` (subsequent mode only) — read each prior tag's `PLAN.md` (for Tag Mechanics) and `STRUCTURE.md` (for what systems / components already exist). You do NOT modify these archives; you read them so the new tag's plan integrates with what already shipped.
 
+## Work Packages
+
+By default, when the brief has no `Work Package`, you own the full artifact set and run every step below.
+
+When the brief includes a `Work Package`, it is a parallel slice from `/gm-gdd`. In that mode:
+
+- Write ONLY the files listed in `Owned Files`.
+- You may read every input and any already-existing root artifact, but do not wait for sibling packages and do not modify their files.
+- If a step's output file is not in `Owned Files`, skip that write step entirely.
+- Keep references best-effort and explicit. If you need a PLAN task id that does not exist yet, use a stable descriptive reference and list it under `Open TODOs / Deferred`.
+- Report only your package's files in `Files Written`.
+
+Standard packages:
+
+| Work Package | Owned Files | Steps to run |
+|---|---|---|
+| `plan-package` | `PLAN.md` | Step 1 |
+| `architecture-package` | `STRUCTURE.md`, `project.godot` | Steps 4-5 |
+| `scene-asset-package` | `SCENES.md`, `ASSETS.md`, `TOC.md` | Steps 2-3, 6 |
+
 ## Steps (run in order)
 
 The work is the same in both modes. Differences are called out per step.
 
 ### Step 1: PLAN.md
+
+Run this step only when `PLAN.md` is in `Owned Files`, or when no `Work Package` is provided.
 
 PLAN.md is **per-tag scope**. Always overwrite the root PLAN.md from `.claude/templates/PLAN.md` (both modes). Prior tag PLANs already live in their archives — they are NOT extended here.
 
@@ -52,12 +74,16 @@ Required structure (matches the template):
 
 ### Step 2: ASSETS.md
 
+Run this step only when `ASSETS.md` is in `Owned Files`, or when no `Work Package` is provided.
+
 Follow the rules in `.claude/templates/ASSETS.md` (the file's own contract). Operationally:
 
 - **Initial mode:** Create from the template, populate Art Direction from GDD §4, seed the Asset Table with v0.1.0's assets. If `Manifest Path` is present, matching rows are `provided`; otherwise `MISSING`.
 - **Subsequent mode:** Append rows for assets this tag introduces. Do not overwrite the file or modify prior-tag rows. Extend Art Direction with a sub-section only if this tag adds a new style direction.
 
 ### Step 3: SCENES.md
+
+Run this step only when `SCENES.md` is in `Owned Files`, or when no `Work Package` is provided.
 
 SCENES.md is an **end-of-tag snapshot** (same model as STRUCTURE.md) — overwrite root from `.claude/templates/SCENES.md` in both modes. After this step the file lists every scene that exists in the game as of this tag, so `/gm-evaluate`'s per-scene visual cross-check covers inherited scenes too.
 
@@ -68,6 +94,8 @@ SCENES.md is an **end-of-tag snapshot** (same model as STRUCTURE.md) — overwri
 
 ### Step 4: STRUCTURE.md
 
+Run this step only when `STRUCTURE.md` is in `Owned Files`, or when no `Work Package` is provided.
+
 STRUCTURE.md is **per-tag scope** — overwrite root from `.claude/templates/STRUCTURE.md` in both modes.
 
 - `**Tag:** {Current Tag}` header at the top.
@@ -76,6 +104,8 @@ STRUCTURE.md is **per-tag scope** — overwrite root from `.claude/templates/STR
 Each task in PLAN.md must reference a specific system — not "implement movement" but "implement PlayerMovementSystem: reads PlayerInput + Velocity, writes Transform".
 
 ### Step 5: project.godot (only if needed)
+
+Run this step only when `project.godot` is in `Owned Files`, or when no `Work Package` is provided.
 
 If the GDD or this tag's ROADMAP entry implies project-level config changes (viewport size, rendering method, new autoload), update `project.godot` accordingly. Skip if defaults still fit. Never overwrite the whole file — use targeted Edit. `main_scene` is not in this list.
 
@@ -97,6 +127,8 @@ If the GDD or this tag's ROADMAP entry implies project-level config changes (vie
 If GDD names a different pixel resolution (e.g. 320×180), override viewport_width/height only.
 
 ### Step 6: TOC.md
+
+Run this step only when `TOC.md` is in `Owned Files`, or when no `Work Package` is provided.
 
 Update the document index (overwrite from template if missing, otherwise targeted Edit). Entries to ensure are present: `ROADMAP.md`, `docs/tags/<Tag>/` archive list, `e2e/` (single suite, cross-tag).
 
@@ -142,6 +174,13 @@ Update the document index (overwrite from template if missing, otherwise targete
 ### Cross-Tag Refactor Hints                              [OPTIONAL — subsequent only]
 - "<prior tag>'s <feature>" superseded by "<new design>" — likely affects {files/systems}
 - ...
+
+### Work Package                                          [OPTIONAL]
+{plan-package | architecture-package | scene-asset-package}
+
+### Owned Files                                           [REQUIRED if Work Package is set]
+- {file this package may write}
+- ...
 ```
 
 ## Report Format (MANDATORY)
@@ -152,10 +191,13 @@ Update the document index (overwrite from template if missing, otherwise targete
 ### Status
 {written | failed}
 
-- `written`: all 5 docs (and project.godot if needed) are on disk and look right to you.
+- `written`: all files you own for this package are on disk and look right to you. In full-artifact mode, this means all 5 docs (and project.godot if needed).
 - `failed`: an early-stage error prevented progress (GDD.md unreadable, templates missing, hook denied a write you couldn't work around). Include the error in `Open TODOs`.
 
 If you wrote some files but not others, still report `failed` and list what got done in `Files Written` — the lead will read disk to see actual state and finish the remaining writes itself.
+
+### Work Package
+{full-artifact | plan-package | architecture-package | scene-asset-package}
 
 ### Files Written
 - PLAN.md — {tag id, K risk + M main = N total tasks, all pending; T tag mechanics + I inherited mechanics}

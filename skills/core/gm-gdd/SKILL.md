@@ -44,6 +44,17 @@ Detect the mode by inspecting on-disk state — there is no flag:
 
 State the detected mode + (if subsequent) the current tag explicitly to the user as your first conversational message after Resume Check passes. They should never have to guess which tag they're working on.
 
+## Freeform Intake
+
+Before invoking `game-planner` in initial mode, collect the user's rough idea in normal conversation, not `AskUserQuestion`.
+
+- If `$ARGUMENTS` already contains a game idea, treat it as the freeform intake and do not ask again.
+- If `$ARGUMENTS` is empty, ask the user for one open-ended paragraph: what they want to make, any references, mechanics, visual style, constraints, and anything they already decided. Make clear that rough notes are enough.
+- Pass this freeform intake verbatim into the `game-planner` brief as "Initial User Concept".
+- `game-planner` must skip questions that the freeform intake already answers and use those details to choose smarter defaults.
+
+This intake is NOT a confirmation gate. Keep `AskUserQuestion` for explicit GDD and ROADMAP confirmations only.
+
 ## Hard Rules
 
 1. **You CANNOT write game code (.gd/.tscn/.tres).** Code lives in workers in `/gm-build`.
@@ -58,6 +69,8 @@ State the detected mode + (if subsequent) the current tag explicitly to the user
 ### 1a — Interview & GDD update
 
 Invoke the `game-planner` skill (`.claude/skills/game-planner/SKILL.md`).
+
+Initial-mode brief MUST include the Freeform Intake as `Initial User Concept`; game-planner skips already-answered topics and uses the intake to choose smarter defaults.
 
 - **Initial mode:** game-planner runs the full Socratic interview → produces fresh `GDD.md`.
 - **Subsequent mode:** brief game-planner with:
@@ -99,18 +112,42 @@ This sub-stage exists in BOTH modes but does different work.
 
 ### 1c — Per-tag decomposition
 
-After GDD + ROADMAP are confirmed, **delegate to the `decomposer` subagent**.
+After GDD + ROADMAP are confirmed, **delegate to `decomposer` subagents**. Prefer the parallel plan below; fall back to the single-agent plan only if the runtime/tooling cannot dispatch multiple agents in one turn.
+
+**Preferred parallel dispatch.** Launch three `decomposer` agents in the same message, all with the same shared context plus a distinct `Work Package`. File ownership MUST be disjoint:
+
+1. `plan-package`: owns only `PLAN.md`.
+2. `architecture-package`: owns only `STRUCTURE.md` and `project.godot`.
+3. `scene-asset-package`: owns only `SCENES.md`, `ASSETS.md`, and `TOC.md`.
+
+All packages may read every input path and prior archive, but each package may write only its owned files. Do not ask one package to wait for another package's output. After all reports return, the lead performs Gate 1c from disk and edits any mismatches directly.
 
 ```
 Agent({
   subagent_type: "decomposer",
-  description: "Decompose current tag scope into PLAN/STRUCTURE/SCENES (and ASSETS rows for new assets this tag introduces)",
+  description: "Decompose current tag PLAN.md",
   model: "{decomposer_model from .godotmaker/config.yaml, default: sonnet}",
-  prompt: "{brief below}"
+  prompt: "{shared brief below + Work Package: plan-package; Owned Files: PLAN.md}"
+})
+
+Agent({
+  subagent_type: "decomposer",
+  description: "Decompose current tag STRUCTURE.md and project settings",
+  model: "{decomposer_model from .godotmaker/config.yaml, default: sonnet}",
+  prompt: "{shared brief below + Work Package: architecture-package; Owned Files: STRUCTURE.md, project.godot}"
+})
+
+Agent({
+  subagent_type: "decomposer",
+  description: "Decompose current tag SCENES.md, ASSETS.md, and TOC.md",
+  model: "{decomposer_model from .godotmaker/config.yaml, default: sonnet}",
+  prompt: "{shared brief below + Work Package: scene-asset-package; Owned Files: SCENES.md, ASSETS.md, TOC.md}"
 })
 ```
 
-Brief:
+**Single-agent fallback.** If parallel dispatch is unavailable, launch one `decomposer` with no `Work Package`; it owns the full artifact set and runs all steps serially.
+
+Shared brief:
 
 ```
 ## Task: Decompose current tag into per-tag artifacts
@@ -153,6 +190,12 @@ them into the new PLAN.md's Inherited Mechanics section verbatim}
 - "<prior tag>'s <feature>" superseded by "<new design>"
 - which files / systems likely need refactoring (best-effort guess; decomposer
   decides the exact PLAN tasks)}
+
+### Work Package (preferred parallel mode only)
+{plan-package | architecture-package | scene-asset-package}
+
+### Owned Files (preferred parallel mode only)
+{exact list of files this decomposer may write}
 ```
 
 The decomposer overwrites root `PLAN.md`, `STRUCTURE.md`, `SCENES.md` with the current tag's scope. For `ASSETS.md` it operates differently: in **initial mode** it writes the skeleton (Art Direction + empty tables); in **subsequent mode** it APPENDS new rows for assets this tag introduces (with `Tag = <current tag>`) and never modifies prior-tag rows. It does NOT touch `GDD.md`, `ROADMAP.md`, `MEMORY.md`, or any `docs/tags/` archive. It returns a short report; do NOT relay raw decomposer output to the user — run the gate first.
@@ -163,6 +206,7 @@ The decomposer overwrites root `PLAN.md`, `STRUCTURE.md`, `SCENES.md` with the c
 - [ ] `SCENES.md` exists with `**Tag:**` header, scoped to this tag
 - [ ] `ASSETS.md` exists and any new rows are tagged correctly (per `templates/ASSETS.md` and `gm-asset/SKILL.md`)
 - [ ] `TOC.md` updated (if decomposer touched it)
+- [ ] Parallel-only consistency check: PLAN task IDs referenced by STRUCTURE/SCENES/ASSETS exist in PLAN.md; every PLAN task's affected scene/system/asset appears in the corresponding artifact or is intentionally marked deferred.
 
 **Fallback when subagent doesn't finish.** If any gate item is unmet (whether the decomposer reported failure or just produced incomplete artifacts), do NOT respawn the subagent — instead, take over directly. Read whichever artifacts exist, identify the missing pieces, and write them using the same templates the decomposer would have used. The templates document their structure conventions.
 
