@@ -64,7 +64,7 @@ Craft each prompt for its specific goal. The art direction tells you the visual 
 
 #### Backend selection
 
-Use Gemini (`--model gemini`) where prompt precision matters — reference images, character design, 3D model references, animated sprite refs/poses, backgrounds with precise layout. Use Grok (default) for textures, simple objects, item kits, and simple scenic backgrounds (sky, clouds, abstract).
+Use Gemini (the default provider unless project config says otherwise) where prompt precision matters — reference images, character design, 3D model references, animated sprite refs/poses, backgrounds with precise layout. Use Grok (`--model grok`) for textures, simple objects, item kits, and simple scenic backgrounds (sky, clouds, abstract) only when `XAI_API_KEY` is configured.
 
 #### Using image references for consistency
 

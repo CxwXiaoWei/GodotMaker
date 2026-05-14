@@ -18,7 +18,15 @@ These are the fields you are most likely to want to change:
 
 **`analyst_model`** — which model inspects user-provided image files during `/gm-asset`. Defaults to `sonnet`.
 
-**`vqa_model`** — which Gemini model performs visual quality checks during `/gm-evaluate` (comparing screenshots against reference images). Defaults to `gemini-3-flash`. You can use a newer Gemini model name if you want higher-quality visual analysis at higher cost.
+**`vqa_model`** — which Gemini model performs visual quality checks during `/gm-evaluate` (comparing screenshots against reference images). Defaults to `gemini-2.5-flash`. You can use a newer Gemini model name if you want higher-quality visual analysis at higher cost.
+
+**`asset_image_provider`** — which image backend `tools/asset_gen.py image` uses when `--model` is omitted. Defaults to `gemini`, because `GOOGLE_API_KEY` is required by GodotMaker; set it to `grok` only when `XAI_API_KEY` is configured.
+
+**`gemini_image_model`** — the Gemini image-generation model used when `asset_gen.py image --model gemini` runs. Defaults to `gemini-3.1-flash-image-preview` (Nano Banana 2), which supports the framework's `512`, `1K`, `2K`, and `4K` size presets.
+
+**`grok_image_model`** — the xAI image model used when `asset_gen.py image --model grok` runs. Defaults to `grok-imagine-image`.
+
+**`grok_video_model`** — the xAI video model used by `asset_gen.py video`. Defaults to `grok-imagine-video`.
 
 The file with defaults looks like this:
 
@@ -27,9 +35,20 @@ The file with defaults looks like this:
 # Edit these values to customize behavior
 
 # VQA model for visual quality checks (any Gemini model name)
-# Default: gemini-3-flash
-# Examples: gemini-3-flash, gemini-2.5-flash, gemini-2.0-flash
-vqa_model: gemini-3-flash
+# Default: gemini-2.5-flash
+# Examples: gemini-2.5-flash, gemini-2.0-flash, gemini-flash-latest
+vqa_model: gemini-2.5-flash
+
+# Asset generation defaults
+# Gemini is the default because GOOGLE_API_KEY is required by GodotMaker.
+# Grok remains available when XAI_API_KEY is configured.
+asset_image_provider: gemini
+
+# Image/video generation models
+# gemini_image_model is the Nano Banana 2 image model used by --model gemini.
+gemini_image_model: gemini-3.1-flash-image-preview
+grok_image_model: grok-imagine-image
+grok_video_model: grok-imagine-video
 
 # Agent model configuration
 # Workers use opus for complex implementation tasks

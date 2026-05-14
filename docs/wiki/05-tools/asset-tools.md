@@ -13,23 +13,22 @@ GodotMaker generates art via small Python helper scripts. `/gm-asset` calls them
 | xAI Grok | 2 cents (1K or 2K only) | Fast, good for most sprites and UI elements |
 | Google Gemini | 5–15 cents (512 to 4K) | More precise prompt following, better for detailed or edited images |
 
-Both require API keys: `GOOGLE_API_KEY` for Gemini, `XAI_API_KEY` for Grok. To choose which provider `/gm-asset` uses by default, see [`../06-configuration/project-config.md`](../06-configuration/project-config.md).
+Gemini requires `GOOGLE_API_KEY`, which GodotMaker treats as required. Grok requires the optional `XAI_API_KEY`. To choose which provider `/gm-asset` uses by default, set `asset_image_provider` in [`../06-configuration/project-config.md`](../06-configuration/project-config.md).
 
 ### Generating an image
 
 ```bash
 python tools/asset_gen.py image \
   --prompt "top-down pixel art player character, blue outfit, 64x64, transparent background" \
-  --model grok \
   -o assets/sprites/player.png
 ```
 
-To use Gemini instead:
+To use Grok instead:
 
 ```bash
 python tools/asset_gen.py image \
   --prompt "top-down pixel art player character, blue outfit, 64x64, transparent background" \
-  --model gemini \
+  --model grok \
   --size 1K \
   -o assets/sprites/player.png
 ```
@@ -48,7 +47,7 @@ python tools/asset_gen.py image \
 | Option | Default | Notes |
 |--------|---------|-------|
 | `--prompt` | (required) | Describe what you want |
-| `--model` | `grok` | `grok` or `gemini` |
+| `--model` | project config | `gemini` or `grok`; overrides `asset_image_provider` |
 | `--size` | `1K` | Grok: `1K`, `2K`. Gemini: `512`, `1K`, `2K`, `4K` |
 | `--aspect-ratio` | `1:1` | Many options — run `--help` to see all |
 | `--image` | none | Provide a reference image to edit |

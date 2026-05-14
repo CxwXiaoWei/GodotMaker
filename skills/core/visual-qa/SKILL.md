@@ -15,7 +15,7 @@ CRITICAL: Your job is to find problems, not confirm things look fine. Do not rat
 ## Backend
 
 - **Default (Claude native):** Read every image with the Read tool, analyze directly using the criteria below. No external script needed.
-- **`--gemini`** flag in arguments: Use Gemini Flash — run the script below. All queries go to Gemini 3 Flash.
+- **`--gemini`** flag in arguments: Use Gemini Flash — run the script below. All queries go to Gemini 2.5 Flash.
 - **`--both`** flag in arguments: Do Claude native analysis first, then run Gemini script. Aggregate verdicts (details below).
 
 ## Mode Detection
@@ -49,7 +49,7 @@ Parse the arguments to construct the command. The script is at `${CLAUDE_SKILL_D
 
 First, detect the available Python command — run `python3 --version` and `python --version`, then use whichever succeeds. Cache the result for the session.
 
-**Model selection:** Check `.godotmaker/config.yaml` for a `vqa_model` field. If present, pass it as `--model <value>`. If the file or field doesn't exist, omit `--model` (the script defaults to `gemini-3-flash`).
+**Model selection:** Check `.godotmaker/config.yaml` for a `vqa_model` field. If present, pass it as `--model <value>`. If the file or field doesn't exist, omit `--model` (the script defaults to `gemini-2.5-flash`).
 
 ```bash
 # Read model from config (if exists)

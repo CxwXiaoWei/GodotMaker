@@ -25,6 +25,7 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 
 ## Changed
 
+- Asset generation now reads image provider and image/video model defaults from `.godotmaker/config.yaml`, with Gemini Nano Banana 2 as the shipped default.
 - Verifier and worker docs no longer prescribe authoring or running e2e — `/gm-evaluate` is the single source of truth for `e2e/`.
 - gecs gotcha G20: `@export var x: Node` fails on Component (extends Resource) — store Node refs as runtime `var` instead of `@export`.
 - UI reviewer gotcha G11: Control under CanvasLayer needs explicit `layout_mode = 1` — anchor presets are silently ignored when `layout_mode` defaults to 0.

@@ -801,6 +801,7 @@ class TestPublishMainMigrationRouting:
         monkeypatch.setattr(publish, "read_source_version",
                             lambda _: SemVer(major, minor, patch))
 
+
     def test_fresh_install_calls_baseline_only(self, env, monkeypatch):
         """No existing .godotmaker/version → FRESH → baseline."""
         self._force_source_version(monkeypatch, 0, 4, 0)
@@ -905,6 +906,7 @@ class TestPublishMainMigrationRouting:
         err = capsys.readouterr().err
         assert "tracker is corrupt" in err
         assert "simulated tracker corruption" in err
+
 
 # ---------------------------------------------------------------------------
 # migrate.py CLI error handling

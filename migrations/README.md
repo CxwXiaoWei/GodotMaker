@@ -93,6 +93,16 @@ Rules:
   already succeeded keep their entries in `applied_migrations.json`, so a
   re-run picks up exactly where it left off.
 
+## Testing a Migration
+
+Keep runner mechanics in `tests/tools/test_migrate.py` (discovery,
+ordering, tracker handling, baseline, CLI errors). Put behaviour tests for
+each individual migration in its own file named
+`tests/tools/test_migration_<slug>.py`, matching the existing
+`test_migration_*` pattern. A migration-specific test should cover the
+pre-migration fixture, the expected rewrite, preservation of user-owned
+values, and idempotency.
+
 ## How Migrations Run
 
 1. `publish.py` calls `run_migrations(target)` after deploying framework

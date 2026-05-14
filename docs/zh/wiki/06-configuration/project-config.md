@@ -18,7 +18,15 @@
 
 **`analyst_model`** — 在 `/gm-asset` 阶段检查用户提供的图片文件所使用的模型。默认值为 `sonnet`。
 
-**`vqa_model`** — 在 `/gm-evaluate` 阶段执行视觉质量检查的 Gemini 模型（将截图与参考图进行对比）。默认值为 `gemini-3-flash`。如果你希望获得更高质量的视觉分析（成本也会相应提高），可以填写更新的 Gemini 模型名称。
+**`vqa_model`** — 在 `/gm-evaluate` 阶段执行视觉质量检查的 Gemini 模型（将截图与参考图进行对比）。默认值为 `gemini-2.5-flash`。如果你希望获得更高质量的视觉分析（成本也会相应提高），可以填写更新的 Gemini 模型名称。
+
+**`asset_image_provider`** — `tools/asset_gen.py image` 在没有传 `--model` 时使用的图片生成后端。默认值为 `gemini`，因为 GodotMaker 默认要求配置 `GOOGLE_API_KEY`；只有在配置了 `XAI_API_KEY` 时才建议改为 `grok`。
+
+**`gemini_image_model`** — `asset_gen.py image --model gemini` 使用的 Gemini 生图模型。默认值为 `gemini-3.1-flash-image-preview`（Nano Banana 2），支持框架里的 `512`、`1K`、`2K`、`4K` 尺寸预设。
+
+**`grok_image_model`** — `asset_gen.py image --model grok` 使用的 xAI 图片模型。默认值为 `grok-imagine-image`。
+
+**`grok_video_model`** — `asset_gen.py video` 使用的 xAI 视频模型。默认值为 `grok-imagine-video`。
 
 默认配置文件如下：
 
@@ -27,9 +35,20 @@
 # Edit these values to customize behavior
 
 # VQA model for visual quality checks (any Gemini model name)
-# 默认：gemini-3-flash
-# 可选：gemini-3-flash, gemini-2.5-flash, gemini-2.0-flash
-vqa_model: gemini-3-flash
+# 默认：gemini-2.5-flash
+# 可选：gemini-2.5-flash, gemini-2.0-flash, gemini-flash-latest
+vqa_model: gemini-2.5-flash
+
+# Asset generation defaults
+# Gemini is the default because GOOGLE_API_KEY is required by GodotMaker.
+# Grok remains available when XAI_API_KEY is configured.
+asset_image_provider: gemini
+
+# Image/video generation models
+# gemini_image_model is the Nano Banana 2 image model used by --model gemini.
+gemini_image_model: gemini-3.1-flash-image-preview
+grok_image_model: grok-imagine-image
+grok_video_model: grok-imagine-video
 
 # Agent model configuration
 # Workers use opus for complex implementation tasks

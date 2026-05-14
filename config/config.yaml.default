@@ -3,9 +3,18 @@
 # Deployed to .godotmaker/config.yaml by publish script
 
 # VQA model for visual quality checks (any Gemini model name)
-# Default: gemini-3-flash
-# Examples: gemini-3-flash, gemini-2.5-flash, gemini-2.0-flash
-vqa_model: gemini-3-flash
+# Default: gemini-2.5-flash
+# Examples: gemini-2.5-flash, gemini-2.0-flash, gemini-flash-latest
+vqa_model: gemini-2.5-flash
+
+# Asset generation defaults
+asset_image_provider: gemini
+
+# Image/video generation models
+# gemini_image_model is the Nano Banana 2 image model used by --model gemini.
+gemini_image_model: gemini-3.1-flash-image-preview
+grok_image_model: grok-imagine-image
+grok_video_model: grok-imagine-video
 
 # Agent model configuration
 # Workers use opus for complex implementation tasks

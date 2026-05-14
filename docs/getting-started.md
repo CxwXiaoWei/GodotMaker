@@ -185,12 +185,22 @@ After publishing, `.godotmaker/config.yaml` contains project-level settings:
 
 ```yaml
 # VQA model for visual quality checks (any Gemini model name)
-vqa_model: gemini-3-flash
+vqa_model: gemini-2.5-flash
+
+# Default image generation backend and models
+asset_image_provider: gemini
+gemini_image_model: gemini-3.1-flash-image-preview
+grok_image_model: grok-imagine-image
+grok_video_model: grok-imagine-video
 ```
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `vqa_model` | `gemini-3-flash` | Gemini model used for visual QA. Change to any supported Gemini model name. |
+| `vqa_model` | `gemini-2.5-flash` | Gemini model used for visual QA. Change to any supported Gemini model name. |
+| `asset_image_provider` | `gemini` | Default backend for `tools/asset_gen.py image` when `--model` is omitted. |
+| `gemini_image_model` | `gemini-3.1-flash-image-preview` | Gemini image model used for Nano Banana 2 generation. |
+| `grok_image_model` | `grok-imagine-image` | xAI image model used when selecting `--model grok`. |
+| `grok_video_model` | `grok-imagine-video` | xAI video model used by `asset_gen.py video`. |
 
 To modify, edit `.godotmaker/config.yaml` directly.
 

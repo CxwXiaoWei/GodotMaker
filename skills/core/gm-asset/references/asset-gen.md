@@ -13,7 +13,9 @@ Generate PNG images (Gemini or xAI Grok) and GLB 3D models (Tripo3D) from text p
 - **Gemini** — reference images, character design, 3D model references, animated sprite refs/poses, backgrounds with precise layout. Gemini costs more but reliably produces what you described.
 - **Grok** — textures, simple objects, item kits, props, simple scenic backgrounds (sky, clouds, abstract). Produces high-quality (even photographic) output but often defaults to common interpretations instead of following specific instructions. Great when exact prompt adherence doesn't matter.
 
-Default is `grok`. Switch to `gemini` when precision matters.
+Project default is controlled by `.godotmaker/config.yaml`'s
+`asset_image_provider` field and ships as `gemini`. Use `--model grok`
+only when `XAI_API_KEY` is configured and prompt precision is less important.
 
 ### Gemini sizes and costs
 
@@ -35,7 +37,7 @@ python3 tools/asset_gen.py image \
   --prompt "the full prompt" -o assets/img/car.png
 ```
 
-`--model` (default `grok`): `grok` (2¢), `gemini` (5-15¢ by size)
+`--model` (default from `.godotmaker/config.yaml`): `gemini` (5-15¢ by size), `grok` (2¢)
 `--size` (default `1K`): Grok: `1K`, `2K`. Gemini: `512`, `1K`, `2K`, `4K`.
 `--aspect-ratio` (default `1:1`): varies by backend — both support `1:1`, `16:9`, `9:16`, `4:3`, `3:4`, `3:2`, `2:3`
 
@@ -194,7 +196,7 @@ Grok works well for simple scenic backgrounds (sky, clouds, abstract environment
 ```
 {description in the art style}. {composition instructions}.
 ```
-`image --prompt "..." --size 2K --aspect-ratio 16:9 -o path.png` (Grok default, add `--model gemini` for precise layout)
+`image --prompt "..." --size 2K --aspect-ratio 16:9 -o path.png` (Gemini default; add `--model grok` only for cheap/simple scenic output)
 
 No post-processing — use as-is.
 

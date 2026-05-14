@@ -2,9 +2,9 @@
 """Asset Generator CLI - creates images (Gemini / xAI Grok) and GLBs (Tripo3D).
 
 Subcommands:
-  image   Generate a PNG from a prompt (Gemini 5-15¢ or Grok 2¢)
-  video   Generate MP4 video from prompt + reference image (5¢/sec, Grok)
-  glb     Convert a PNG to a GLB 3D model via Tripo3D (30-60¢)
+  image   Generate a PNG from a prompt (Gemini 5-15 cents or Grok 2 cents)
+  video   Generate MP4 video from prompt + reference image (5 cents/sec, Grok)
+  glb     Convert a PNG to a GLB 3D model via Tripo3D (30-60 cents)
 
 Output: JSON to stdout. Progress to stderr.
 """
@@ -29,6 +29,30 @@ BUDGET_FILE = Path("assets/budget.json")
 
 VIDEO_MODEL = "grok-imagine-video"
 VIDEO_COST_PER_SEC = 5  # cents
+DEFAULT_IMAGE_PROVIDER = "gemini"
+CONFIG_FILE = Path(".godotmaker/config.yaml")
+
+
+def _load_project_config():
+    """Read simple top-level scalar values from .godotmaker/config.yaml."""
+    if not CONFIG_FILE.exists():
+        return {}
+    config = {}
+    try:
+        for raw_line in CONFIG_FILE.read_text(encoding="utf-8").splitlines():
+            if raw_line.startswith((" ", "\t")):
+                continue
+            line = raw_line.split("#", 1)[0].strip()
+            if not line or ":" not in line:
+                continue
+            key, value = line.split(":", 1)
+            key = key.strip()
+            value = value.strip().strip("\"'")
+            if key and value:
+                config[key] = value
+    except OSError:
+        return {}
+    return config
 
 
 def _load_budget():
@@ -49,7 +73,7 @@ def check_budget(cost_cents: int):
     spent = _spent_total(budget)
     remaining = budget.get("budget_cents", 0) - spent
     if cost_cents > remaining:
-        result_json(False, error=f"Budget exceeded: need {cost_cents}¢ but only {remaining}¢ remaining ({spent}¢ of {budget['budget_cents']}¢ spent)")
+        result_json(False, error=f"Budget exceeded: need {cost_cents} cents but only {remaining} cents remaining ({spent} cents of {budget['budget_cents']} cents spent)")
         sys.exit(1)
 
 
@@ -94,7 +118,7 @@ GEMINI_ASPECT_RATIOS = [
     "4:5", "5:4", "8:1", "9:16", "16:9", "21:9",
 ]
 
-GROK_MODEL = "grok-imagine-image"  # 2¢ flat
+GROK_MODEL = "grok-imagine-image"  # 2 cents flat
 GROK_COST = 2
 GROK_SIZES = ["1K", "2K"]
 GROK_ASPECT_RATIOS = [
@@ -121,7 +145,7 @@ def _image_data_uri(image_path: Path) -> str:
     return f"data:{mime};base64,{b64}"
 
 
-def _generate_gemini(args, output: Path, cost: int):
+def _generate_gemini(args, output: Path, cost: int, model_name: str):
     config = types.GenerateContentConfig(
         response_modalities=["IMAGE"],
         image_config=types.ImageConfig(
@@ -141,7 +165,7 @@ def _generate_gemini(args, output: Path, cost: int):
 
     client = genai.Client()
     response = client.models.generate_content(
-        model=GEMINI_MODEL,
+        model=model_name,
         contents=contents,
         config=config,
     )
@@ -167,7 +191,7 @@ def _generate_gemini(args, output: Path, cost: int):
     sys.exit(1)
 
 
-def _generate_grok(args, output: Path, cost: int):
+def _generate_grok(args, output: Path, cost: int, model_name: str):
     image_url = None
     if args.image:
         ref_path = Path(args.image)
@@ -180,7 +204,7 @@ def _generate_grok(args, output: Path, cost: int):
         client = xai_sdk.Client()
         resp = client.image.sample(
             prompt=args.prompt,
-            model=GROK_MODEL,
+            model=model_name,
             image_url=image_url,
             aspect_ratio=args.aspect_ratio,
             resolution=args.size.lower(),
@@ -198,8 +222,17 @@ def _generate_grok(args, output: Path, cost: int):
 
 
 def cmd_image(args):
-    backend = args.model
+    config = _load_project_config()
+    backend = args.model or config.get("asset_image_provider") or DEFAULT_IMAGE_PROVIDER
+    if backend not in {"gemini", "grok"}:
+        result_json(False, error=(
+            "Invalid asset_image_provider in .godotmaker/config.yaml: "
+            f"{backend!r}. Use 'gemini' or 'grok'."
+        ))
+        sys.exit(1)
     size = args.size
+    gemini_model = config.get("gemini_image_model") or GEMINI_MODEL
+    grok_model = config.get("grok_image_model") or GROK_MODEL
 
     if backend == "gemini":
         if size not in GEMINI_SIZES:
@@ -222,12 +255,14 @@ def cmd_image(args):
     print(f"Generating image ({label})...", file=sys.stderr)
 
     if backend == "gemini":
-        _generate_gemini(args, output, cost)
+        _generate_gemini(args, output, cost, gemini_model)
     else:
-        _generate_grok(args, output, cost)
+        _generate_grok(args, output, cost, grok_model)
 
 
 def cmd_video(args):
+    config = _load_project_config()
+    video_model = config.get("grok_video_model") or VIDEO_MODEL
     cost = args.duration * VIDEO_COST_PER_SEC
     check_budget(cost)
     output = Path(args.output)
@@ -245,7 +280,7 @@ def cmd_video(args):
         client = xai_sdk.Client()
         resp = client.video.generate(
             prompt=args.prompt,
-            model=VIDEO_MODEL,
+            model=video_model,
             image_url=image_url,
             duration=args.duration,
             aspect_ratio="1:1",
@@ -310,10 +345,10 @@ def main():
     parser = argparse.ArgumentParser(description="Asset Generator — images (Gemini / xAI Grok) and GLBs (Tripo3D)")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_img = sub.add_parser("image", help="Generate a PNG image (Gemini 5-15¢ or Grok 2¢)")
+    p_img = sub.add_parser("image", help="Generate a PNG image (Gemini 5-15 cents or Grok 2 cents)")
     p_img.add_argument("--prompt", required=True, help="Full image generation prompt")
-    p_img.add_argument("--model", choices=["gemini", "grok"], default="grok",
-                       help="Backend: grok (2¢, fast, simple images) or gemini (5-15¢, precise prompt following). Default: grok.")
+    p_img.add_argument("--model", choices=["gemini", "grok"], default=None,
+                       help="Backend override: gemini (default from config, 5-15 cents, precise prompt following) or grok (2 cents, fast, simple images).")
     p_img.add_argument("--size", choices=ALL_SIZES, default="1K",
                        help="Resolution. Grok: 1K, 2K. Gemini: 512, 1K, 2K, 4K. Default: 1K.")
     p_img.add_argument("--aspect-ratio", choices=ALL_ASPECT_RATIOS, default="1:1",
@@ -322,7 +357,7 @@ def main():
     p_img.add_argument("-o", "--output", required=True, help="Output PNG path")
     p_img.set_defaults(func=cmd_image)
 
-    p_vid = sub.add_parser("video", help="Generate MP4 video from prompt + reference image (5¢/sec)")
+    p_vid = sub.add_parser("video", help="Generate MP4 video from prompt + reference image (5 cents/sec)")
     p_vid.add_argument("--prompt", required=True, help="Video generation prompt")
     p_vid.add_argument("--image", required=True, help="Reference image path (starting frame)")
     p_vid.add_argument("--duration", type=int, required=True, help="Duration in seconds (1-15)")
