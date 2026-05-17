@@ -45,7 +45,7 @@ The CLI runner across all supported versions (v4.x, v5.x, v6.x) is `addons/gdUni
 ```
 
 Notes:
-- **`--ignoreHeadlessMode` is required** — without it, the runner exits with code 103 and refuses to run.
+- Include `--ignoreHeadlessMode` for headless runs.
 - Use `--add` to enqueue test files or directories (repeat the flag for multiples).
 - Runner path needs the `res://` prefix and the capital-U `addons/gdUnit4/` casing.
 - No `::method` syntax for single test methods — run the whole file instead.
@@ -64,8 +64,8 @@ dotnet build && "$GODOT" --headless -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd
 | Flag | Purpose |
 |------|---------|
 | `--add <path>` | Add test path to execution (file or directory; repeat to enqueue multiple) |
-| `--ignoreHeadlessMode` | Allow headless execution (required!) |
-| `--report-dir <path>` | Override report output directory |
+| `--ignoreHeadlessMode` | Allow headless execution |
+| `--report-directory <path>` | Override report output directory |
 
 ### Timeout
 
@@ -112,7 +112,8 @@ Extract from each test line:
 
 ### JUnit XML report
 
-gdUnit4 can generate JUnit XML reports when `--report-dir <path>` is supplied to `GdUnitCmdTool.gd`. If you opt in and the XML exists, prefer it over stdout parsing — it's more structured:
+Use `--report-directory <path>` for JUnit XML reports. The default report
+directory is `res://reports/`, which maps to project-root `reports/`.
 
 ```xml
 <testsuites>

@@ -173,9 +173,9 @@ def check_unit_tests(godot_path: str, project_dir: Path
     cmd = [
         godot_path, "--headless",
         "--path", str(project_dir),
-        "-s", "addons/gdUnit4/bin/GdUnitCmdTool.gd",
+        "-s", "res://addons/gdUnit4/bin/GdUnitCmdTool.gd",
         "--ignoreHeadlessMode",
-        "--add", "test/",
+        "--add", "res://test/",
     ]
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True,

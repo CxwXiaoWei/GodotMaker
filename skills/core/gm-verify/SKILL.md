@@ -47,8 +47,8 @@ What the script does:
   `tooling_notes[].suggested_fallback = "escalate"` entry.
 - Runs `<godot_path> --headless --quit` and parses `ERROR:` lines into
   `checks.build.errors[]`.
-- Runs `<godot_path> --headless ... addons/gdUnit4/bin/GdUnitCmdTool.gd
-  --ignoreHeadlessMode --add test/` and parses the summary line into
+- Runs `<godot_path> --headless ... res://addons/gdUnit4/bin/GdUnitCmdTool.gd
+  --ignoreHeadlessMode --add res://test/` and parses the summary line into
   `checks.unit_tests.{passed, failed, failures[]}`.
 - Stubs `checks.lint` as `pass` with `format_drift: null`. Do NOT
   re-enable here.

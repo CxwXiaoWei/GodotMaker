@@ -25,7 +25,7 @@ Agent({
 
 ### Commands to Run (run ALL, do not skip)               [REQUIRED]
 1. Build: godot --headless --quit 2>&1
-2. Unit tests: godot --headless --path . -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd --ignoreHeadlessMode --add res://{test_file}
+2. Unit tests: godot --headless --path . -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd --add res://{test_file} --ignoreHeadlessMode
 3. {additional commands}
 
 ### Success Criteria                                     [REQUIRED]

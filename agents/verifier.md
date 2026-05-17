@@ -123,9 +123,9 @@ Broken build = automatic FAIL for entire verification.
 
 ### Unit Tests
 ```bash
-godot --headless --path . -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd --ignoreHeadlessMode --add res://test/
+godot --headless --path . -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd --add res://test/ --ignoreHeadlessMode
 ```
-Report: total passed / failed / skipped. Each failure: test name, expected vs actual. `--ignoreHeadlessMode` is required by `GdUnitCmdTool.gd` under `--headless`; the path uses capital-U `gdUnit4/` to match the upstream addon layout.
+Report: total passed / failed / skipped. Each failure: test name, expected vs actual. Use the command shape above.
 
 ### Static Check
 ```bash

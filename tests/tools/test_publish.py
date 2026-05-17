@@ -476,6 +476,7 @@ SELECTIVE_ENTRIES = [
     ".godotmaker/state.json",
     ".godotmaker/metrics.jsonl",
     ".godotmaker/metrics_current.jsonl",
+    "reports/",
 ]
 
 

@@ -131,6 +131,21 @@ def test_check_unit_tests_pass_with_cases_summary():
     assert note is None
 
 
+def test_check_unit_tests_uses_official_gdunit_cmdtool_args():
+    output = "1 test case | 0 errors | 0 failures (1 suite, exit 0)\n"
+    with patch.object(run_verify.subprocess, "run") as run:
+        run.return_value = _make_proc(stdout=output)
+        run_verify.check_unit_tests("/usr/bin/godot", Path("/x"))
+
+    cmd = run.call_args.args[0]
+    assert "res://addons/gdUnit4/bin/GdUnitCmdTool.gd" in cmd
+    assert "--add" in cmd
+    assert "res://test/" in cmd
+    assert "--ignoreHeadlessMode" in cmd
+    assert "--run-tests" not in cmd
+    assert "--test-case" not in cmd
+
+
 def test_check_unit_tests_pass_with_pf_summary():
     output = "Tests Passed: 274 | Tests Failed: 0 (some other text)\n"
     with patch.object(run_verify.subprocess, "run") as run:
