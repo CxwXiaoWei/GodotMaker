@@ -53,5 +53,6 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 - worker.md and the parallel merge procedure run `godot --headless --import` (not `--quit`) after new `class_name` declarations so the class cache stays consistent across worker worktrees and main.
 - `/gm-evaluate` halts with a `critical_issue` instead of degrading to Question mode when `references/scene_*.png` is missing.
 - `/gm-evaluate` records every visual-qa call in `visual_checks.<scene>.vqa_calls[]`; any agent-side override of the recorded verdict lands in `.notes` so the chain from initial call to final `result` stays auditable.
+- `visual-qa`, `/gm-evaluate`, and `/gm-fixgap` no longer turn style-only reference mismatches into blocking visual tasks when the acceptance criteria already pass.
 
 ## Removed

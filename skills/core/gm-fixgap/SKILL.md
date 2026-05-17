@@ -49,6 +49,7 @@ Then read context:
 4. **Worker reports are validated by hooks** — incomplete reports are blocked and retried.
 5. **Only fix what `evaluation.json` or a fresh `verify_report.json` identified.** Do not add features or refactor unrelated code.
 6. **MUST NOT self-certify completion.** Dispatch verifiers, then reviewers. Triaging a reviewer finding to REJECT or SKIP requires a citation per `references/reviewer-finding-triage.md` (mandatory for critical/major; optional for minor).
+7. **Do not promote non-blocking visual findings.** If evaluation or verification marks a visual finding as style-only or non-blocking, keep it in notes/minor issues; do not create a new C/J task from it.
 
 ## Honest Reporting
 
@@ -92,6 +93,10 @@ GAP.md may need tasks from two sources:
 - `major_issues` — fix as many as possible (→ task IDs `J1`, `J2`, …)
 - `gameplay_issues` — fix only if related to a critical/major (→ `G1`, `G2`, …)
 - `minor_issues` — skip unless trivial
+
+Evaluation-source visual tasks must cite the blocking finding reported by
+evaluation. Do not create a C/J task from a style-only or non-blocking visual
+finding.
 
 #### 1b. Pull failures from `verify_report.json`
 
@@ -154,8 +159,14 @@ after **all** GAP.md tasks reach `completed`.
 **Verifier:**
 - Read `references/verifier-dispatch.md` for the brief template
 - Use `subagent_type: "verifier"`. Pass all completed workers' deliverables.
+- A new FAIL task must cite an unresolved blocking finding or a blocking regression.
 - On FAIL for a task: add a NEW pending task in GAP.md (the failed task stays `completed`). Loop back to Step 3.
 - On PASS: update those tasks from `completed` → `verified`.
+
+If verification exposes a design constraint conflict, stop splitting it into
+smaller visual tasks. Record the conflict in GAP.md notes, choose the
+interpretation already stated by SCENES.md if clear, or escalate for a design
+decision.
 
 **Reviewer** (after verifier passes):
 - Read `references/reviewer-dispatch.md` for the brief template

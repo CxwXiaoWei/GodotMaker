@@ -10,7 +10,15 @@ context: fork
 
 $ARGUMENTS
 
-CRITICAL: Your job is to find problems, not confirm things look fine. Do not rationalize, justify, or explain away what you see. If it looks wrong, report it.
+CRITICAL: Find acceptance-blocking problems. Do not rationalize defects that
+block the caller-provided Task Context.
+
+CRITICAL: When Task Context is provided, use its `Verify:` criteria as the
+gate. Treat the reference image as visual intent, not as a pixel-perfect or
+style-matching gate. Do not fail a check for pure reference/style mismatch
+(palette, capitalization, wording, roundedness, spacing, polish) unless it
+breaks the `Verify:` criteria or makes the scene unreadable, unusable, visually
+ambiguous, or logically false.
 
 ## Backend
 
@@ -83,15 +91,33 @@ PYTHON ${CLAUDE_SKILL_DIR}/scripts/visual_qa.py --log .vqa.log $MODEL_FLAG --que
 
 ## Analysis Criteria
 
+## Acceptance Gate Rules
+
+Use these rules before choosing the final verdict:
+
+- `fail` means an acceptance criterion is not visibly satisfied, or a
+  visual/logical/motion bug blocks readability, operation, state truth, or
+  layout stability.
+- `warning` means the acceptance criteria pass, and a material non-blocking
+  issue was observed while checking the caller-provided context. Do not expand
+  the review scope to search for warnings.
+- `pass` means the acceptance criteria pass and remaining differences are
+  minor/style-only.
+- If Task Context and reference disagree, evaluate against Task Context and
+  mention the disagreement.
+- Pure reference/style mismatch should be a `note`, not a failing verdict.
+
 ### Implementation Quality (static + dynamic)
 
-Assets are usually fine — what breaks is how they're placed, scaled, composed:
+Assets are usually fine — what breaks is how they're placed, scaled, composed.
+Flag these as `fail` only when they block acceptance, readability, operation,
+state truth, or layout stability:
 - Grid/uniform placement when reference shows organic arrangement
 - Uniform/default scale when reference shows varied, purposeful sizing
 - Flat composition when reference has depth and layering
 - Stretched, tiled, or carelessly applied materials
 - Objects unrelated to environment (just placed on a flat plane)
-- Camera framing doesn't match reference perspective
+- Camera framing doesn't match required context or blocks readability/operation
 
 ### Visual Bugs
 
@@ -115,7 +141,8 @@ Assets are usually fine — what breaks is how they're placed, scaled, composed:
 
 - Untextured primitives contrasting with surrounding detail
 - Default Godot materials (grey StandardMaterial3D, magenta missing shader)
-- Debug artifacts (collision shapes, nav mesh, axis gizmos)
+- Debug artifacts (nav mesh, axis gizmos; collision shapes only in normal
+  gameplay captures, not `--debug-collisions` captures)
 
 ### Motion & Animation (dynamic mode only)
 
@@ -136,7 +163,7 @@ Compare consecutive frames (0.5s apart):
 ### Verdict: {pass | fail | warning}
 
 ### Reference Match
-{1-3 sentences: does the game capture the reference's *intent* — placement logic, scaling, composition, camera? Distinguish lazy implementation (fail) from asset/engine limitations (acceptable).}
+{1-3 sentences: does the game capture the reference's *intent* — placement logic, scaling, composition, camera? Distinguish acceptance-blocking implementation shortcuts from asset/engine limitations.}
 
 ### Goal Assessment
 {1-3 sentences from Task Context. "No task context provided." if none.}
@@ -148,6 +175,7 @@ Compare consecutive frames (0.5s apart):
 #### Issue {N}: {short title}
 - **Type:** style mismatch | visual bug | logical inconsistency | motion anomaly | placeholder
 - **Severity:** major | minor | note
+- **Acceptance impact:** blocks acceptance | non-blocking | style-only
 - **Frames:** {dynamic only: which frames}
 - **Location:** {where in frame}
 - **Description:** {1-2 sentences}
@@ -156,7 +184,7 @@ Compare consecutive frames (0.5s apart):
 {One sentence.}
 ```
 
-Severity: major/minor = must fix. note = cosmetic, can ship.
+Severity: major = must fix. minor = non-blocking, record only. note = cosmetic/style-only, can ship.
 
 ### Question Mode
 
