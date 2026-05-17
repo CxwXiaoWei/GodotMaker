@@ -38,6 +38,8 @@ def _seed_scaffolded_project(project_dir: str):
             'config_version=5\n\n'
             '[application]\n'
             'config/name="Test"\n\n'
+            '[autoload]\n'
+            'AutomationServer="*res://addons/godot_e2e/automation_server.gd"\n\n'
             '[editor_plugins]\n'
             'enabled=PackedStringArray('
             '"res://addons/gecs/plugin.cfg",'
@@ -105,6 +107,7 @@ class TestBuildCheck:
         for addon in ("gecs", "gdUnit4", "godot_e2e"):
             assert f"addons/{addon}/ present" in stdout
         assert "godot-e2e plugin enabled" in stdout
+        assert "AutomationServer autoload registered" in stdout
         assert "e2e/conftest.py imports GodotE2E" in stdout
         assert "git HEAD resolves" in stdout
 
@@ -138,6 +141,32 @@ class TestBuildCheck:
         stdout, code = run_check(project_dir, "--build")
         assert code == 1
         assert "godot-e2e plugin not enabled" in stdout
+
+    def test_godot_e2e_autoload_missing_fails(self, project_dir):
+        _seed_scaffolded_project(project_dir)
+        _write_godot_config(project_dir, _write_fake_godot(project_dir))
+        # rewrite project.godot without the AutomationServer autoload entry
+        with open(os.path.join(project_dir, "project.godot"), "w", encoding="utf-8") as f:
+            f.write(
+                'config_version=5\n[application]\nconfig/name="Test"\n\n'
+                '[editor_plugins]\nenabled=PackedStringArray('
+                '"res://addons/godot_e2e/plugin.cfg")\n'
+            )
+        stdout, code = run_check(project_dir, "--build")
+        assert code == 1
+        assert "AutomationServer autoload missing" in stdout
+
+    def test_godot_e2e_autoload_duplicate_fails(self, project_dir):
+        _seed_scaffolded_project(project_dir)
+        _write_godot_config(project_dir, _write_fake_godot(project_dir))
+        with open(os.path.join(project_dir, "project.godot"), "a", encoding="utf-8") as f:
+            f.write(
+                '\n[autoload]\n'
+                'AutomationServer="*res://addons/godot_e2e/automation_server.gd"\n'
+            )
+        stdout, code = run_check(project_dir, "--build")
+        assert code == 1
+        assert "AutomationServer autoload duplicated" in stdout
 
     def test_conftest_without_godote2e_import_fails(self, project_dir):
         _seed_scaffolded_project(project_dir)

@@ -43,6 +43,7 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 - Godot verification tools now prefer Godot's Windows console sibling for headless runs.
 - GdUnit verification commands now use the official `res://addons/gdUnit4/bin/GdUnitCmdTool.gd --add res://test/` form and ignore generated `reports/`.
 - Generated projects now include `.gitattributes` rules that normalize text line endings and keep Windows scripts on CRLF.
+- Generated projects now register the `godot-e2e` `AutomationServer` autoload, and `check_project.py --build` verifies it.
 
 ## Fixed
 

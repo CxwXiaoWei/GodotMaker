@@ -10,9 +10,9 @@ Usage:
 
 `--build` is the gm-scaffold readiness check — it covers everything
 gm-scaffold's Step 4 verifies (project.godot shape, required addon
-directories, godot-e2e plugin, e2e/conftest.py, git HEAD, headless
-parse). Missing `godot_path` is a FAIL because headless parse is part of
-the build gate.
+directories, godot-e2e plugin and autoload, e2e/conftest.py, git HEAD,
+headless parse). Missing `godot_path` is a FAIL because headless parse is
+part of the build gate.
 """
 import argparse
 import os
@@ -93,9 +93,10 @@ def check_build(project_dir: Path, result: CheckResult):
       1. project.godot exists with `[application]`.
       2. addons/gecs, addons/gdUnit4, addons/godot_e2e directories.
       3. godot-e2e plugin enabled in `[editor_plugins]`.
-      4. e2e/conftest.py imports GodotE2E.
-      5. .git/ resolves HEAD (worker worktree isolation requires it).
-      6. `<godot_path> --headless --quit` exits 0 with no ERROR lines.
+      4. AutomationServer autoload registered for godot-e2e.
+      5. e2e/conftest.py imports GodotE2E.
+      6. .git/ resolves HEAD (worker worktree isolation requires it).
+      7. `<godot_path> --headless --quit` exits 0 with no ERROR lines.
          Missing `godot_path` is a FAIL because this is a build gate.
     """
     print("\n--- Build Readiness ---")
@@ -127,7 +128,20 @@ def check_build(project_dir: Path, result: CheckResult):
     else:
         result.fail("godot-e2e plugin not enabled in project.godot")
 
-    # 4. e2e/conftest.py with GodotE2E import
+    # 4. godot-e2e AutomationServer autoload
+    autoload_path = "res://addons/godot_e2e/automation_server.gd"
+    autoload_matches = re.findall(
+        r'(?m)^\s*AutomationServer\s*=\s*"([^"]+)"\s*$',
+        content,
+    )
+    if len(autoload_matches) > 1:
+        result.fail("AutomationServer autoload duplicated in project.godot")
+    elif autoload_matches in ([f"*{autoload_path}"], [autoload_path]):
+        result.ok("AutomationServer autoload registered")
+    else:
+        result.fail("AutomationServer autoload missing in project.godot")
+
+    # 5. e2e/conftest.py with GodotE2E import
     conftest = project_dir / "e2e" / "conftest.py"
     if not conftest.exists():
         result.fail("e2e/conftest.py missing")
@@ -136,7 +150,7 @@ def check_build(project_dir: Path, result: CheckResult):
     else:
         result.ok("e2e/conftest.py imports GodotE2E")
 
-    # 5. git HEAD resolves
+    # 6. git HEAD resolves
     if not (project_dir / ".git").exists():
         result.fail(".git/ missing — worker worktree isolation needs HEAD")
     else:
@@ -155,7 +169,7 @@ def check_build(project_dir: Path, result: CheckResult):
         except subprocess.TimeoutExpired:
             result.warn("git rev-parse timed out — check the repo manually")
 
-    # 6. Headless parse
+    # 7. Headless parse
     godot_path = read_godot_path(project_dir)
     config_path = godotmaker_yaml(project_dir)
     if not godot_path:

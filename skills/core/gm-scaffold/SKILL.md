@@ -91,6 +91,10 @@ listing its `plugin.cfg` (consult the `plugin: true|false` flag in
 `addon_versions.json` — at the time of writing, gecs / gdUnit4 /
 godot-e2e are all plugin-enabled).
 
+Ensure `AutomationServer` is registered once in `[autoload]` for
+`res://addons/godot_e2e/automation_server.gd`; do not add a second entry
+if the template or plugin already registered it.
+
 `.godotmaker/config.yaml` is created by `tools/publish.py` before this skill
 runs — verify it exists and move on.
 
@@ -138,6 +142,7 @@ python tools/check_project.py <project_dir> --build
 - `project.godot` exists with `[application]`
 - `addons/gecs/`, `addons/gdUnit4/`, `addons/godot_e2e/` present
 - `godot-e2e` plugin enabled in `[editor_plugins]`
+- `AutomationServer` autoload registered for `godot-e2e`
 - `e2e/conftest.py` imports `GodotE2E`
 - `.git/` resolves `HEAD` (worker worktree isolation needs it)
 - `<godot_path> --headless --quit` exits 0 with no `ERROR` lines
