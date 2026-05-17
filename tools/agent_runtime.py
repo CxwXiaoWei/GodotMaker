@@ -72,3 +72,28 @@ def godotmaker_yaml(project_dir: Path, agent: str | None = None) -> Path:
 def read_godot_path(project_dir: Path, default: str | None = None) -> str | None:
     value = _read_yaml_scalar(godotmaker_yaml(project_dir), "godot_path")
     return value if value else default
+
+
+def prefer_console_godot_path(godot_path: str | None) -> str | None:
+    """Prefer Godot's Windows console sibling when it exists.
+
+    The GUI Windows executable can detach from the caller quickly and hide
+    headless output. Godot distributes a sibling named `*_console.exe` for
+    command-line use; use it at runtime without rewriting the configured path.
+    """
+    if not godot_path:
+        return godot_path
+
+    path = Path(godot_path)
+    if path.suffix.lower() != ".exe":
+        return godot_path
+    if path.stem.lower().endswith("_console"):
+        return godot_path
+
+    console_path = path.with_name(f"{path.stem}_console{path.suffix}")
+    try:
+        if console_path.exists():
+            return str(console_path)
+    except OSError:
+        return godot_path
+    return godot_path

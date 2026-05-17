@@ -21,7 +21,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from agent_runtime import godotmaker_yaml, read_godot_path
+from agent_runtime import (
+    godotmaker_yaml,
+    prefer_console_godot_path,
+    read_godot_path,
+)
 
 PLACEHOLDER_KEYWORDS = ["placeholder", "todo", "stub", "not implemented"]
 
@@ -160,6 +164,7 @@ def check_build(project_dir: Path, result: CheckResult):
             "headless parse check cannot run (re-run publish to set it)"
         )
         return
+    godot_path = prefer_console_godot_path(godot_path)
     try:
         rc, output = _run_headless_godot(godot_path, project_dir)
     except FileNotFoundError:

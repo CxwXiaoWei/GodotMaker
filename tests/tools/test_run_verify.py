@@ -281,6 +281,22 @@ def test_read_godot_path_uses_codex_runtime_config(tmp_path: Path):
     assert run_verify.read_godot_path(tmp_path, default="godot") == "/opt/codex-godot"
 
 
+def test_prefer_console_godot_path_uses_existing_sibling(tmp_path: Path):
+    gui = tmp_path / "Godot_v4.5-stable_win64.exe"
+    console = tmp_path / "Godot_v4.5-stable_win64_console.exe"
+    gui.write_text("", encoding="utf-8")
+    console.write_text("", encoding="utf-8")
+
+    assert run_verify.prefer_console_godot_path(str(gui)) == str(console)
+
+
+def test_prefer_console_godot_path_keeps_original_when_missing(tmp_path: Path):
+    gui = tmp_path / "Godot_v4.5-stable_win64.exe"
+    gui.write_text("", encoding="utf-8")
+
+    assert run_verify.prefer_console_godot_path(str(gui)) == str(gui)
+
+
 # ---------- build_report composition ----------
 
 def _fake_run_factory(*, build="ok", unit="ok", static="ok"):

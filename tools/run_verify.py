@@ -37,7 +37,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from agent_runtime import godotmaker_yaml, read_godot_path
+from agent_runtime import (
+    godotmaker_yaml,
+    prefer_console_godot_path,
+    read_godot_path,
+)
 
 
 # Same flags as gm-verify/SKILL.md Section 4. `--all` deliberately not
@@ -301,7 +305,9 @@ def check_static(project_dir: Path) -> tuple[dict, dict | None]:
 # ---------------------------------------------------------------------------
 
 def build_report(project_dir: Path) -> dict[str, Any]:
-    godot_path = read_godot_path(project_dir, default="godot")
+    godot_path = prefer_console_godot_path(
+        read_godot_path(project_dir, default="godot")
+    )
 
     build_dict, build_note = check_build(godot_path, project_dir)
     unit_dict, unit_note = check_unit_tests(godot_path, project_dir)
