@@ -11,9 +11,8 @@ Usage:
 `--build` is the gm-scaffold readiness check — it covers everything
 gm-scaffold's Step 4 verifies (project.godot shape, required addon
 directories, godot-e2e plugin, e2e/conftest.py, git HEAD, headless
-parse). The headless step is automatically skipped with a WARN when
-the selected agent's `godotmaker.yaml` lacks `godot_path`, so offline /
-partially configured projects still get a meaningful overall result.
+parse). Missing `godot_path` is a FAIL because headless parse is part of
+the build gate.
 """
 import argparse
 import os
@@ -93,10 +92,7 @@ def check_build(project_dir: Path, result: CheckResult):
       4. e2e/conftest.py imports GodotE2E.
       5. .git/ resolves HEAD (worker worktree isolation requires it).
       6. `<godot_path> --headless --quit` exits 0 with no ERROR lines.
-         When the selected agent's `godotmaker.yaml` lacks `godot_path` this step
-         emits a WARN (not a FAIL) and skips the subprocess, so
-         offline / partially configured projects still get an overall
-         result.
+         Missing `godot_path` is a FAIL because this is a build gate.
     """
     print("\n--- Build Readiness ---")
 
@@ -159,9 +155,9 @@ def check_build(project_dir: Path, result: CheckResult):
     godot_path = read_godot_path(project_dir)
     config_path = godotmaker_yaml(project_dir)
     if not godot_path:
-        result.warn(
+        result.fail(
             f"godot_path missing from {config_path} — "
-            "skipping headless parse check (re-run publish to set it)"
+            "headless parse check cannot run (re-run publish to set it)"
         )
         return
     try:

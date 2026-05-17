@@ -30,8 +30,7 @@ def project_dir():
 def _seed_scaffolded_project(project_dir: str):
     """Build a directory tree that satisfies every static --build check.
     Deliberately omits `.claude/godotmaker.yaml` so the headless step
-    WARNs and skips the godot subprocess — keeps the test suite fast
-    and independent of a real Godot binary.
+    can be tested explicitly by each caller.
     """
     # project.godot with [application] + godot-e2e plugin enabled
     with open(os.path.join(project_dir, "project.godot"), "w", encoding="utf-8") as f:
@@ -65,12 +64,30 @@ def _seed_scaffolded_project(project_dir: str):
     )
 
 
+def _write_fake_godot(project_dir: str, *, name: str = "fake-godot") -> str:
+    if os.name == "nt":
+        path = os.path.join(project_dir, f"{name}.cmd")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("@echo off\nexit /B 0\n")
+    else:
+        path = os.path.join(project_dir, name)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("#!/bin/sh\nexit 0\n")
+        os.chmod(path, 0o755)
+    return path
+
+
+def _write_godot_config(project_dir: str, godot_path: str):
+    os.makedirs(os.path.join(project_dir, ".claude"), exist_ok=True)
+    with open(os.path.join(project_dir, ".claude", "godotmaker.yaml"), "w", encoding="utf-8") as f:
+        f.write(f'godot_path: "{godot_path}"\n')
+
+
 class TestBuildCheck:
     """`--build` is the gm-scaffold readiness check — verifies all of
     Step 4 (project.godot, addons, plugin, conftest, git, headless).
-    Headless coverage relies on the WARN-on-missing-godot_path branch:
-    tests skip the subprocess by leaving `.claude/godotmaker.yaml`
-    out of the seed."""
+    Successful cases use a fake Godot executable so headless remains a
+    real gate without depending on a developer machine install."""
 
     def test_no_project_godot(self, project_dir):
         stdout, code = run_check(project_dir, "--build")
@@ -80,6 +97,7 @@ class TestBuildCheck:
 
     def test_full_scaffold_passes_static(self, project_dir):
         _seed_scaffolded_project(project_dir)
+        _write_godot_config(project_dir, _write_fake_godot(project_dir))
         stdout, code = run_check(project_dir, "--build")
         assert code == 0, f"expected pass, got:\n{stdout}"
         assert "project.godot exists" in stdout
@@ -100,6 +118,7 @@ class TestBuildCheck:
 
     def test_missing_addon_directory_fails(self, project_dir):
         _seed_scaffolded_project(project_dir)
+        _write_godot_config(project_dir, _write_fake_godot(project_dir))
         # remove gecs to simulate forgotten addon install
         import shutil
         shutil.rmtree(os.path.join(project_dir, "addons", "gecs"))
@@ -109,6 +128,7 @@ class TestBuildCheck:
 
     def test_godot_e2e_plugin_not_enabled_fails(self, project_dir):
         _seed_scaffolded_project(project_dir)
+        _write_godot_config(project_dir, _write_fake_godot(project_dir))
         # rewrite project.godot without the godot_e2e plugin entry
         with open(os.path.join(project_dir, "project.godot"), "w", encoding="utf-8") as f:
             f.write(
@@ -121,6 +141,7 @@ class TestBuildCheck:
 
     def test_conftest_without_godote2e_import_fails(self, project_dir):
         _seed_scaffolded_project(project_dir)
+        _write_godot_config(project_dir, _write_fake_godot(project_dir))
         with open(os.path.join(project_dir, "e2e", "conftest.py"), "w", encoding="utf-8") as f:
             f.write("# empty\n")
         stdout, code = run_check(project_dir, "--build")
@@ -150,15 +171,14 @@ class TestBuildCheck:
         assert code == 1
         assert "HEAD does not resolve" in stdout
 
-    def test_headless_skipped_when_godot_path_missing(self, project_dir):
+    def test_headless_fails_when_godot_path_missing(self, project_dir):
         _seed_scaffolded_project(project_dir)
-        # No .claude/godotmaker.yaml — headless check WARNs (not FAILs),
-        # so static-only scaffold projects still pass --build with a
-        # visible warning instead of being silently broken.
+        # No .claude/godotmaker.yaml means the build gate cannot run
+        # headless parse, so --build must fail.
         stdout, code = run_check(project_dir, "--build")
         assert "godot_path missing" in stdout
-        assert "[WARN]" in stdout
-        assert code == 0  # static checks all passed → overall pass
+        assert "[FAIL]" in stdout
+        assert code == 1
 
     def test_codex_build_check_uses_agents_godotmaker_yaml(self, project_dir):
         _seed_scaffolded_project(project_dir)

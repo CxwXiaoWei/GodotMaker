@@ -39,6 +39,7 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 - `decomposer` Step 5 patches `project.godot` for pixel-art games (detected from GDD §4): 480×270 viewport, 1920×1080 window override, integer stretch, Nearest filter, snap-to-pixel.
 - `/gm-gdd` initial mode now starts with a freeform user concept intake before structured GDD confirmation, so the interview can skip already-answered questions.
 - `/gm-gdd` now decomposes in two phases so PLAN is finalized before architecture and scene/asset packages read its task and mechanic mappings.
+- `check_project.py --build` now fails when `godot_path` is missing because headless parse is part of the scaffold build gate.
 
 ## Fixed
 

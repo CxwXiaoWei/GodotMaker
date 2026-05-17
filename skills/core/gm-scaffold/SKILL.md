@@ -145,8 +145,8 @@ python tools/check_project.py <project_dir> --build
 
 All entries must report `[PASS]` for scaffold to be considered done.
 If `.claude/godotmaker.yaml` lacks `godot_path` the headless check
-emits a `[WARN]` instead and overall verification still passes —
-re-run `tools/publish.py` to set the path.
+emits `[FAIL]` because headless parse is part of the build gate. Re-run
+`tools/publish.py` to set the path.
 
 ## Available Skills & Tools
 
