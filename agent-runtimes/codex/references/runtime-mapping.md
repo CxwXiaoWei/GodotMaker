@@ -98,6 +98,12 @@ Do not claim parallel worker execution unless Codex actually spawned isolated
 workers. If running a sequential fallback, say so in the report and preserve the
 same task state transitions.
 
+## Project Tool Status Overrides
+
+Project docs override generic Codex skill triggers. `gdtoolkit` is currently
+disabled by `docs/decisions/disable-gdtoolkit.md` / ROADMAP `R-112`; do not run
+it unless that decision is reversed.
+
 ## Worktree And Detached-Head Policy
 
 Before creating or reusing isolation, detect the current checkout:
