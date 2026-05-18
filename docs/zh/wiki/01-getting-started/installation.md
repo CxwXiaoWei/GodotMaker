@@ -16,33 +16,31 @@ GodotMaker 能把你用普通话描述的游戏想法，变成一个可以运行
 
 ## API Key
 
-GodotMaker 用 Google Gemini 来生成游戏里的美术素材（精灵图、背景、图标）。这需要一个免费的 API Key。另外两个 Key 是可选的，只是多了额外的图片生成方式。
+GodotMaker 可以根据 `.godotmaker/config.yaml` 使用运行时原生图片生成，或者使用 API 后端生成图片。
 
-| Key | 是否必填 | 解锁的功能 |
-|-----|---------|-----------|
-| `GOOGLE_API_KEY` | **必填** | 图片生成和视觉质量检查——每个项目都需要。免费获取地址：https://aistudio.google.com/apikey |
-| `XAI_API_KEY` | 可选 | 用 xAI Grok 作为第二个图片生成选项（有时更便宜）。获取地址：https://console.x.ai |
-| `TRIPO3D_API_KEY` | 可选 | 生成 3D 模型，仅在做 3D 游戏时有用。获取地址：https://www.tripo3d.ai |
+默认项目使用原生 VQA 和原生资产图片生成。只有 `.godotmaker/config.yaml` 选择 API 后端时，才需要对应 API key。Claude Code 用户如果想让 Codex 负责生图，可以设置 `asset_image_model: codex`。
 
-### 在 Windows 上设置 Key（PowerShell）
+| Key | 什么时候需要 | 用途 |
+|-----|--------------|------|
+| `GOOGLE_API_KEY` 或 `GEMINI_API_KEY` | `vqa_model` 或 `asset_image_model` 使用 `gemini:<model>` | Gemini 视觉 QA 和图片生成。获取地址：https://aistudio.google.com/apikey |
+| `OPENAI_API_KEY` | `vqa_model` 或 `asset_image_model` 使用 `openai:<model>` | OpenAI 视觉理解和 Images API。 |
+| `XAI_API_KEY` | `asset_image_model` 或 `asset_video_model` 使用 `grok:<model>` | xAI Grok 图片或视频生成。获取地址：https://console.x.ai |
+| `TRIPO3D_API_KEY` | 需要生成 GLB 模型时 | 3D 模型生成。获取地址：https://www.tripo3d.ai |
 
-下面的命令会把 Key 永久存入你的 Windows 用户账户，只需要做一次。
+### Windows 上设置 key（PowerShell）
 
 ```powershell
 [System.Environment]::SetEnvironmentVariable("GOOGLE_API_KEY", "your-key-here", "User")
 ```
 
-如果要添加可选的 Key，用同样的命令换掉 Key 名称再运行一次即可。
+如果需要其他可选 key，替换变量名后重复执行。执行后关闭并重新打开终端。
 
-运行这些命令后，关闭终端再重新打开，新的值才会生效。
-
-### 在 macOS 或 Linux 上设置 Key
-
-把下面几行加到你的 Shell 配置文件（用 Bash 就加到 `~/.bashrc`，用 Zsh 就加到 `~/.zshrc`），然后重启终端。
+### macOS 或 Linux 上设置 key
 
 ```bash
 export GOOGLE_API_KEY="your-key-here"
-# 可选：
+# Optional:
+# export OPENAI_API_KEY="your-key-here"
 # export XAI_API_KEY="your-key-here"
 # export TRIPO3D_API_KEY="your-key-here"
 ```

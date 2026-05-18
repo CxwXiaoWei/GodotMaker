@@ -24,7 +24,8 @@ If anything is missing, you'll see a list of failed checks and what to do about 
 ### Python
 
 - Python 3.9 or later is running this script.
-- The following packages are installed: `google-genai`, `requests`, `pillow`, `numpy`.
+- Core packages are installed: `requests`, `pillow`, `numpy`.
+- Provider packages are checked based on `.godotmaker/config.yaml`: `google-genai` for Gemini, `openai` for OpenAI, and `xai-sdk` for Grok image or video generation.
 
 ### Node.js
 
@@ -45,13 +46,14 @@ If Godot is not on your PATH, this check shows a warning rather than a hard fail
 
 | Key | Status | Used for |
 |-----|--------|---------|
-| `GOOGLE_API_KEY` | Required | Image generation (Gemini) and visual quality assessment |
-| `XAI_API_KEY` | Optional | Image generation via xAI Grok (cheaper alternative) |
+| `GOOGLE_API_KEY` or `GEMINI_API_KEY` | Required when selected | Gemini image generation or VQA |
+| `OPENAI_API_KEY` | Required when selected | OpenAI image generation or VQA |
+| `XAI_API_KEY` | Required when selected | xAI Grok image or video generation |
 | `TRIPO3D_API_KEY` | Optional | 3D model generation (3D games only) |
 
-`GOOGLE_API_KEY` is the only key that blocks GodotMaker from working if it is absent. Get one at [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey) — it is free for moderate use.
+API-backed selectors fail when the matching key is absent. `asset_image_model: native` passes for Codex and warns for Claude Code because the checker cannot prove a Claude-side native generation tool is available. `asset_video_model: none` does not require `XAI_API_KEY`.
 
-The checker also verifies that `google-genai` can actually be imported after the key is found, catching installation issues that version checks alone would miss.
+The checker also verifies that the selected provider package can be imported, catching installation issues that version checks alone would miss.
 
 ## Reading the output
 

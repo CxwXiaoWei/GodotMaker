@@ -140,7 +140,7 @@ Python CLI scripts that contributors and users run directly.
 | `publish.py` | Deploy GodotMaker into a target Godot project |
 | `check_env.py` | Verify Godot, Python, API keys are set up correctly |
 | `check_project.py` | Validate a generated project for missing files and broken paths |
-| `asset_gen.py` | Generate art via Gemini / xAI (called by `/gm-asset`, can run standalone) |
+| `asset_gen.py` | Generate API-backed art via Gemini / OpenAI / xAI (called by `/gm-asset`, can run standalone) |
 | `migrate.py` | Apply pending migrations to a target on any non-MAJOR upgrade; also scaffolds new ones via `--new <slug>` |
 
 ### How publish.py wires everything together

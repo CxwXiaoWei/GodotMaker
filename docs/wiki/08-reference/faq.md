@@ -10,7 +10,7 @@ No. GodotMaker is designed for people who have a game idea but are not game deve
 
 ### Do I need a paid API key?
 
-You need a Google API key (`GOOGLE_API_KEY`) for Gemini, which handles image generation and visual quality checking. This is required. Two optional keys add alternative providers: `XAI_API_KEY` for xAI Grok (cheaper image generation) and `TRIPO3D_API_KEY` for 3D model generation if you are making a 3D game.
+Only if your project config selects an API-backed provider. The default config uses native VQA and native image generation. `GOOGLE_API_KEY` or `GEMINI_API_KEY` is required for `gemini:<model>`, `OPENAI_API_KEY` for `openai:<model>`, `XAI_API_KEY` for `grok:<model>`, and `TRIPO3D_API_KEY` for GLB generation.
 
 Claude Code itself requires an Anthropic account with API access (or a Claude Pro / Team subscription with Claude Code enabled).
 
@@ -94,7 +94,7 @@ After `/gm-verify` completes, it prints a per-check pass/fail report to the chat
 
 ### Where does my game data go?
 
-All game files live locally on your machine. AI calls go to whatever model provider Claude Code is configured for (typically Anthropic's API). Image generation calls go to Gemini (Google) or xAI depending on your configuration. No game content is stored on GodotMaker's servers because GodotMaker has no servers — it is a local framework.
+All game files live locally on your machine. AI calls go to whatever model provider your selected agent runtime uses. API-backed image generation calls go to the provider selected by `asset_image_model` (Gemini, OpenAI, or xAI); `native` generation is handled by the active runtime, and `codex` generation is handled by Codex. No game content is stored on GodotMaker's servers because GodotMaker has no servers — it is a local framework.
 
 ### Is my game project mine?
 

@@ -1,6 +1,6 @@
 # Installation
 
-GodotMaker turns a plain-English description into a playable Godot 4 game. To do that it needs five pieces of software working together: Godot (the game engine that runs your game), Git (version control that lets the AI keep a safe history of every change), Node.js (a runtime that GodotMaker uses to talk to Godot from the command line), Python (runs the asset-generation pipeline and the environment checker), and Claude Code (the AI assistant that drives the whole process). This guide gets all five installed, adds the API key needed for image generation, and confirms everything is working before you make your first game.
+GodotMaker turns a plain-English description into a playable Godot 4 game. To do that it needs five pieces of software working together: Godot (the game engine that runs your game), Git (version control that lets the AI keep a safe history of every change), Node.js (a runtime that GodotMaker uses to talk to Godot from the command line), Python (runs the asset-generation pipeline and the environment checker), and Claude Code (the AI assistant that drives the whole process). This guide gets all five installed, explains optional API keys, and confirms everything is working before you make your first game.
 
 ## Prerequisites
 
@@ -16,33 +16,35 @@ Install each one using the links above, then continue.
 
 ## API keys
 
-GodotMaker uses Google Gemini to create the art in your game (sprites, backgrounds, icons). This requires a free API key. Two other keys are optional and only add extra image-generation providers.
+GodotMaker can use runtime-native image generation or API-backed image providers depending on `.godotmaker/config.yaml`.
 
-| Key | Required? | What it unlocks |
-|-----|-----------|-----------------|
-| `GOOGLE_API_KEY` | **Yes** | Image generation and visual quality checks — required for every project. Get one free at https://aistudio.google.com/apikey |
-| `XAI_API_KEY` | Optional | Uses xAI Grok as a second image-generation option (sometimes cheaper). Get one at https://console.x.ai |
-| `TRIPO3D_API_KEY` | Optional | Generates 3D models, only useful for 3D games. Get one at https://www.tripo3d.ai |
+Default projects use native VQA and native asset image generation. API keys are required only when `.godotmaker/config.yaml` selects an API-backed provider. Claude Code users can set `asset_image_model: codex` when Codex should provide image generation.
+
+| Key | Required when | What it unlocks |
+|-----|---------------|-----------------|
+| `GOOGLE_API_KEY` or `GEMINI_API_KEY` | `vqa_model` or `asset_image_model` uses `gemini:<model>` | Gemini visual QA and image generation. Get one at https://aistudio.google.com/apikey |
+| `OPENAI_API_KEY` | `vqa_model` or `asset_image_model` uses `openai:<model>` | OpenAI vision and Images API. |
+| `XAI_API_KEY` | `asset_image_model` or `asset_video_model` uses `grok:<model>` | xAI Grok image or video generation. Get one at https://console.x.ai |
+| `TRIPO3D_API_KEY` | You generate GLB models | 3D model generation. Get one at https://www.tripo3d.ai |
 
 ### Setting the keys on Windows (PowerShell)
 
-This stores the key permanently for your Windows user account. You only need to do this once.
+This stores a key permanently for your Windows user account:
 
 ```powershell
 [System.Environment]::SetEnvironmentVariable("GOOGLE_API_KEY", "your-key-here", "User")
 ```
 
-To add the optional keys, run the same command with the other key names.
-
-Close and reopen your terminal after running these commands so the new values take effect.
+Repeat the command for any optional key you use, then close and reopen your terminal.
 
 ### Setting the keys on macOS or Linux
 
-Add the following lines to your shell profile file (`~/.bashrc` if you use Bash, `~/.zshrc` if you use Zsh), then restart your terminal.
+Add the relevant lines to your shell profile (`~/.bashrc` for Bash, `~/.zshrc` for Zsh), then restart your terminal.
 
 ```bash
 export GOOGLE_API_KEY="your-key-here"
 # Optional:
+# export OPENAI_API_KEY="your-key-here"
 # export XAI_API_KEY="your-key-here"
 # export TRIPO3D_API_KEY="your-key-here"
 ```

@@ -4,7 +4,7 @@ GodotMaker generates art via small Python helper scripts. `/gm-asset` calls them
 
 ## asset_gen.py
 
-`asset_gen.py` is the main image and 3D model generator. It supports two image providers and one 3D model service.
+`asset_gen.py` is the main API-backed image and 3D model generator. It supports Gemini, OpenAI, xAI Grok, and Tripo3D. Runtime-native `native` / `codex` image generation is selected by `/gm-asset`, not this script.
 
 **Image providers:**
 
@@ -12,8 +12,9 @@ GodotMaker generates art via small Python helper scripts. `/gm-asset` calls them
 |----------|---------------|---------|
 | xAI Grok | 2 cents (1K or 2K only) | Fast, good for most sprites and UI elements |
 | Google Gemini | 5–15 cents (512 to 4K) | More precise prompt following, better for detailed or edited images |
+| OpenAI | 5–7 cents in the local budget model | OpenAI Images API generation/editing |
 
-Gemini requires `GOOGLE_API_KEY`, which GodotMaker treats as required. Grok requires the optional `XAI_API_KEY`. To choose which provider `/gm-asset` uses by default, set `asset_image_provider` in [`../06-configuration/project-config.md`](../06-configuration/project-config.md).
+Provider-prefixed selectors require the matching key: `GOOGLE_API_KEY` / `GEMINI_API_KEY` for Gemini, `OPENAI_API_KEY` for OpenAI, and `XAI_API_KEY` for Grok. To choose which provider `/gm-asset` uses, set `asset_image_model` in [`../06-configuration/project-config.md`](../06-configuration/project-config.md).
 
 ### Generating an image
 
@@ -47,8 +48,8 @@ python tools/asset_gen.py image \
 | Option | Default | Notes |
 |--------|---------|-------|
 | `--prompt` | (required) | Describe what you want |
-| `--model` | project config | `gemini` or `grok`; overrides `asset_image_provider` |
-| `--size` | `1K` | Grok: `1K`, `2K`. Gemini: `512`, `1K`, `2K`, `4K` |
+| `--model` | project config | `gemini[:model]`, `openai[:model]`, or `grok[:model]`; overrides `asset_image_model` |
+| `--size` | `1K` | OpenAI: `1K`. Grok: `1K`, `2K`. Gemini: `512`, `1K`, `2K`, `4K` |
 | `--aspect-ratio` | `1:1` | Many options — run `--help` to see all |
 | `--image` | none | Provide a reference image to edit |
 | `-o` | (required) | Output file path |

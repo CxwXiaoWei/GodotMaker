@@ -1,78 +1,88 @@
 # 项目配置
 
-`.godotmaker/config.yaml` 是每个项目独立的配置文件，用于指定使用哪个 AI 模型生成代码、哪个模型负责截图检查，以及其他你希望在不同项目间灵活调整的行为。这个文件位于项目文件夹内，因此不同的游戏可以拥有各自不同的设置。
+`.godotmaker/config.yaml` 是每个项目独立的配置文件，用来选择智能体运行时、角色模型、视觉 QA 模型和资源生成模型。它位于游戏项目目录中，因此不同游戏可以使用不同配置。
 
-## 文件是怎么创建的
+## 文件如何创建
 
-第一次运行 `python tools/publish.py <project>` 时，发布脚本会把 GodotMaker 的默认配置复制到 `.godotmaker/config.yaml`。之后每次发布都不会覆盖这个文件——你的修改始终会被保留。
+第一次运行 `python tools/publish.py <project>` 时，发布脚本会把 GodotMaker 默认配置复制到 `.godotmaker/config.yaml`。之后再次发布不会覆盖你的配置；只有 `agent` 字段会更新为当前选择的运行时。
 
 ## 常用字段
 
-以下是你最可能需要调整的字段：
+**`agent`** — 当前项目选择的编码智能体运行时，例如 `claude-code` 或 `codex`。
 
-**`worker_model`** — 用于编写游戏代码的 Claude 模型。Worker 承担最繁重的工作：实现系统、编写测试、修复缺口。默认值为 `opus`，因为复杂的代码生成任务需要更强的模型。如果你希望构建速度更快（但可能不那么全面），可以切换为 `sonnet`。
+**`worker_model`** — 编写游戏代码的 Claude 模型。默认是 `opus`，因为复杂实现更适合强模型。
 
-**`verifier_model`** — 用于运行验证检查的模型（构建是否成功编译、测试是否通过）。默认值为 `sonnet`，通常保持不变即可，除非你遇到误报失败的情况。
+**`verifier_model`**、**`reviewer_model`**、**`analyst_model`**、**`auditor_model`**、**`decomposer_model`** — 验证、审查、图片分析、审计和 GDD 拆分等角色的默认模型。
 
-**`reviewer_model`** — 用于审查代码中 Godot 特定问题的模型（物理、动画、UI 常见坑）。默认值为 `sonnet`。
+**`vqa_model`** — 视觉 QA 的主模型选择器。支持 `native`、`codex`、`gemini:<model>` 和 `openai:<model>`。`native` 表示由当前智能体运行时直接检查图片；`codex` 表示由 Codex 提供图片检查能力；API 后端会运行 `visual_qa.py`。
 
-**`analyst_model`** — 在 `/gm-asset` 阶段检查用户提供的图片文件所使用的模型。默认值为 `sonnet`。
+**`vqa_fallback_model`** — 主 VQA 后端不可用时的回退模型。支持 `native`、`codex` 和 `none`。
 
-**`vqa_model`** — 在 `/gm-evaluate` 阶段执行视觉质量检查的 Gemini 模型（将截图与参考图进行对比）。默认值为 `gemini-2.5-flash`。如果你希望获得更高质量的视觉分析（成本也会相应提高），可以填写更新的 Gemini 模型名称。
+**`asset_image_model`** — `/gm-asset` 使用的图片生成选择器。支持 `native`、`codex`、`gemini:<model>`、`openai:<model>` 和 `grok:<model>`。`native` 由当前运行时处理；`codex` 由 Codex 原生图片生成处理；API 后端会运行 `tools/asset_gen.py image`，脚本会拒绝运行时提供方。
 
-**`asset_image_provider`** — `tools/asset_gen.py image` 在没有传 `--model` 时使用的图片生成后端。默认值为 `gemini`，因为 GodotMaker 默认要求配置 `GOOGLE_API_KEY`；只有在配置了 `XAI_API_KEY` 时才建议改为 `grok`。
+**`asset_video_model`** — 视频生成选择器。支持 `none` 和 `grok:<model>`；`grok:<model>` 由 `tools/asset_gen.py video` 处理。
 
-**`gemini_image_model`** — `asset_gen.py image --model gemini` 使用的 Gemini 生图模型。默认值为 `gemini-3.1-flash-image-preview`（Nano Banana 2），支持框架里的 `512`、`1K`、`2K`、`4K` 尺寸预设。
-
-**`grok_image_model`** — `asset_gen.py image --model grok` 使用的 xAI 图片模型。默认值为 `grok-imagine-image`。
-
-**`grok_video_model`** — `asset_gen.py video` 使用的 xAI 视频模型。默认值为 `grok-imagine-video`。
-
-默认配置文件如下：
+默认配置大致如下：
 
 ```yaml
-# GodotMaker project configuration
-# Edit these values to customize behavior
+agent: claude-code
 
-# VQA model for visual quality checks (any Gemini model name)
-# 默认：gemini-2.5-flash
-# 可选：gemini-2.5-flash, gemini-2.0-flash, gemini-flash-latest
-vqa_model: gemini-2.5-flash
+vqa_model: native
+vqa_fallback_model: native
 
-# Asset generation defaults
-# Gemini is the default because GOOGLE_API_KEY is required by GodotMaker.
-# Grok remains available when XAI_API_KEY is configured.
-asset_image_provider: gemini
+asset_image_model: native
+asset_video_model: none
 
-# Image/video generation models
-# gemini_image_model is the Nano Banana 2 image model used by --model gemini.
-gemini_image_model: gemini-3.1-flash-image-preview
-grok_image_model: grok-imagine-image
-grok_video_model: grok-imagine-video
-
-# Agent model configuration
-# Workers use opus for complex implementation tasks
-# Verifiers, reviewers, and analysts use sonnet for lighter validation work
 worker_model: opus
 verifier_model: sonnet
 reviewer_model: sonnet
 analyst_model: sonnet
+auditor_model: sonnet
+decomposer_model: sonnet
 ```
+
+## 运行时原生图片生成
+
+`native` 不是 API 提供方，而是当前智能体运行时提供的能力。
+
+模板默认使用 native 读图和 native 图片生成。
+
+对于 Codex 项目，`asset_image_model: native` 映射到 Codex 原生图片生成，前提是当前宿主暴露了这个能力。对于 Claude Code 项目，`native` 需要 Claude 侧有原生生图工具。没有原生路径时，`/gm-asset` 必须停止并要求你改用 `codex` 或 API 后端。
+
+如果 Claude Code 项目希望使用 Codex 图片生成：
+
+```yaml
+asset_image_model: codex
+```
+
+## API Key
+
+带提供方前缀的选择器需要对应 API key：
+
+| Selector | 需要的 key |
+|---|---|
+| `gemini:<model>` | `GOOGLE_API_KEY` 或 `GEMINI_API_KEY` |
+| `openai:<model>` | `OPENAI_API_KEY` |
+| `grok:<model>` | `XAI_API_KEY` |
+
+资源生成不会在 key 缺失时静默切换提供方。VQA 只有在显式配置 `vqa_fallback_model` 时才会回退。
 
 ## 如何修改配置
 
-用任意文本编辑器打开 `.godotmaker/config.yaml`，修改冒号后面的值即可。例如，将 worker 改为使用 `sonnet` 而不是 `opus`：
+打开 `.godotmaker/config.yaml`，修改冒号后的值即可。例如使用 Codex native 图片生成：
 
 ```yaml
-worker_model: sonnet
+asset_image_model: codex
 ```
 
-保存文件，立即生效，不需要重启任何东西。
+使用 OpenAI API 生成图片：
 
-## 修改何时生效
+```yaml
+asset_image_model: openai:gpt-image-2
+```
 
-下一次运行 `/gm-*` 命令时，会读取文件中的最新配置。如果你在会话已经运行的情况下修改了配置，需要开启新会话才能让改动生效。
+下一次运行 `/gm-*` 命令时会读取新配置。已经运行中的命令不会自动感知修改，需要下一次会话或阶段调用才会生效。
 
 ## 关于 `.claude/settings.json`
 
-还有另一个配置文件 `.claude/settings.json`，它负责注册 Claude Code 在文件写入、会话启动、Agent 停止等事件时运行的 hook 脚本。这是框架自动管理的文件——它负责接入 GodotMaker 的安全规则，通常不需要手动修改。如果升级后 hook 停止触发，运行 `python tools/publish.py --force <project>` 可以将其重新发布为当前版本。
+Claude Code 项目还会有 `.claude/settings.json`，它负责注册 GodotMaker hook 脚本。这个文件由框架管理；如果升级后 hook 不再触发，可以运行 `python tools/publish.py --force <project>` 重新发布。

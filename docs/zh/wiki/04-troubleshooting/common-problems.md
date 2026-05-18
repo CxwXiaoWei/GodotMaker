@@ -6,27 +6,37 @@
 
 ## 环境配置问题
 
-### `GOOGLE_API_KEY not set`
+### API key 未设置
 
 **症状**（来自 `check_env.py`）：
 
 ```
-[FAIL] GOOGLE_API_KEY not set (required for image gen + VQA). Get one: https://aistudio.google.com/apikey
+[FAIL] GOOGLE_API_KEY not set but config uses a Gemini model.
 ```
 
-**原因：** 当前终端会话里缺少这个环境变量。GodotMaker 需要它来生成美术资源和做视觉质量检查。
+**原因：** `.godotmaker/config.yaml` 选择了 API 后端模型，但当前终端会话里没有对应环境变量。
 
-**解决办法：** 去 https://aistudio.google.com/apikey 申请一个 key，然后在启动 Claude Code 之前在终端里设置好：
+**解决办法：** 设置当前选择器需要的 key，或者在运行时支持时把选择器改成 `native`。
+
+| Selector | Key |
+|---|---|
+| `gemini:<model>` | `GOOGLE_API_KEY` 或 `GEMINI_API_KEY` |
+| `openai:<model>` | `OPENAI_API_KEY` |
+| `grok:<model>` | `XAI_API_KEY` |
 
 ```bash
 # macOS / Linux
 export GOOGLE_API_KEY=your-key-here
+export OPENAI_API_KEY=your-key-here
+export XAI_API_KEY=your-key-here
 
 # Windows (PowerShell)
 $env:GOOGLE_API_KEY = "your-key-here"
+$env:OPENAI_API_KEY = "your-key-here"
+$env:XAI_API_KEY = "your-key-here"
 ```
 
-如果想永久生效，把 export 那行加到你的 shell 配置文件里（`~/.bashrc`、`~/.zshrc`，或者 Windows 的系统环境变量设置里）。
+如果想永久生效，把变量写入 shell 配置文件（`~/.bashrc`、`~/.zshrc`），或者写入 Windows 用户环境变量。
 
 ---
 

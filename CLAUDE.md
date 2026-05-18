@@ -18,7 +18,7 @@ shell/              publish.sh / publish.ps1, report.sh / report.bat
 tools/              publish.py, check_env.py, check_project.py, asset_gen.py, etc.
 config/             settings.json, stage_schemas.json, addon_versions.json
 templates/          PLAN/STRUCTURE/ASSETS/SCENES/MEMORY/GDD templates + game-claude.md
-docs/               getting-started.md, hooks.md, wiki/, reference/
+docs/               hooks.md, wiki/, update/
 ```
 
 ## Shared reference docs (`skills/core/_shared/`)

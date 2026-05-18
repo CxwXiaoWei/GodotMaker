@@ -1,78 +1,92 @@
 # Project config
 
-`.godotmaker/config.yaml` is per-project: things like which AI model handles code generation, which model checks screenshots, and other behaviour you might want to vary between projects. It lives inside the project folder, so different games can have different settings.
+`.godotmaker/config.yaml` is per-project: it selects the agent runtime, role models, visual QA model, and asset generation model for a game project. It lives inside the project folder, so different games can use different settings.
 
 ## How it gets created
 
-The first time you run `python tools/publish.py <project>`, the publish script copies GodotMaker's defaults into `.godotmaker/config.yaml`. On every subsequent publish the file is left untouched — your edits are never overwritten.
+The first time you run `python tools/publish.py <project>`, the publish script copies GodotMaker's defaults into `.godotmaker/config.yaml`. On every subsequent publish the file is left untouched except for the `agent` field, which is updated to the selected runtime.
 
 ## Common fields
 
-These are the fields you are most likely to want to change:
+**`agent`** — selected coding-agent runtime, such as `claude-code` or `codex`.
 
-**`worker_model`** — which Claude model writes your game code. Workers do the heavy lifting: implementing systems, writing tests, fixing gaps. Defaults to `opus` because complex code generation benefits from the stronger model. Switch to `sonnet` if you want faster (but potentially less thorough) builds.
+**`worker_model`** — which Claude model writes game code. Defaults to `opus` because complex implementation benefits from the stronger model.
 
-**`verifier_model`** — which model runs verification checks (did the build compile, did tests pass). Defaults to `sonnet`. Fine to leave it here unless you are seeing spurious failures.
+**`verifier_model`**, **`reviewer_model`**, **`analyst_model`**, **`auditor_model`**, **`decomposer_model`** — role model defaults for validation, review, image analysis, audit, and GDD decomposition.
 
-**`reviewer_model`** — which model reviews code for Godot-specific gotchas (physics, animation, UI pitfalls). Defaults to `sonnet`.
+**`vqa_model`** — primary visual QA selector. Supported values are `native`, `codex`, `gemini:<model>`, and `openai:<model>`. `native` means the active agent runtime inspects the images directly. `codex` means Codex supplies the image inspection. API-backed selectors run `visual_qa.py`.
 
-**`analyst_model`** — which model inspects user-provided image files during `/gm-asset`. Defaults to `sonnet`.
+**`vqa_fallback_model`** — fallback when the primary VQA backend is unavailable. Supported values are `native`, `codex`, and `none`.
 
-**`vqa_model`** — which Gemini model performs visual quality checks during `/gm-evaluate` (comparing screenshots against reference images). Defaults to `gemini-2.5-flash`. You can use a newer Gemini model name if you want higher-quality visual analysis at higher cost.
+**`asset_image_model`** — image generation selector for `/gm-asset`. Supported values are `native`, `codex`, `gemini:<model>`, `openai:<model>`, and `grok:<model>`. `native` is handled by the active agent runtime. `codex` is handled by Codex native image generation. API-backed selectors run `tools/asset_gen.py image`; the script rejects runtime providers.
 
-**`asset_image_provider`** — which image backend `tools/asset_gen.py image` uses when `--model` is omitted. Defaults to `gemini`, because `GOOGLE_API_KEY` is required by GodotMaker; set it to `grok` only when `XAI_API_KEY` is configured.
+**`asset_video_model`** — video generation selector. Supports `none` and `grok:<model>` through `tools/asset_gen.py video`.
 
-**`gemini_image_model`** — the Gemini image-generation model used when `asset_gen.py image --model gemini` runs. Defaults to `gemini-3.1-flash-image-preview` (Nano Banana 2), which supports the framework's `512`, `1K`, `2K`, and `4K` size presets.
-
-**`grok_image_model`** — the xAI image model used when `asset_gen.py image --model grok` runs. Defaults to `grok-imagine-image`.
-
-**`grok_video_model`** — the xAI video model used by `asset_gen.py video`. Defaults to `grok-imagine-video`.
-
-The file with defaults looks like this:
+The default config looks like this:
 
 ```yaml
 # GodotMaker project configuration
 # Edit these values to customize behavior
+# Deployed to .godotmaker/config.yaml by publish script
 
-# VQA model for visual quality checks (any Gemini model name)
-# Default: gemini-2.5-flash
-# Examples: gemini-2.5-flash, gemini-2.0-flash, gemini-flash-latest
-vqa_model: gemini-2.5-flash
+agent: claude-code
 
-# Asset generation defaults
-# Gemini is the default because GOOGLE_API_KEY is required by GodotMaker.
-# Grok remains available when XAI_API_KEY is configured.
-asset_image_provider: gemini
+vqa_model: native
+vqa_fallback_model: native
 
-# Image/video generation models
-# gemini_image_model is the Nano Banana 2 image model used by --model gemini.
-gemini_image_model: gemini-3.1-flash-image-preview
-grok_image_model: grok-imagine-image
-grok_video_model: grok-imagine-video
+asset_image_model: native
+asset_video_model: none
 
-# Agent model configuration
-# Workers use opus for complex implementation tasks
-# Verifiers, reviewers, and analysts use sonnet for lighter validation work
 worker_model: opus
 verifier_model: sonnet
 reviewer_model: sonnet
 analyst_model: sonnet
+auditor_model: sonnet
+decomposer_model: sonnet
 ```
+
+## Runtime-native image generation
+
+`native` is not an API provider. It means the active agent runtime supplies image inspection or image generation.
+
+The template uses native image inspection and native image generation by default.
+
+For Codex projects, `asset_image_model: native` maps to Codex native image generation when the host exposes that capability. For Claude Code projects, `native` requires a Claude-side native image tool. If no native path is available, `/gm-asset` must stop and ask you to configure a supported provider or switch to an API-backed selector.
+
+For a Claude Code project that should use Codex image generation:
+
+```yaml
+asset_image_model: codex
+```
+
+## API keys
+
+Provider-prefixed selectors require the matching API key:
+
+| Selector | Required key |
+|---|---|
+| `gemini:<model>` | `GOOGLE_API_KEY` or `GEMINI_API_KEY` |
+| `openai:<model>` | `OPENAI_API_KEY` |
+| `grok:<model>` | `XAI_API_KEY` |
+
+Asset generation does not silently fall back when a key is missing. VQA can fall back only through the explicit `vqa_fallback_model` setting.
 
 ## How to change a setting
 
-Open `.godotmaker/config.yaml` in any text editor and change the value after the colon. For example, to use `sonnet` for workers instead of `opus`:
+Open `.godotmaker/config.yaml` and change the value after the colon. For example, to use Codex native image generation:
 
 ```yaml
-worker_model: sonnet
+asset_image_model: codex
 ```
 
-Save the file and you are done. No restart required.
+To use OpenAI for API-backed image generation:
 
-## When changes take effect
+```yaml
+asset_image_model: openai:gpt-image-2
+```
 
-The next `/gm-*` command you run picks up whatever is in the file at that moment. If you change a setting while a session is already running, the change does not apply until you start a new session.
+The next `/gm-*` command picks up the new value. A command already running will not see changes until the next session or stage invocation.
 
 ## About `.claude/settings.json`
 
-There is another config file at `.claude/settings.json` that registers which hook scripts Claude Code runs on events like file writes, session start, and agent stops. This is a framework-managed file — it wires up GodotMaker's safety rules and you generally do not need to touch it. If your hooks stop firing after an upgrade, running `python tools/publish.py --force <project>` republishes it with the current version.
+Claude Code projects also have `.claude/settings.json`, which registers GodotMaker hook scripts. It is framework-managed; running `python tools/publish.py --force <project>` republishes it if hooks stop firing after an upgrade.

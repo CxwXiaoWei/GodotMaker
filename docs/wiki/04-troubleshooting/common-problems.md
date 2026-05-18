@@ -6,24 +6,34 @@ Quick reference: symptom, cause, fix. If your problem involves a crashed or inte
 
 ## Setup problems
 
-### `GOOGLE_API_KEY not set`
+### API key not set
 
 **Symptom** (from `check_env.py`):
 
 ```
-[FAIL] GOOGLE_API_KEY not set (required for image gen + VQA). Get one: https://aistudio.google.com/apikey
+[FAIL] GOOGLE_API_KEY not set but config uses a Gemini model.
 ```
 
-**Cause:** The environment variable is missing from your shell session. GodotMaker needs it to generate art and run visual quality checks.
+**Cause:** `.godotmaker/config.yaml` selected an API-backed model, but the matching environment variable is missing from your shell session.
 
-**Fix:** Get a key at https://aistudio.google.com/apikey, then set it in your terminal before launching Claude Code:
+**Fix:** Set the key required by the configured selector, or switch the selector to `native` when your runtime supports it.
+
+| Selector | Key |
+|---|---|
+| `gemini:<model>` | `GOOGLE_API_KEY` or `GEMINI_API_KEY` |
+| `openai:<model>` | `OPENAI_API_KEY` |
+| `grok:<model>` | `XAI_API_KEY` |
 
 ```bash
 # macOS / Linux
 export GOOGLE_API_KEY=your-key-here
+export OPENAI_API_KEY=your-key-here
+export XAI_API_KEY=your-key-here
 
 # Windows (PowerShell)
 $env:GOOGLE_API_KEY = "your-key-here"
+$env:OPENAI_API_KEY = "your-key-here"
+$env:XAI_API_KEY = "your-key-here"
 ```
 
 To make it permanent, add the export line to your shell profile (`~/.bashrc`, `~/.zshrc`, or Windows System Environment Variables).

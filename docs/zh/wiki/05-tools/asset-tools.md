@@ -4,7 +4,7 @@ GodotMaker 通过几个小型 Python 辅助脚本生成美术资源。`/gm-asset
 
 ## asset_gen.py
 
-`asset_gen.py` 是主要的图片和 3D 模型生成器，支持两种图片提供商和一种 3D 模型服务。
+`asset_gen.py` 是主要的 API 后端图片和 3D 模型生成器，支持 Gemini、OpenAI、xAI Grok 和 Tripo3D。运行时原生的 `native` / `codex` 图片生成由 `/gm-asset` 选择，不由这个脚本调用。
 
 **图片提供商：**
 
@@ -12,8 +12,9 @@ GodotMaker 通过几个小型 Python 辅助脚本生成美术资源。`/gm-asset
 |----------|---------------|---------|
 | xAI Grok | 2 美分（仅 1K 或 2K） | 速度快，适合大多数精灵和 UI 元素 |
 | Google Gemini | 5–15 美分（512 到 4K） | 提示词跟随更精确，适合细节丰富或需要编辑的图片 |
+| OpenAI | 本地预算模型中 5–7 美分 | OpenAI 图片 API 生成/编辑 |
 
-Gemini 需要 `GOOGLE_API_KEY`，这是 GodotMaker 默认要求配置的密钥。Grok 需要可选的 `XAI_API_KEY`。要设置 `/gm-asset` 默认使用哪个提供商，请在 [`../06-configuration/project-config.md`](../06-configuration/project-config.md) 中配置 `asset_image_provider`。
+带提供方前缀的选择器需要对应 key：Gemini 需要 `GOOGLE_API_KEY` / `GEMINI_API_KEY`，OpenAI 需要 `OPENAI_API_KEY`，Grok 需要 `XAI_API_KEY`。要设置 `/gm-asset` 使用哪个提供方，请在 [`../06-configuration/project-config.md`](../06-configuration/project-config.md) 中配置 `asset_image_model`。
 
 ### 生成图片
 
@@ -47,8 +48,8 @@ python tools/asset_gen.py image \
 | 选项 | 默认值 | 说明 |
 |--------|---------|-------|
 | `--prompt` | （必填） | 描述你想要的内容 |
-| `--model` | 项目配置 | `gemini` 或 `grok`；覆盖 `asset_image_provider` |
-| `--size` | `1K` | Grok：`1K`、`2K`；Gemini：`512`、`1K`、`2K`、`4K` |
+| `--model` | 项目配置 | `gemini[:model]`、`openai[:model]` 或 `grok[:model]`；覆盖 `asset_image_model` |
+| `--size` | `1K` | OpenAI：`1K`；Grok：`1K`、`2K`；Gemini：`512`、`1K`、`2K`、`4K` |
 | `--aspect-ratio` | `1:1` | 支持多种比例，运行 `--help` 查看全部选项 |
 | `--image` | 无 | 提供参考图片进行编辑 |
 | `-o` | （必填） | 输出文件路径 |

@@ -26,7 +26,9 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 
 ## Changed
 
-- Asset generation now reads image provider and image/video model defaults from `.godotmaker/config.yaml`, with Gemini Nano Banana 2 as the shipped default.
+- Asset generation and visual QA now use explicit model selectors in `.godotmaker/config.yaml`: `vqa_model`, `vqa_fallback_model`, `asset_image_model`, and `asset_video_model`.
+- Projects can configure `asset_image_model: codex` when Codex should provide native image generation explicitly.
+- Runtime-native image generation is now documented as a runtime-mapping capability: `native` uses the active runtime, while `codex` explicitly selects Codex image generation.
 - Verifier and worker docs no longer prescribe authoring or running e2e — `/gm-evaluate` is the single source of truth for `e2e/`.
 - gecs gotcha G20: `@export var x: Node` fails on Component (extends Resource) — store Node refs as runtime `var` instead of `@export`.
 - UI reviewer gotcha G11: Control under CanvasLayer needs explicit `layout_mode = 1` — anchor presets are silently ignored when `layout_mode` defaults to 0.

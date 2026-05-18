@@ -24,7 +24,8 @@ All required checks passed! Ready to use GodotMaker.
 ### Python
 
 - 运行本脚本的 Python 版本为 3.9 或更高。
-- 已安装以下包：`google-genai`、`requests`、`pillow`、`numpy`。
+- 已安装核心包：`requests`、`pillow`、`numpy`。
+- 根据 `.godotmaker/config.yaml` 检查提供方包：Gemini 需要 `google-genai`，OpenAI 需要 `openai`，Grok 图片或视频生成需要 `xai-sdk`。
 
 ### Node.js
 
@@ -45,13 +46,14 @@ All required checks passed! Ready to use GodotMaker.
 
 | 密钥 | 状态 | 用途 |
 |-----|--------|---------|
-| `GOOGLE_API_KEY` | 必填 | 图片生成（Gemini）及视觉质量评估 |
-| `XAI_API_KEY` | 可选 | 通过 xAI Grok 生成图片（更便宜的替代方案） |
+| `GOOGLE_API_KEY` 或 `GEMINI_API_KEY` | 选中时必填 | Gemini 图片生成或 VQA |
+| `OPENAI_API_KEY` | 选中时必填 | OpenAI 图片生成或 VQA |
+| `XAI_API_KEY` | 选中时必填 | xAI Grok 图片或视频生成 |
 | `TRIPO3D_API_KEY` | 可选 | 3D 模型生成（仅 3D 游戏需要） |
 
-`GOOGLE_API_KEY` 是唯一会阻止 GodotMaker 运行的密钥。你可以在 [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey) 免费获取——适度使用完全免费。
+API 后端选择器缺少对应 key 时会失败。`asset_image_model: native` 对 Codex 会通过；对 Claude Code 会给出警告，因为环境检查无法证明 Claude 侧原生生图工具可用。`asset_video_model: none` 不需要 `XAI_API_KEY`。
 
-检查工具还会在找到密钥后验证 `google-genai` 能否正常导入，从而捕获单靠版本号检查无法发现的安装问题。
+检查工具还会验证被选中提供方的 Python 包能否正常导入，从而捕获单靠版本号检查无法发现的安装问题。
 
 ## 读懂输出结果
 
