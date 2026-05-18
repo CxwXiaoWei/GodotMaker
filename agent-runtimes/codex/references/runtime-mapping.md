@@ -35,6 +35,10 @@ this path mapping:
 | `.claude/config` | `.agents/config` |
 | `.claude/godotmaker.yaml` | `.agents/godotmaker.yaml` |
 
+Apply this mapping before filesystem access, including configuration reads.
+When a shared skill says to read `.claude/godotmaker.yaml` for `godot_path`,
+read `.agents/godotmaker.yaml`.
+
 This document is the Codex compatibility layer for shared GodotMaker docs. The
 source docs should keep clear GodotMaker/Claude-first semantics unless they are
 Codex-only references like this file.
@@ -56,7 +60,7 @@ skill instruction, prefer skill-local resolution.
 | Capability | Codex mapping |
 |---|---|
 | `invoke_stage` | Native when the published project-local skill exists under the Codex skill tree and can be invoked as `$gm-*`. If a shared reference says to run `/gm-verify`, execute `$gm-verify`. Gate if the matching `$gm-*` skill is not available. |
-| `read_project_config` | Read the Codex-published project config path produced by publish, normally `.agents/godotmaker.yaml`. Gate if it is missing and the stage needs `godot_path` or project settings. |
+| `read_project_config` | Read the Codex-published project config path produced by publish, normally `.agents/godotmaker.yaml`, whenever shared docs refer to `.claude/godotmaker.yaml` or `godotmaker.yaml` config. Gate if it is missing and the stage needs `godot_path` or project settings. |
 | `read_skill_reference` | Read references from the published Codex skill tree, normally `.agents/skills/<skill>/references/`. A shared skill path like `references/asset-gen.md` is skill-local, not project-root. Shared refs are deployed copies; do not look for `_shared/` at runtime. |
 | `dispatch_worker` | Use `spawn_agent(agent_type="worker", message=...)` with a message that explicitly loads the Codex project-local worker role definition and worker brief when the Codex runtime exposes subagent spawning with project-local context. If unavailable, use a sequential fallback only for work the stage contract allows the lead agent to do directly; otherwise gate before editing. |
 | `dispatch_reviewer` | Use `spawn_agent(agent_type="worker", message=...)` with a message that explicitly loads the Codex project-local reviewer role definition and reviewer references when available. If unavailable, the lead session may run the review checklist only when the skill explicitly allows non-delegated review; otherwise gate and report that Codex reviewer delegation is unsupported in this environment. |

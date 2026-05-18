@@ -872,6 +872,9 @@ class TestCodexPublishParity:
         assert "| `.claude/skills` | `.agents/skills` |" in mapping
         assert "| `.claude/agents` | `.agents/agents` |" in mapping
         assert "| `.claude/templates` | `.agents/templates` |" in mapping
+        assert "| `.claude/godotmaker.yaml` | `.agents/godotmaker.yaml` |" in mapping
+        assert "Apply this mapping before filesystem access" in mapping
+        assert "read `.agents/godotmaker.yaml`" in mapping
         assert "Codex publish must register `godot-mcp` by default" in mapping
         assert "explicit user\n  opt-in" not in mapping
 
