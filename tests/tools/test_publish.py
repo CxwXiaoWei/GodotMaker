@@ -477,6 +477,8 @@ SELECTIVE_ENTRIES = [
     ".godotmaker/metrics.jsonl",
     ".godotmaker/metrics_current.jsonl",
     "reports/",
+    "__pycache__/",
+    "*.pyc",
 ]
 
 
@@ -494,10 +496,10 @@ class TestEnsureGitignore:
 
     def test_appends_missing_entries(self, tmp_path):
         gi = tmp_path / ".gitignore"
-        gi.write_text("*.pyc\n")
+        gi.write_text("*.tmp\n")
         ensure_gitignore(tmp_path)
         content = gi.read_text()
-        assert "*.pyc" in content
+        assert "*.tmp" in content
         assert ".claude/" in content
         assert ".agents/" not in content
         for entry in SELECTIVE_ENTRIES:

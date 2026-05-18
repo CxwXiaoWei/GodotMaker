@@ -977,6 +977,8 @@ def ensure_gitignore(target: Path, agent: str = AGENT_CLAUDE_CODE):
         ".godotmaker/traces/",
         ".godotmaker/applied_migrations.json",
         "reports/",
+        "__pycache__/",
+        "*.pyc",
     ]
 
     # If upgrading from old blanket ignores, remove them.
