@@ -102,15 +102,37 @@ runs — verify it exists and move on.
 
 Write the following to `e2e/conftest.py`:
 ```python
-import pytest
 import os
+
+import pytest
 from godot_e2e import GodotE2E
 
 GODOT_PROJECT = os.path.join(os.path.dirname(__file__), "..")
+GODOT_CONFIG = os.path.join(GODOT_PROJECT, ".claude", "godotmaker.yaml")
+
+
+def _read_godot_path():
+    try:
+        with open(GODOT_CONFIG, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.split("#", 1)[0].strip()
+                if line.startswith("godot_path:"):
+                    value = line.split(":", 1)[1].strip().strip("\"'")
+                    return value or None
+    except OSError:
+        return None
+    return None
+
+
+GODOT_PATH = _read_godot_path()
 
 @pytest.fixture(scope="module")
 def _game_process():
-    with GodotE2E.launch(GODOT_PROJECT, timeout=15.0) as game:
+    with GodotE2E.launch(
+        GODOT_PROJECT,
+        godot_path=GODOT_PATH,
+        timeout=15.0,
+    ) as game:
         game.wait_for_node("/root/Main", timeout=10.0)
         yield game
 

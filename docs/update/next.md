@@ -54,6 +54,7 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 - Parallel workers under `isolation: "worktree"` are now actually isolated — briefs use cwd-relative paths, dispatching agent pre-commits, workers commit before reporting.
 - fix the issue that `/gm-asset` exits early when every art row in `ASSETS.md` is `provided` but `references/scene_*.png` is still missing
 - `godot-e2e` SKILL Critical Rules now flag `wait_process_frames` as a frame budget not wall-clock, and the Quick Start conftest reminds you to swap `/root/Main` for your project's entry-scene root
+- Scaffold and godot-e2e conftest templates now pass configured `godot_path` into `GodotE2E.launch`.
 - `/gm-finalize` writes `final_report.json` and commits the tag archive before `git tag <Tag>`, so the tag points at a committed state including the final report (previously the tag landed on an uncommitted working tree).
 - `/gm-finalize` partial-failure retries between Steps 4 and 8 now re-enter the skill instead of being misclassified as already-finalized.
 - `tools/publish.py` registers `Bash(<godot_path>:*)` in `.claude/settings.json` so headless godot invocations no longer prompt for permission, including in sub-agent worktrees (the user-level `settings.local.json` is gitignored and doesn't propagate).
