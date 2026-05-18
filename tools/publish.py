@@ -428,7 +428,6 @@ def publish_shared_refs(repo_root: Path, skills_target: Path,
     no `.claude/skills/_shared/` directory exists at runtime, and editors
     opening a deployed copy see an explicit warning at the top.
     """
-    adapter = get_agent_adapter(agent)
     shared_dir = repo_root / "skills" / "core" / "_shared"
     manifest_path = shared_dir / "manifest.json"
     if not manifest_path.exists():

@@ -16,14 +16,6 @@ import json
 import sys
 from pathlib import Path
 
-import requests
-import xai_sdk
-from google import genai
-from google.genai import types
-from PIL import Image
-
-from tripo3d import MODEL_P1, MODEL_V31, image_to_glb
-
 TOOLS_DIR = Path(__file__).parent
 BUDGET_FILE = Path("assets/budget.json")
 
@@ -87,12 +79,12 @@ def record_spend(cost_cents: int, service: str):
 
 QUALITY_PRESETS = {
     "default": {
-        "model_version": MODEL_P1,
+        "model_version": "P1-20260311",
         "texture_quality": "standard",
         "cost_cents": 50,
     },
     "high": {
-        "model_version": MODEL_V31,
+        "model_version": "v3.1-20260211",
         "texture_quality": "detailed",
         "cost_cents": 40,
     },
@@ -146,6 +138,10 @@ def _image_data_uri(image_path: Path) -> str:
 
 
 def _generate_gemini(args, output: Path, cost: int, model_name: str):
+    from google import genai
+    from google.genai import types
+    from PIL import Image
+
     config = types.GenerateContentConfig(
         response_modalities=["IMAGE"],
         image_config=types.ImageConfig(
@@ -192,6 +188,9 @@ def _generate_gemini(args, output: Path, cost: int, model_name: str):
 
 
 def _generate_grok(args, output: Path, cost: int, model_name: str):
+    import xai_sdk
+    from PIL import Image
+
     image_url = None
     if args.image:
         ref_path = Path(args.image)
@@ -261,6 +260,9 @@ def cmd_image(args):
 
 
 def cmd_video(args):
+    import requests
+    import xai_sdk
+
     config = _load_project_config()
     video_model = config.get("grok_video_model") or VIDEO_MODEL
     cost = args.duration * VIDEO_COST_PER_SEC
@@ -301,6 +303,8 @@ def cmd_video(args):
 
 
 def cmd_glb(args):
+    from tripo3d import image_to_glb
+
     image_path = Path(args.image)
     if not image_path.exists():
         result_json(False, error=f"Image not found: {image_path}")

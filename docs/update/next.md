@@ -54,6 +54,7 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 - `tools/run_verify.py` now trusts gdUnit XML reports instead of the first per-suite stdout summary, so unit-test failures and counts stay consistent with the generated report.
 - `tools/seal_tag.py bundle` now counts unit tests under the generated project's `test/` directory.
 - `/gm-finalize` now explicitly reconciles working docs against the final code before archiving a tag.
+- CI can now collect asset-generation configuration tests without requiring image and 3D backend SDKs to be installed.
 - Drop the SubagentStop hook's e2e content requirement on worker reports, since `check_file_permissions` already forbids workers from writing `e2e/`.
 - Move `project.godot.run/main_scene` retargeting from decomposer to `/gm-build`'s dispatching agent so headless runs between `/gm-gdd` and the entry-scene worker no longer flood logs with `Cannot open file`.
 - Parallel workers under `isolation: "worktree"` are now actually isolated — briefs use cwd-relative paths, dispatching agent pre-commits, workers commit before reporting.
