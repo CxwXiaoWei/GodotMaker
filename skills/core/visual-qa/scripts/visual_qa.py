@@ -35,6 +35,8 @@ DEFAULT_MODEL = "gemini-2.5-flash"
 
 def log_entry(log_path, *, mode, model, query, files, output):
     """Append a JSONL log entry."""
+    log_file = Path(log_path)
+    log_file.parent.mkdir(parents=True, exist_ok=True)
     entry = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "mode": mode,
@@ -43,7 +45,7 @@ def log_entry(log_path, *, mode, model, query, files, output):
         "files": files,
         "output": output,
     }
-    with open(log_path, "a") as f:
+    with log_file.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
 
 
@@ -82,7 +84,7 @@ def main():
                 print(f"Error: {p} not found", file=sys.stderr)
                 sys.exit(1)
 
-        prompt = QUESTION_PROMPT.read_text()
+        prompt = QUESTION_PROMPT.read_text(encoding="utf-8")
         prompt += f"\n\n## Question\n\n{question}\n"
         if context:
             prompt += f"\n## Additional Context\n\n{context}\n"
@@ -112,7 +114,9 @@ def main():
                 sys.exit(1)
 
         static = len(paths) == 2
-        prompt = (STATIC_PROMPT if static else DYNAMIC_PROMPT).read_text()
+        prompt = (STATIC_PROMPT if static else DYNAMIC_PROMPT).read_text(
+            encoding="utf-8"
+        )
         if context:
             prompt += f"\n\n## Task Context\n\n{context}\n"
 
