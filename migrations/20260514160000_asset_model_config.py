@@ -3,11 +3,10 @@ from pathlib import Path
 
 
 DEFAULTS = {
-    "vqa_model": "gemini-2.5-flash",
-    "asset_image_provider": "gemini",
-    "gemini_image_model": "gemini-3.1-flash-image-preview",
-    "grok_image_model": "grok-imagine-image",
-    "grok_video_model": "grok-imagine-video",
+    "vqa_model": "native",
+    "vqa_fallback_model": "native",
+    "asset_image_model": "native",
+    "asset_video_model": "none",
 }
 
 
@@ -32,29 +31,60 @@ def migrate(target: Path) -> None:
     config_path.parent.mkdir(parents=True, exist_ok=True)
     text = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
     values = _parse_scalar_keys(text)
+    defaults = dict(DEFAULTS)
 
     changed = False
     lines = text.splitlines()
     if values.get("vqa_model") == "gemini-3-flash":
         lines = [
-            "vqa_model: gemini-2.5-flash"
+            "vqa_model: gemini:gemini-2.5-flash"
             if line.strip().startswith("vqa_model:")
             else line
             for line in lines
         ]
         changed = True
+        values["vqa_model"] = "gemini:gemini-2.5-flash"
+    elif (
+        values.get("vqa_model")
+        and ":" not in values["vqa_model"]
+        and values["vqa_model"] not in {"native", "codex", "gemini", "openai"}
+    ):
+        lines = [
+            f"vqa_model: gemini:{values['vqa_model']}"
+            if line.strip().startswith("vqa_model:")
+            else line
+            for line in lines
+        ]
+        changed = True
+        values["vqa_model"] = f"gemini:{values['vqa_model']}"
 
-    missing = [key for key in DEFAULTS if key not in values]
+    if "asset_image_model" not in values and values.get("asset_image_provider"):
+        provider = values["asset_image_provider"]
+        if provider == "gemini":
+            defaults["asset_image_model"] = (
+                f"gemini:{values.get('gemini_image_model') or 'gemini-3.1-flash-image-preview'}"
+            )
+        elif provider == "grok":
+            defaults["asset_image_model"] = (
+                f"grok:{values.get('grok_image_model') or 'grok-imagine-image'}"
+            )
+        else:
+            defaults["asset_image_model"] = provider
+
+    if "asset_video_model" not in values and values.get("grok_video_model"):
+        defaults["asset_video_model"] = f"grok:{values['grok_video_model']}"
+
+    missing = [key for key in defaults if key not in values]
     if missing:
         if lines and lines[-1].strip():
             lines.append("")
         lines.extend([
             "# Asset generation defaults",
-            "# Gemini is the default because GOOGLE_API_KEY is required by GodotMaker.",
-            "# Grok remains available when XAI_API_KEY is configured.",
+            "# API-backed values are provider-prefixed. native is handled by the active agent runtime.",
+            "# asset_video_model may be none when video generation is not needed.",
         ])
         for key in missing:
-            lines.append(f"{key}: {DEFAULTS[key]}")
+            lines.append(f"{key}: {defaults[key]}")
         changed = True
 
     if changed:

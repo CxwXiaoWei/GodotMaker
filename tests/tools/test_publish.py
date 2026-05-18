@@ -427,11 +427,10 @@ class TestCreateProjectConfig:
         assert config.exists()
         content = config.read_text()
         assert "agent: claude-code" in content
-        assert "vqa_model: gemini-2.5-flash" in content
-        assert "asset_image_provider: gemini" in content
-        assert "gemini_image_model: gemini-3.1-flash-image-preview" in content
-        assert "grok_image_model: grok-imagine-image" in content
-        assert "grok_video_model: grok-imagine-video" in content
+        assert "vqa_model: native" in content
+        assert "vqa_fallback_model: native" in content
+        assert "asset_image_model: native" in content
+        assert "asset_video_model: none" in content
 
     def test_skips_if_exists(self, tmp_path):
         config_dir = tmp_path / ".godotmaker"
@@ -460,10 +459,9 @@ class TestCreateProjectConfig:
         assert DEFAULT_CONFIG_TEMPLATE.exists(), "config.yaml.default template must exist"
         content = DEFAULT_CONFIG_TEMPLATE.read_text(encoding="utf-8")
         assert "vqa_model:" in content
-        assert "asset_image_provider:" in content
-        assert "gemini_image_model:" in content
-        assert "grok_image_model:" in content
-        assert "grok_video_model:" in content
+        assert "vqa_fallback_model:" in content
+        assert "asset_image_model:" in content
+        assert "asset_video_model:" in content
         assert "worker_model:" in content
         assert "agent:" in content
         lines = [line for line in content.splitlines() if line and not line.startswith("#")]

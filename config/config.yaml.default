@@ -6,19 +6,30 @@
 # publish.py updates this value on each publish.
 agent: claude-code
 
-# VQA model for visual quality checks (any Gemini model name)
-# Default: gemini-2.5-flash
-# Examples: gemini-2.5-flash, gemini-2.0-flash, gemini-flash-latest
-vqa_model: gemini-2.5-flash
+# Visual quality assessment model.
+# Supported values:
+# - native: active agent runtime image inspection
+# - codex: Codex image inspection
+# - gemini:<model>: Gemini API through visual_qa.py
+# - openai:<model>: OpenAI Responses API through visual_qa.py
+vqa_model: native
 
-# Asset generation defaults
-asset_image_provider: gemini
+# Fallback when vqa_model is unavailable.
+# Supported values: native, codex, none
+vqa_fallback_model: native
 
-# Image/video generation models
-# gemini_image_model is the Nano Banana 2 image model used by --model gemini.
-gemini_image_model: gemini-3.1-flash-image-preview
-grok_image_model: grok-imagine-image
-grok_video_model: grok-imagine-video
+# Asset image generation model.
+# Supported values:
+# - native: active agent runtime image generation
+# - codex: Codex image generation
+# - gemini:<model>: tools/asset_gen.py Gemini backend
+# - openai:<model>: tools/asset_gen.py OpenAI Images backend
+# - grok:<model>: tools/asset_gen.py xAI Grok backend
+asset_image_model: native
+
+# Asset video generation model.
+# Supported values: none, grok:<model>
+asset_video_model: none
 
 # Agent model configuration
 # Workers use opus for complex implementation tasks

@@ -32,11 +32,10 @@ def test_adds_missing_asset_model_defaults(migration_module, tmp_path):
     migration_module.migrate(tmp_path)
 
     text = config.read_text(encoding="utf-8")
-    assert "asset_image_provider: gemini" in text
-    assert "gemini_image_model: gemini-3.1-flash-image-preview" in text
-    assert "grok_image_model: grok-imagine-image" in text
-    assert "grok_video_model: grok-imagine-video" in text
-    assert "vqa_model: gemini-2.5-flash" in text
+    assert "asset_image_model: native" in text
+    assert "asset_video_model: none" in text
+    assert "vqa_model: native" in text
+    assert "vqa_fallback_model: native" in text
 
 
 def test_replaces_only_old_invalid_vqa_default(migration_module, tmp_path):
@@ -44,15 +43,43 @@ def test_replaces_only_old_invalid_vqa_default(migration_module, tmp_path):
     config.parent.mkdir()
     config.write_text(
         "vqa_model: gemini-3-flash\n"
-        "gemini_image_model: custom-gemini-image\n",
+        "asset_image_provider: gemini\n"
+        "gemini_image_model: custom-gemini-image\n"
+        "grok_video_model: custom-grok-video\n",
         encoding="utf-8",
     )
 
     migration_module.migrate(tmp_path)
 
     text = config.read_text(encoding="utf-8")
-    assert "vqa_model: gemini-2.5-flash" in text
+    assert "vqa_model: gemini:gemini-2.5-flash" in text
+    assert "asset_image_model: gemini:custom-gemini-image" in text
+    assert "asset_video_model: grok:custom-grok-video" in text
     assert "gemini_image_model: custom-gemini-image" in text
+
+
+def test_preserves_none_video_selector(migration_module, tmp_path):
+    config = tmp_path / ".godotmaker" / "config.yaml"
+    config.parent.mkdir()
+    config.write_text("asset_video_model: none\n", encoding="utf-8")
+
+    migration_module.migrate(tmp_path)
+
+    text = config.read_text(encoding="utf-8")
+    assert "asset_video_model: none" in text
+    assert "asset_video_model: grok:" not in text
+
+
+def test_preserves_codex_vqa_selector(migration_module, tmp_path):
+    config = tmp_path / ".godotmaker" / "config.yaml"
+    config.parent.mkdir()
+    config.write_text("vqa_model: codex\n", encoding="utf-8")
+
+    migration_module.migrate(tmp_path)
+
+    text = config.read_text(encoding="utf-8")
+    assert "vqa_model: codex" in text
+    assert "vqa_model: gemini:codex" not in text
 
 
 def test_is_idempotent(migration_module, tmp_path):
