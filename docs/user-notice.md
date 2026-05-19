@@ -8,6 +8,8 @@ GodotMaker creates a normal Godot project on your machine. The generated project
 
 You can open, edit, version, export, and ship the generated game like any other Godot project.
 
+Games, project source code, assets, screenshots, reports, exports, and other outputs created with GodotMaker are not GodotMaker and are not part of the Licensed Work. They belong to their creators, subject to any third-party engine, asset, model-provider, runtime, or dependency terms that may apply.
+
 ## Publish Script Auto-Actions
 
 The publish script (`tools/publish.py`) performs local setup actions in your game project directory. If you are experienced with these tools, you can manage them yourself; the script skips steps that are already done.

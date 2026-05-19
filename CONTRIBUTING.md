@@ -6,6 +6,10 @@ Thank you for your interest in contributing to GodotMaker! This guide will help 
 
 This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
 
+## Contribution Licensing
+
+GodotMaker is licensed under the Business Source License 1.1 (see [LICENSE](LICENSE)). By submitting a contribution (for example, by opening a pull request), you confirm that you have the right to submit it, and you grant the project the right to use and redistribute your contribution as part of GodotMaker under that same license, including its eventual conversion to the Change License.
+
 ## How to Contribute
 
 ### Reporting Bugs

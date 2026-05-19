@@ -20,7 +20,7 @@
 
 GodotMaker 选择另一条路：你带着游戏想法来，它协助你整理成 GDD，然后自动驱动 Agent 完成规划、实现、测试、运行、截图评估和修复。几个小时后，你验收的是一个真正落在本地的 Godot 项目。
 
-项目代码在你手里，工作流源码可见，CLI 自动化流程免费提供。想继续打磨，就继续完善想法或 GDD，再跑下一轮。
+项目代码在你手里，工作流源码公开、本地优先，并可在 Business Source License 允许的范围内免费运行。想继续打磨，就继续完善想法或 GDD，再跑下一轮。
 
 ## 它有什么不同
 
@@ -30,9 +30,9 @@ GodotMaker 选择另一条路：你带着游戏想法来，它协助你整理成
 - **通过设计持续迭代。** 不是一次性生成后结束，而是可以不断完善想法或 GDD、不断提升游戏效果。
 - **基于成熟引擎。** 结果落在 Godot 生态里，可以继续调试、扩展、导出和发布。
 - **没有中间商赚差价。** GodotMaker 是工作流层，不通过封闭平台转卖 agent 工作。
-- **开源自动化流程。** 框架和 CLI 驱动流程免费提供，可以查看、运行、修改、扩展。
+- **源码可见的自动化流程。** 框架和 CLI 驱动流程公开可查看，可在许可范围内运行、修改和贡献。
 
-Claude Code、Codex、Gemini、OpenAI、xAI、Tripo 等外部 runtime 或模型 provider 可能有自己的价格、额度和数据政策。GodotMaker 保证的是工作流源码可见、项目本地、产物归你。
+Claude Code、Codex、Gemini、OpenAI、xAI、Tripo 等外部 runtime 或模型 provider 可能有自己的价格、额度和数据政策。GodotMaker 保证的是工作流源码公开、项目本地、产物归你。
 
 ## Agent 会做什么
 
@@ -93,7 +93,7 @@ python tools/check_env.py
 
 ## 状态
 
-GodotMaker 正在准备开源 alpha。CLI、Codex 支持、视觉 QA 和打包流程还会快速变化。
+GodotMaker 正在准备源码可见的 public alpha。CLI、Codex 支持、视觉 QA 和打包流程还会快速变化。
 
 如果你觉得这个方向有价值，欢迎 star、试用 CLI，并把你希望它做得更好的游戏类型和问题提到 issue。
 

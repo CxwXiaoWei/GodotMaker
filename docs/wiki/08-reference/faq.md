@@ -98,7 +98,7 @@ All game files live locally on your machine. AI calls go to whatever model provi
 
 ### Is my game project mine?
 
-Yes. GodotMaker only deploys files into your folder and then the AI fills them in. You own everything that gets generated. The GodotMaker framework source is available under its own license, but your game content and code are yours.
+Yes. GodotMaker only deploys files into your folder and then the AI fills them in. Games, project source code, assets, screenshots, reports, exports, and other outputs created with GodotMaker are not GodotMaker and belong to you. The GodotMaker framework itself is source-available under its own license, but your game content and code are yours, subject to any third-party engine, asset, model-provider, runtime, or dependency terms that may apply.
 
 ---
 
