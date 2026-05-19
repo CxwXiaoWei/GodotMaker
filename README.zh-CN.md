@@ -7,87 +7,95 @@
 
 [English](README.md) | **中文**
 
-> **描述你的游戏。运行它。它属于你。** —— 源码可见、本地优先，产物归你。
+> **带着你的想法来，交给 GodotMaker，得到一个可运行的游戏。**
 
-GodotMaker 把一句话描述变成真正能跑的 Godot 游戏。输入 *"做一个吸血鬼幸存者风格的游戏，三种武器，能升级"*，等几分钟，打开 Godot 就能玩。不需要会做游戏，不收订阅费，不锁平台。整个项目就在你电脑上，归你所有，随你修改、发布、分享。
+## 为什么需要它
 
-## 你能拿到什么
+很多工具都在承诺“AI 帮你做游戏”，但真正开始用之后，经常会遇到这些问题：
 
-- **一个真正的 Godot 项目** 在你电脑上。随时用 Godot 编辑器打开，想改什么改什么。
-- **完全免费**。在你自己电脑上跑，用你已经有的 AI 工具。没有平台费，没有调用次数上限。
-- **源码可见**，采用 BUSL 1.1。没有黑盒，也不是封闭平台转卖。
-- **整个 Godot 生态都能用** —— 各种插件、导出工具、编辑器本身。你的游戏能走多远完全看你自己。
+- 你只是想实现一个想法，却要一直坐在电脑前测试、截图、反馈，让 Agent 一步步改到能用。
+- 平台说是在为你实现游戏，但代码和项目留在服务器上，无法完整下载，也无法脱离平台继续开发。
+- 好不容易做出一个有趣 demo，却没有落在成熟游戏引擎里，后续迭代、调试、扩展和发布都很困难。
+- 本质上只是一个开发工作流，却在中间转卖高价 token，把你锁进他们的计费和运行环境。
 
-## 适合谁用？
+GodotMaker 选择另一条路：你带着游戏想法来，它协助你整理成 GDD，然后自动驱动 Agent 完成规划、实现、测试、运行、截图评估和修复。几个小时后，你验收的是一个真正落在本地的 Godot 项目。
 
-- 你有游戏想法，但从没学过游戏引擎。
-- 你是设计师、爱好者、学生、内容创作者，想看看自己的点子能不能跑起来。
-- 你想要一个能玩的原型，并且 AI 做完之后还能继续往下做。
+项目代码在你手里，工作流源码可见，CLI 自动化流程免费提供。想继续打磨，就继续完善想法或 GDD，再跑下一轮。
 
-GodotMaker 解决的是从 *"我有个想法"* 到 *"我有个能玩的东西"* 这一段。之后，整个 Godot 生态都在你手里 —— 在编辑器里继续打磨、接入社区插件、边做边学，把一个原型养成你真正想发布的游戏。
+## 它有什么不同
 
-## 大致流程（30 秒看懂）
+- **默认 no-human-in-the-loop。** 类似 coding agent 的 long-running goal/task 模式，说清目标后让它自主持续推进。
+- **自然语言到完整游戏项目。** 输入可以从一个游戏想法开始，GodotMaker 会协助把它整理成设计契约。
+- **代码属于你。** 输出是普通 Godot 项目：源码、场景、资源、测试、截图、报告都在本地。
+- **通过设计持续迭代。** 不是一次性生成后结束，而是可以不断完善想法或 GDD、不断提升游戏效果。
+- **基于成熟引擎。** 结果落在 Godot 生态里，可以继续调试、扩展、导出和发布。
+- **没有中间商赚差价。** GodotMaker 是工作流层，不通过封闭平台转卖 agent 工作。
+- **开源自动化流程。** 框架和 CLI 驱动流程免费提供，可以查看、运行、修改、扩展。
 
-1. 在一个空文件夹里安装 GodotMaker。一行命令。
-2. 在那个文件夹里打开 Claude Code，输入 `/gm-scaffold`。AI 把 Godot 项目、插件、目录结构搭好。然后 `/gm-gdd` 会问你一些问题，搞清楚你想做什么样的游戏。
-3. 接下来七个命令一个个跑。每个命令之间，AI 自己干活 —— 写代码、生成美术、构建项目、跑游戏、截图、给结果打分。
-4. 你觉得满意了就接受、归档。打开 Godot 就能玩。
+Claude Code、Codex、Gemini、OpenAI、xAI、Tripo 等外部 runtime 或模型 provider 可能有自己的价格、额度和数据政策。GodotMaker 保证的是工作流源码可见、项目本地、产物归你。
 
-一个小游戏通常只需要你花大概 30 分钟时间（分散在整个会话里）—— 命令之间 AI 在后台跑，你不用盯着。
+## Agent 会做什么
 
-[完整教程 →](https://RandallLiuXin.github.io/GodotMaker/zh/wiki/01-getting-started/first-game/)
+一次运行中，GodotMaker Agent 会持续把设计往前推进：
+
+- 把你的想法整理成 `GDD.md`、任务、场景、系统和验收标准
+- 在 Godot 中实现玩法
+- 写代码的同时编写 gdUnit4 单元测试
+- 编写像玩家一样操作游戏的端到端测试
+- 运行游戏并截图
+- 对照 GDD 检查结果
+- 把缺失玩法、UI 问题、视觉问题送回修复循环
+
+一个小型游戏通常需要 **3-5 小时的 Agent 运行时间**。不过你不需要手动驱动每个阶段，也不需要一直守在电脑前，工作流会自己持续推进。
 
 ## 快速开始
 
 ```bash
-# 1. 克隆仓库
-git clone https://github.com/RandallLiuXin/GodotMaker.git
-cd GodotMaker
+npm install -g godotmaker-cli
 
-# 2. 安装依赖并检查环境
-pip install -r tools/requirements.txt
-python tools/check_env.py
+mkdir my-game
+cd my-game
 
-# 3. 把 GodotMaker 部署到一个新游戏文件夹
-python tools/publish.py /path/to/my-game
-cd /path/to/my-game
-claude
+# 带着你的游戏想法，然后运行：
+godotmaker
 ```
 
-进入 Claude Code 后，从 `/gm-scaffold` 开始按顺序输入九个命令。完整教程见 [你的第一款游戏](https://RandallLiuXin.github.io/GodotMaker/zh/wiki/01-getting-started/first-game/)。
+CLI 会从 idea 梳理和 GDD 规划开始驱动工作流，直到生成一个可玩的 Godot tag。高级用户仍然可以直接在 Claude Code 中运行 `/gm-*`，或在 Codex 中运行 `$gm-*`。
+
+如果你要开发 GodotMaker 框架本身：
+
+```bash
+git clone https://github.com/RandallLiuXin/GodotMaker.git
+cd GodotMaker
+pip install -r tools/requirements.txt
+python tools/check_env.py
+```
 
 ## 你需要准备
 
 | 工具 | 用途 |
 |---|---|
-| [Godot 4.5+](https://godotengine.org)（推荐；4.3/4.4 仍然支持） | 你的游戏会跑在这个引擎里 |
-| [Claude Code](https://claude.ai/code) | 你和 AI 对话的入口 |
-| Python 3.10+ | 跑那些帮你串起流水线的脚本 |
-| `GOOGLE_API_KEY` | 免费额度；用来生成游戏的美术资源 |
+| [Godot 4.5+](https://godotengine.org) | 运行生成出的游戏 |
+| [Claude Code](https://claude.ai/code) 或 [Codex](https://openai.com/codex/) | Agent runtime |
+| Node.js 18+ | 运行 `godotmaker-cli` 和 Godot MCP 工具 |
+| Python 3.10+ | 运行 GodotMaker 辅助脚本 |
+| Git 2.30+ | 提供本地历史和 Agent worktree |
 
-可选：.NET SDK 8.0+ —— 如果你想要 C# 项目而不是 GDScript。
+只有当项目配置选择 API provider 时，才需要设置对应 API key。native 图片或视觉路径可以使用你选择的 Agent runtime。
 
-## 文档
+## 了解更多
 
-- [**30 分钟上手**](https://RandallLiuXin.github.io/GodotMaker/zh/wiki/01-getting-started/first-game/) —— 第一款游戏，一步步来
-- [工作原理](https://RandallLiuXin.github.io/GodotMaker/zh/wiki/02-concepts/how-it-works/) —— 每个命令做了什么、为什么这么设计
-- [常见问题](https://RandallLiuXin.github.io/GodotMaker/zh/wiki/04-troubleshooting/common-problems/) —— 出问题的时候看这里
-- [完整 wiki](https://RandallLiuXin.github.io/GodotMaker/zh/) —— 所有页面
+- [安装](https://RandallLiuXin.github.io/GodotMaker/zh/wiki/01-getting-started/installation/)
+- [你的第一款游戏](https://RandallLiuXin.github.io/GodotMaker/zh/wiki/01-getting-started/first-game/)
+- [工作原理](https://RandallLiuXin.github.io/GodotMaker/zh/wiki/02-concepts/how-it-works/)
+- [常见问题](https://RandallLiuXin.github.io/GodotMaker/zh/wiki/04-troubleshooting/common-problems/)
+- [完整文档](https://RandallLiuXin.github.io/GodotMaker/zh/)
 
-## 路线图
+## 状态
 
-接下来要做的：
+GodotMaker 正在准备开源 alpha。CLI、Codex 支持、视觉 QA 和打包流程还会快速变化。
 
-- **更多优质插件技能接入** —— 一线接入 Godot 社区主流插件（Phantom Camera、Dialogic、Beehave、GodotSteam ……）。
-- **更多美术资源生成工作流** —— 更全面的精灵、动画、tileset、音频、3D 模型生成管线。
-- **多平台发布** —— 一键导出到 Steam、iOS、Google Play、Web。
-- **图形化界面** —— 不用命令行也能用的可视化前端。
-
-完整清单和已完成项见 [`ROADMAP.md`](ROADMAP.md)。
-
-## 参与贡献
-
-欢迎贡献 —— bug 修复、新的评审技能、插件集成、翻译，什么都行。从 [开发环境](https://RandallLiuXin.github.io/GodotMaker/zh/wiki/07-contributing/development-setup/) 和 [贡献指南](CONTRIBUTING.md) 开始。
+如果你觉得这个方向有价值，欢迎 star、试用 CLI，并把你希望它做得更好的游戏类型和问题提到 issue。
 
 ## 许可证
 

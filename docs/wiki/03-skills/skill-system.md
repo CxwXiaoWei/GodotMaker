@@ -6,7 +6,7 @@ In Claude Code, a "skill" is a bundle of instructions and reference documents th
 
 Core skills are the engine that drives the whole game-creation process. They come in two kinds:
 
-**Role skills** are the nine `/gm-*` commands you actually type. Each one handles one phase of making a game — designing it, building it, testing it, and so on. You run them in order, and each hands off to the next. See [Core skills](core-skills.md) for the full table.
+**Role skills** are the nine `/gm-*` commands exposed by the framework. Each command handles one part of making a game - designing it, building it, testing it, and so on. In the normal path, `godotmaker-cli` drives them in order for you; advanced users can still run the role commands directly. See [Core skills](core-skills.md) for the full table.
 
 **Supporting skills** are reference packs that role skills load silently in the background. They contain things like Godot API documentation, the ECS framework reference, and helpers for running tests. You never invoke them yourself — they exist so the role skills have accurate, up-to-date information to work from. These are also described in [Core skills](core-skills.md).
 

@@ -149,7 +149,7 @@ python -m pytest tests/ -m "not network" -x -q
 
 ## Pre-commit and CI
 
-There is no pre-commit hook configuration in the repo. Tests run on every pull request via CI. Running the full suite locally before opening a PR is expected:
+The repository pre-commit hook runs fast staged checks: Python lint for staged files, user-doc Chinese mirror checks, and secret scanning when the local tools are installed. Tests run on every pull request via CI. Running the full suite locally before opening a PR is expected:
 
 ```bash
 python -m pytest tests/ -x -q

@@ -1,212 +1,103 @@
-# Your first game
+# Your First Game
 
-This walkthrough takes you from an empty folder to a playable Godot game. You will type nine commands in Claude Code — one for each step in the process. In between commands, the AI does the work while you wait; you step in when it asks you a question or when you want to review what was produced.
+This walkthrough takes you from a game idea to a playable Godot game. The normal path uses `godotmaker-cli`, which helps turn the idea into a GDD and then drives the workflow automatically until the current design scope is complete.
 
-**Time to expect:** for a small game (a ball that bounces, a simple platformer, a basic puzzle), count on roughly 30 minutes of your own time spread across the session, plus however long the AI takes to run in the background between steps. Bigger games take longer; the commands are the same.
+**Time to expect:** a small game usually takes about **3-5 hours of agent runtime**. You do not need to supervise every step. Bring the idea, start the workflow, and review the playable result when it finishes.
 
-You can stop at any point and come back later. Each command checks what was already done and picks up from where it left off.
+Advanced users can still run the underlying `/gm-*` commands directly. This page focuses on the CLI path.
 
-## Before you start
+## Before You Start
 
 Complete [Installation](installation.md) first. You need:
 
-- All five tools installed and passing `python tools/check_env.py`
-- `GOOGLE_API_KEY` set in your environment
-- The GodotMaker repository cloned locally
+- `godotmaker-cli` installed
+- Godot, Git, Node.js, and Python available
+- Claude Code authenticated
+- optional API keys only if your config selects API-backed providers
 
-## Set up the game project folder
-
-GodotMaker does not run inside the GodotMaker repository itself. You create a new empty folder for your game, then run one command from the GodotMaker folder to install everything the AI needs into that new folder.
-
-From inside the GodotMaker repository:
+## Create a Game Folder
 
 ```bash
-python tools/publish.py /path/to/my-game
+mkdir my-first-game
+cd my-first-game
 ```
 
-Replace `/path/to/my-game` with a real path, for example `C:\Games\my-bouncing-ball` on Windows or `~/games/my-bouncing-ball` on macOS/Linux. The folder will be created if it does not exist yet.
+You do not need to arrive with a finished GDD. Bring a rough game idea, notes, references, or constraints. GodotMaker will help turn that into `GDD.md` before implementation starts.
 
-The command copies the AI skills, hook scripts, configuration, and templates into your new game folder. It will ask for the full path to your Godot executable if it cannot find Godot automatically.
+For example, a first idea can be as simple as:
 
-Once it finishes, open Claude Code inside that new folder:
+```text
+Make a 2D arcade game where the player controls a bird that flies through gaps between pipes.
+It should be bright, simple, readable, and family-friendly.
+```
+
+You can make the design more detailed later. GodotMaker treats the resulting GDD as the design contract for the run.
+
+## Run GodotMaker
+
+From the game folder:
 
 ```bash
-cd /path/to/my-game
-claude
+godotmaker
 ```
 
-Everything from here happens inside that Claude Code session.
+The CLI publishes the framework into the project if needed, helps capture the idea as a GDD, then drives planning, build, verification, evaluation, and fix loops until the current design scope is complete.
 
----
+## What Happens During the Run
 
-## Step 1 — `/gm-scaffold`
+GodotMaker will:
 
-**What you type:**
+1. Scaffold a Godot project if the folder does not have one yet.
+2. Help turn your game idea into `GDD.md` and tag-scoped planning docs.
+3. Generate or inspect assets.
+4. Dispatch implementation agents.
+5. Run gdUnit4 unit tests and mechanical verification.
+6. Create end-to-end gameplay tests that operate the game like a player.
+7. Run the game, capture screenshots, and compare the result to the design.
+8. Feed missing behavior, UI overlap, visual mismatch, or runtime failures back into the fix loop.
+9. Finalize the tag when the current scope passes.
 
-```
-/gm-scaffold
-```
+You can expect a lot of terminal output. That is normal. The important artifacts are written into the game folder.
 
-**What to expect:** The AI creates the empty Godot project structure — the folders, the required add-ons (gecs for game logic, gdUnit4 for tests), and the first Git commit. You will not be asked questions at this step; it runs automatically.
+## What Lands on Disk
 
-**What lands on disk:** `project.godot`, `addons/`, `src/`, `scenes/`, `assets/`, `test/`, `e2e/conftest.py`.
+After a successful run, expect:
 
-**When you know it's done:** Claude Code prints a summary and returns to the prompt. You will see a new `project.godot` file in the folder.
+- `project.godot`
+- `src/` game code
+- `scenes/` Godot scenes
+- `assets/` generated or provided art
+- `test/` gdUnit4 unit tests
+- `e2e/` gameplay tests and screenshots
+- `GDD.md`, `PLAN.md`, `STRUCTURE.md`, `SCENES.md`, `ASSETS.md`
+- `.godotmaker/` run state and reports
+- `docs/tags/<Tag>/` archived planning docs
 
-This step runs once per project. If you run it again on an existing project, it detects the existing scaffold and skips safely.
+## Review the Result
 
----
-
-## Step 2 — `/gm-gdd`
-
-**What you type:**
-
-```
-/gm-gdd
-```
-
-**What to expect:** The AI interviews you about the game you want. It will ask questions like: What is the goal? What does the player do? What should it look like? How many levels? You don't need to have answers ready — answer as much or as little as you know, and the AI fills in reasonable defaults for anything you leave blank.
-
-After the interview, it writes all the planning documents: the Game Design Document, a task list, a folder structure plan, a scene list, and an asset list.
-
-**What lands on disk:** `GDD.md`, `PLAN.md`, `STRUCTURE.md`, `SCENES.md`, `ASSETS.md`, `TOC.md`.
-
-**When you know it's done:** The AI summarises the design and asks if you are happy with it. Read through `GDD.md` — this is your chance to correct anything before the build starts. Type your feedback or say you're happy to continue.
-
----
-
-## Step 3 — `/gm-asset`
-
-**What you type:**
-
-```
-/gm-asset
-```
-
-**What to expect:** The AI generates the art for your game — sprites, backgrounds, icons — using Google Gemini. If you want to use your own images instead, you can drop them into the `assets/` folder first and the AI will analyse what you have and fill in only what is missing.
-
-**What lands on disk:** Image files in `assets/`, updated `ASSETS.md`.
-
-**When you know it's done:** The AI reports which assets were generated and which already existed. You can open the `assets/` folder and look at the images; if something looks wrong, give feedback and the AI will regenerate specific items.
-
----
-
-## Step 4 — `/gm-build`
-
-**What you type:**
-
-```
-/gm-build
-```
-
-**What to expect:** This is the longest step. The AI implements the game by handing work to specialised sub-agents (think of them as assistants, each responsible for one part of the game). Each task goes through three layers automatically: one sub-agent writes the code, a second one checks that it compiles and the tests pass, and a third checks for common Godot pitfalls. You don't need to supervise this — just wait.
-
-You will see a lot of output as tasks are dispatched and reported back. This is normal.
-
-**What lands on disk:** Game code in `src/`, scene files in `scenes/`, unit tests in `test/`.
-
-**When you know it's done:** The AI prints a build summary. If any tasks failed their checks, they are noted so `/gm-fixgap` can address them later.
-
----
-
-## Step 5 — `/gm-verify`
-
-**What you type:**
-
-```
-/gm-verify
-```
-
-**What to expect:** The AI runs a mechanical check — does the project compile without errors? Do the unit tests pass? Are any required files missing? This is a fast, automated step with no questions.
-
-**What lands on disk:** A `verify` event appended to `.godotmaker/stage.jsonl` once every check passes. The detailed report is printed to the chat — nothing else is written to disk.
-
-**When you know it's done:** The AI prints a pass/fail summary. If anything fails here, it means something in the build step needs fixing — the next two commands handle that.
-
----
-
-## Step 6 — `/gm-evaluate`
-
-**What you type:**
-
-```
-/gm-evaluate
-```
-
-**What to expect:** The AI runs the actual game in the background (without opening a window on your screen), takes screenshots, and scores the result against what the Game Design Document described. This gives an independent view of whether the game looks and behaves correctly — separate from the build step that created it.
-
-**What lands on disk:** `.godotmaker/evaluation.json`, screenshots in `e2e/screenshots/`.
-
-**When you know it's done:** The AI prints an evaluation score and a list of anything that didn't match the design. You can open the screenshots to see what the AI saw.
-
----
-
-## Step 7 — `/gm-fixgap`
-
-**What you type:**
-
-```
-/gm-fixgap
-```
-
-**What to expect:** The AI reads the evaluation results, figures out what needs to change, and dispatches sub-agents to fix each issue — same three-layer process as the build step. This command is safe to skip if the evaluation reported no problems.
-
-**What lands on disk:** Updated game code, a `GAP.md` file listing what was fixed (archived to `.godotmaker/gaps/` when done).
-
-**When you know it's done:** The AI summarises what was fixed. If significant changes were made, you can re-run `/gm-verify` and `/gm-evaluate` to confirm the fixes landed correctly.
-
----
-
-## Step 8 — `/gm-accept`
-
-**What you type:**
-
-```
-/gm-accept
-```
-
-**What to expect:** The AI presents the current state of the game and asks you to make a decision:
-
-- **Accept** — you're happy with this tag; move on to finalising.
-- **Reject (loop back)** — something is still wrong; the AI will return to `/gm-fixgap` and try again.
-- **Stop** — you want to leave the session here and come back later.
-
-**What lands on disk:** An acceptance record in `.godotmaker/stage.jsonl`.
-
-**When you know it's done:** You've made your choice and told the AI.
-
----
-
-## Step 9 — `/gm-finalize`
-
-**What you type:**
-
-```
-/gm-finalize
-```
-
-**What to expect:** The AI tidies everything up — checks the working docs against the final code, archives them into `docs/tags/<Tag>/`, writes a per-tag changelog, runs `git tag <Tag>` locally, and resets per-tag runtime state so the next `/gm-gdd` starts clean. This is a short, automatic step.
-
-**What lands on disk:** `docs/tags/<Tag>/` archive, `.godotmaker/final_report.json`, a local git tag.
-
-**When you know it's done:** The AI confirms the tag is sealed and the project is ready to open in Godot.
-
----
-
-## You now have a playable game
-
-Open the project in the Godot editor:
+Open the project in Godot:
 
 ```bash
-godot --editor --path /path/to/my-game
+godot --editor --path .
 ```
 
 Or run it directly:
 
 ```bash
-godot --path /path/to/my-game
+godot --path .
 ```
 
-To add a new feature later, start a fresh Claude Code session in the same folder and begin again at `/gm-gdd`. The AI reads `MEMORY.md` to understand what already exists before planning the next change. `/gm-scaffold` is a one-time step and does not need to be repeated.
+If the result needs a design change, refine the idea in `GDD.md` or add new notes, then run `godotmaker` again. The next run plans from the updated design and continues from the existing project state.
 
-For a tour of what everything in the project folder means, see [Project layout](project-layout.md).
+## Manual Role Commands
+
+The CLI drives these roles for you:
+
+```text
+gm-scaffold -> gm-gdd -> gm-asset -> gm-build -> gm-verify
+-> gm-evaluate -> gm-fixgap loop -> gm-accept -> gm-finalize
+```
+
+Advanced users can run them as `/gm-*`. Manual mode is useful for debugging, framework development, or reviewing an intermediate stage, but it is no longer the recommended first-run path.
+
+For a tour of what every project file means, see [Project layout](project-layout.md).

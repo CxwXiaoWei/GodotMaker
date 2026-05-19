@@ -1,6 +1,11 @@
-name: Deploy Docs
+name: Docs
 
 on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
   push:
     branches: [main]
     paths:
@@ -8,11 +13,11 @@ on:
       - "mkdocs.yml"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  deploy:
-    name: Deploy to GitHub Pages
+  build:
+    name: Build Docs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -24,8 +29,31 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install mkdocs-material and i18n plugin
+      - name: Install docs dependencies
         run: pip install mkdocs-material mkdocs-static-i18n
 
-      - name: Build and deploy docs
+      - name: Build docs
+        run: mkdocs build
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install docs dependencies
+        run: pip install mkdocs-material mkdocs-static-i18n
+
+      - name: Deploy docs
         run: mkdocs gh-deploy --force

@@ -149,7 +149,7 @@ python -m pytest tests/ -m "not network" -x -q
 
 ## Pre-commit 与 CI
 
-仓库没有配置 pre-commit hook。测试在每个 Pull Request 时通过 CI 运行。提交 PR 前在本地跑完整套件是默认期望：
+仓库的 pre-commit hook 会运行快速的 staged 检查：对 staged Python 文件做 lint，检查用户文档是否同步更新中文镜像，并在本地工具已安装时扫描密钥。测试在每个 Pull Request 时通过 CI 运行。提交 PR 前在本地跑完整套件是默认期望：
 
 ```bash
 python -m pytest tests/ -x -q

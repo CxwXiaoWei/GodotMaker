@@ -1,71 +1,94 @@
-# How it works
+# How It Works
 
-GodotMaker turns a description into a game by running 9 small steps in order. Each step is a slash command you type. Each step does one job and stops.
+GodotMaker is an optimized agent workflow for building Godot games from an idea. The CLI helps turn the idea into a GDD, drives specialized roles, then loops through verification, gameplay evaluation, screenshot review, and fixes until the current design scope is complete.
 
 ```mermaid
 flowchart TD
-    A[/gm-scaffold] --> B[/gm-gdd]
-    B --> C[/gm-asset]
-    C --> D[/gm-build]
-    D --> E[/gm-verify]
-    E --> F[/gm-evaluate]
-    F --> G{approve?}
-    G -- yes --> H[/gm-accept]
-    G -- no --> I[/gm-fixgap]
-    H --> J[/gm-finalize]
-    I --> E
+    A[Game idea] --> B[godotmaker-cli]
+    B --> C[GDD.md and current tag plan]
+    C --> D[Generate or inspect assets]
+    D --> E[Build with worker agents]
+    E --> F[Unit tests and verifier checks]
+    F --> G[Run game and E2E tests]
+    G --> H[Screenshot and visual QA]
+    H --> I{Matches GDD?}
+    I -- yes --> J[Finalize tag]
+    I -- no --> K[Fix gap]
+    K --> F
 ```
 
-You are in control at every transition. Nothing runs while you aren't looking — you type the next command when you are ready to move on.
+The old manual mode still exists: advanced users can run `/gm-*` commands directly. The product direction is CLI-driven no-human-in-the-loop execution.
 
----
+## The Four Phases
 
-## The four phases
+### 1. Plan
 
-### Setup — `/gm-scaffold`, `/gm-gdd`, `/gm-asset`
+The workflow starts from your game idea. GodotMaker helps capture that idea as `GDD.md`, then turns the design into:
 
-These three commands prepare everything the game needs before a single line of gameplay code is written.
+- `PLAN.md` - tasks for the current tag
+- `STRUCTURE.md` - expected components, systems, and project structure
+- `SCENES.md` - scene responsibilities and acceptance criteria
+- `ASSETS.md` - required generated or provided assets
 
-`/gm-scaffold` creates the empty Godot project: the right folder layout, the required addons, and a first git commit. You run it once per project, at the very beginning.
+The GDD remains the design contract after idea capture. If you want a different game, refine the idea or edit the GDD and run the workflow again.
 
-`/gm-gdd` interviews you about the game you want. It asks questions, then writes a Game Design Document (`GDD.md`), a task plan (`PLAN.md`), a folder layout (`STRUCTURE.md`), a scene list (`SCENES.md`), and an asset list (`ASSETS.md`). This document set is the contract everything else works from.
+### 2. Build
 
-`/gm-asset` takes that asset list and either generates art files or analyses images you have already provided. The build step needs real art to work with — this command makes sure it exists.
+Implementation is delegated to worker agents. Workers write game code and tests in scoped tasks rather than one large generation pass.
 
-### Make — `/gm-build`
+The build loop is deliberately strict:
 
-`/gm-build` reads `PLAN.md` and implements the game. It does not write code itself. Instead, it hands each task to a specialised "Worker" — a focused helper that writes one system at a time and includes unit tests. Once every task in `PLAN.md` is `completed`, a "Verifier" runs the headless Godot build and checks that the tests pass, then a "Reviewer" checks the output against Godot-specific pitfalls (physics gotchas, UI layout rules, animation traps, etc.). The main agent triages each reviewer finding into one of three options: ACCEPT (add a new task to `PLAN.md`), REJECT (the finding is wrong), or SKIP (the finding is real but not worth fixing now). REJECT and SKIP both go to `MEMORY.md`'s **Reviewer Triage Log** with a citation (mandatory for critical/major) and are surfaced to you in `/gm-accept`. The cycle loops until no new findings are ACCEPTED.
+- workers implement tasks from `PLAN.md`
+- unit tests are written with the code
+- a verifier runs headless Godot checks and gdUnit4
+- reviewers check Godot-specific pitfalls such as physics, UI layout, animation, navigation, audio, shaders, particles, and tilemaps
 
-### Check — `/gm-verify`, `/gm-evaluate`
+This is why runs take hours instead of minutes: GodotMaker spends the time on verification and correction.
 
-`/gm-verify` does a fast mechanical check: does the project compile, do the unit tests pass, are there missing files?
+### 3. Evaluate
 
-`/gm-evaluate` is a completely fresh perspective. It has not seen the build process at all. It runs the game, takes screenshots, writes end-to-end tests, and scores the result against what `GDD.md` promised. If anything does not match — a feature missing, a scene looking wrong, the game crashing — it produces a rejection with a list of specific problems.
+Verification proves that the project compiles and tests pass. Evaluation asks a different question: does the game actually match the design captured in the GDD?
 
-### Ship — `/gm-accept`, `/gm-fixgap`, `/gm-finalize`
+The evaluator:
 
-If `/gm-evaluate` approves, you run `/gm-accept`. GodotMaker shows you the result and asks you to confirm. Your answer is recorded.
+- launches the game
+- writes or runs end-to-end tests
+- simulates player-like actions
+- captures screenshots
+- checks visual and UI issues against the design
+- writes structured findings
 
-If `/gm-evaluate` rejects, you run `/gm-fixgap` instead. It reads the evaluation's problem list, generates a fix plan, dispatches workers to address each issue, and then loops back to `/gm-verify` and `/gm-evaluate`. This loop repeats until you get an approval.
+This catches problems that compile-time checks miss: overlapping UI, missing game-over flow, unreadable prompts, broken progression, or visuals that do not match the scene requirements.
 
-Once you accept, `/gm-finalize` tidies up: it archives the tag's working docs into `docs/tags/<Tag>/`, writes a per-tag changelog, runs `git tag <Tag>` locally, and resets the per-tag runtime state. At that point you can start the next tag with another `/gm-gdd`, or stop here.
+### 4. Fix and Finalize
 
----
+When evaluation finds a gap, `/gm-fixgap` creates a fix plan and dispatches workers to close it. The workflow then loops back through verification and evaluation.
 
-## What makes this not just a fancy chatbot
+When the current design scope passes, GodotMaker finalizes the tag:
 
-### File-lock permissions
+- archives planning docs under `docs/tags/<Tag>/`
+- writes `.godotmaker/final_report.json`
+- records a local git tag
+- resets per-tag runtime state
 
-When you run a role command, GodotMaker writes that role's name to a file called `.godotmaker/current_role`. A small Python script runs on every file write and refuses anything that role is not allowed to touch. For example: in `/gm-evaluate`, the evaluator can only write into `e2e/` and `.godotmaker/` — it cannot touch game code. In `/gm-build`, the main agent cannot write `.gd` or `.tscn` files directly; it must go through a Worker. This prevents the AI from taking shortcuts or breaking things while in the wrong role.
+You can then refine the idea or edit the GDD and start the next tag.
 
-### The worker-verifier-reviewer loop
+## What Makes It Different
 
-Inside `/gm-build` and `/gm-fixgap`, quality checks are not optional. A "completion check" hook runs when the session tries to end. If workers ran but verifier and reviewer did not, the session is blocked from finishing. The AI cannot declare build complete and skip the checks.
+### No-Human-In-The-Loop by Default
 
-### The independent evaluator pass
+GodotMaker is designed so the CLI can keep working after the idea has been clarified into a design. The agent asks for human input when the design itself is unclear, but implementation, tests, evaluation, screenshots, and fixes are intended to run automatically.
 
-`/gm-evaluate` starts fresh — it reads the GDD and the game files as if seeing them for the first time. It is not allowed to reuse conclusions from the build phase. This gives you an honest second opinion: not "did we write all the code?" but "does the game actually work as described?"
+### TDD and E2E Are Part of the Workflow
 
----
+Tests are not optional cleanup. Unit tests and E2E tests are part of the generation loop and become feedback for later agents.
 
-For a command-by-command breakdown, see [the-9-roles.md](the-9-roles.md).
+### Visual Feedback Is a First-Class Gate
+
+Godot games can pass tests and still look wrong. GodotMaker captures screenshots and uses visual QA to turn UI and scene problems into concrete fix tasks.
+
+### Real Godot Output
+
+The output is a normal Godot project. You are not locked into a hosted editor or a proprietary runtime.
+
+For command-level details, see [The 9 roles](the-9-roles.md).

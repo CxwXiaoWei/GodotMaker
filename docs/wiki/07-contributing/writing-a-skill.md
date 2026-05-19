@@ -8,7 +8,7 @@ GodotMaker has three skill layers, each living in a different folder:
 
 | Layer | Folder | Invoked by |
 |-------|--------|-----------|
-| **Role skill** | `skills/core/gm-*/` | User typing `/gm-build`, `/gm-verify`, etc. |
+| **Role skill** | `skills/core/gm-*/` | `godotmaker-cli` or a manual `/gm-build`, `/gm-verify`, etc. |
 | **Supporting skill** | `skills/core/<name>/` | Another skill loading it as a reference doc |
 | **Reviewer skill** | `skills/reviewer/<name>/` | The reviewer sub-agent dispatched by `gm-build` / `gm-fixgap` |
 

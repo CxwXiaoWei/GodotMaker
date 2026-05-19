@@ -1,10 +1,10 @@
 # Core Skills
 
-Core skills come in two kinds: the nine role skills you invoke with slash commands, and twelve supporting skills that role skills load automatically. This page covers both.
+Core skills come in two kinds: the nine role skills exposed as `/gm-*` commands, and twelve supporting skills that role skills load automatically. This page covers both.
 
 ## Role skills
 
-There are nine role skills, each responsible for one phase of game creation. You run them in order — each one expects the previous phase to be complete before it starts.
+There are nine role skills, each responsible for one part of game creation. In the normal path, `godotmaker-cli` drives them in order; in manual mode, run the `/gm-*` role commands in the same sequence because each role expects the previous one to be complete.
 
 | Command | What it does | Needs | Produces |
 |---------|-------------|-------|---------|
@@ -18,7 +18,7 @@ There are nine role skills, each responsible for one phase of game creation. You
 | `/gm-accept` | Shows you the current state and asks whether to accept it, go back for more fixes, or stop | A complete build cycle | Acceptance event recorded in `.godotmaker/stage.jsonl` |
 | `/gm-finalize` | Archives the tag's working docs to `docs/tags/<Tag>/`, runs `git tag <Tag>` locally, resets per-tag runtime state | An accepted build | `docs/tags/<Tag>/` archive, `.godotmaker/final_report.json`, local git tag |
 
-After `/gm-finalize` you can begin the next tag by running `/gm-gdd` again (for example, to add a new feature). `/gm-scaffold` is a one-time step per project.
+After `/gm-finalize` you can begin the next tag through the CLI, or manually by running `/gm-gdd` again (for example, to add a new feature). `/gm-scaffold` is a one-time setup step per project.
 
 For a deeper look at what each role does and the decisions it makes, see [The 9 roles](../02-concepts/the-9-roles.md).
 
@@ -59,4 +59,4 @@ Supporting skills are reference packs loaded silently by the role skills. You ne
 
 The full content of any supporting skill's `SKILL.md` lives in `skills/core/<name>/` in the repository if you want to see exactly what reference material it contains.
 
-You don't invoke supporting skills directly — you use the nine role commands above, and they pull in what they need.
+You don't invoke supporting skills directly - the CLI or the role commands above pull in what they need.

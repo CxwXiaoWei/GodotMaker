@@ -8,7 +8,7 @@ GodotMaker 有三个技能层级，分别存放在不同的文件夹中：
 
 | 层级 | 文件夹 | 调用方式 |
 |-------|--------|-----------|
-| **角色技能** | `skills/core/gm-*/` | 用户输入 `/gm-build`、`/gm-verify` 等 |
+| **角色技能** | `skills/core/gm-*/` | `godotmaker-cli` 或手动 `/gm-build`、`/gm-verify` 等 |
 | **辅助技能** | `skills/core/<name>/` | 其他技能将其作为参考文档加载 |
 | **审查技能** | `skills/reviewer/<name>/` | 由 `gm-build` / `gm-fixgap` 分发的审查子 Agent |
 

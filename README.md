@@ -7,98 +7,95 @@
 
 **English** | [中文](README.zh-CN.md)
 
-> **Describe your game. Play it. Own it.** — Source-available, local-first, and yours to build on.
+> **Bring your idea. Give it to GodotMaker. Get a playable game.**
 
-GodotMaker turns plain-language descriptions into real, playable Godot games. Type *"a Vampire Survivors-style game with three weapon types and a level-up system"* — wait a few minutes — open Godot and play it. No engine experience required, no subscription, no platform lock-in. The project lives on your disk and is yours to keep, edit, and ship.
+## Why It Exists
 
-## What you get
+Many tools promise "AI-made games." In practice, they often come with the same problems:
 
-- **A real Godot project** on your computer. Open it in the Godot editor any time and change anything you want.
-- **Free** to use. Runs locally with the AI tools you already have. No platform fees, no usage caps.
-- **Source-available under BUSL 1.1.** No black box, no closed-platform resale.
-- **The full Godot ecosystem** is at your fingertips — addons, exporters, the editor itself. Your game can grow as far as you can take it.
+- You only want to realize an idea, but you still sit in front of the computer testing builds, taking screenshots, and feeding the agent step-by-step feedback.
+- The platform says it is building the game for you, but the code and project stay on its servers, making it hard to download everything or continue elsewhere.
+- You finally get a fun demo, but it is not grounded in a mature game engine, so iteration, debugging, extension, and publishing become difficult.
+- What is mostly a development workflow still gets wrapped in expensive token markup and a locked runtime environment.
 
-## Who is this for?
+GodotMaker takes a different route: bring the game idea, let it help shape that idea into a GDD, then let agents run for hours through planning, implementation, tests, gameplay runs, screenshots, evaluation, and fixes. When the run finishes, you review a real Godot project on your disk.
 
-- You have an idea for a game but you've never learned a game engine.
-- You're a designer, hobbyist, student, or creator who wants to see your idea actually run.
-- You want a working prototype fast — and you want to keep building on it long after the AI is done.
+The code is yours. The workflow source is public, local-first, and free to run for permitted uses under the Business Source License. If you want a better game, refine the idea or GDD and run another iteration.
 
-GodotMaker is for the gap between *"I have an idea"* and *"I have a playable thing."* And from there, the whole Godot ecosystem is yours — keep iterating in the editor, plug in community addons, learn as you go, and grow your prototype into the game you actually want to ship.
+## What Makes It Different
 
-## How it works (in 30 seconds)
+- **No-human-in-the-loop by default.** Like long-running goal/task modes in modern coding agents, GodotMaker keeps going after you state the target.
+- **Natural language to a complete game project.** Your input can start as a game idea; GodotMaker helps shape it into the design contract.
+- **The code is yours.** The output is a normal Godot project with source files, scenes, assets, tests, screenshots, and reports.
+- **Iterate through the design.** Keep refining the idea or GDD and let later runs improve the game instead of starting over.
+- **Built on a real engine.** The result lands in the Godot ecosystem, so you can keep debugging, extending, exporting, and shipping.
+- **No middleman markup.** GodotMaker is the workflow layer. It does not resell agent work through a closed platform.
+- **Source-available automation.** The framework and CLI-driven workflow are public to inspect, run, modify for permitted uses, and contribute to.
 
-1. You install GodotMaker into an empty folder. One command.
-2. You open Claude Code in that folder and type `/gm-scaffold`. The AI sets up the Godot project, addons, and folder layout. Then `/gm-gdd` interviews you about the game you want.
-3. You run the remaining seven commands one at a time. Between each, the AI does the work — writes the code, generates the art, builds the project, plays the game, takes screenshots, scores the result.
-4. When you're happy, you accept and finalise. Open the project in Godot and play.
+External agent runtimes and model providers, such as Claude Code, Codex, Gemini, OpenAI, xAI, or Tripo, may have their own pricing, quotas, and data policies. GodotMaker keeps the workflow open and the project local.
 
-A small game typically takes about 30 minutes of *your* attention spread across the session — the AI runs in the background between commands.
+## What The Agents Do
 
-[Full walkthrough →](https://RandallLiuXin.github.io/GodotMaker/wiki/01-getting-started/first-game/)
+During a run, GodotMaker agents keep pushing the design forward:
 
-## Quick start
+- turn your idea into `GDD.md`, tasks, scenes, systems, and acceptance criteria
+- implement gameplay in Godot
+- write gdUnit4 unit tests while writing code
+- create end-to-end tests that operate the game like a player
+- run the game and capture screenshots
+- compare the result against the GDD
+- route missing behavior, broken UI, and visual problems back into the fix loop
+
+A small game usually takes about **3-5 hours of agent runtime**. The promise is not instant output. The promise is that the workflow keeps moving without you manually driving every phase.
+
+## Quick Start
 
 ```bash
-# 1. Clone this repository
-git clone https://github.com/RandallLiuXin/GodotMaker.git
-cd GodotMaker
+npm install -g godotmaker-cli
 
-# 2. Install dependencies and check your environment
-pip install -r tools/requirements.txt
-python tools/check_env.py
+mkdir my-game
+cd my-game
 
-# 3. Deploy GodotMaker into a new folder for your game.
-# Choose the agent you want to use for this project.
-
-# Claude Code
-python tools/publish.py /path/to/my-game
-cd /path/to/my-game
-claude
-
-# Codex
-python tools/publish.py --agent codex /path/to/my-game
-cd /path/to/my-game
-codex
+# Bring your game idea, then run:
+godotmaker
 ```
 
-Inside [Claude Code](https://claude.ai/code) or
-[Codex](https://openai.com/codex/), run the nine GodotMaker commands in order,
-starting with `/gm-scaffold` for Claude Code or `$gm-scaffold` for Codex.
-See [Your first game](https://RandallLiuXin.github.io/GodotMaker/wiki/01-getting-started/first-game/) for a full walk-through.
+The CLI drives the workflow from idea capture and GDD planning to a playable Godot tag. Advanced users can still run the underlying role commands directly with Claude Code (`/gm-*`) or Codex (`$gm-*`).
 
-## What you'll need
+For framework development:
+
+```bash
+git clone https://github.com/RandallLiuXin/GodotMaker.git
+cd GodotMaker
+pip install -r tools/requirements.txt
+python tools/check_env.py
+```
+
+## Requirements
 
 | Tool | Why |
 |---|---|
-| [Godot 4.5+](https://godotengine.org) (recommended; 4.3/4.4 still supported) | The game engine your project runs in |
-| [Claude Code](https://claude.ai/code) or [Codex](https://openai.com/codex/) | The coding agent you talk to |
-| Python 3.10+ | Runs the helper scripts |
-| `GOOGLE_API_KEY` | Free tier; used to generate art for your game |
+| [Godot 4.5+](https://godotengine.org) | Runs the generated game |
+| [Claude Code](https://claude.ai/code) or [Codex](https://openai.com/codex/) | Agent runtime |
+| Node.js 18+ | Runs `godotmaker-cli` and Godot MCP tooling |
+| Python 3.10+ | Runs GodotMaker helper scripts |
+| Git 2.30+ | Enables local history and agent worktrees |
 
-Optional: .NET SDK 8.0+ if you want a C# game project instead of GDScript.
+Optional API keys are needed only when your project config selects API-backed providers. Runtime-native image or vision paths can use your selected agent runtime instead.
 
-## Documentation
+## Learn More
 
-- [**Get started in 30 minutes**](https://RandallLiuXin.github.io/GodotMaker/wiki/01-getting-started/first-game/) — your first game, step by step
-- [How it works](https://RandallLiuXin.github.io/GodotMaker/wiki/02-concepts/how-it-works/) — what each command does and why
-- [Common problems](https://RandallLiuXin.github.io/GodotMaker/wiki/04-troubleshooting/common-problems/) — when something goes wrong
-- [Full wiki](https://RandallLiuXin.github.io/GodotMaker/) — every page
+- [Installation](https://RandallLiuXin.github.io/GodotMaker/wiki/01-getting-started/installation/)
+- [Your first game](https://RandallLiuXin.github.io/GodotMaker/wiki/01-getting-started/first-game/)
+- [How it works](https://RandallLiuXin.github.io/GodotMaker/wiki/02-concepts/how-it-works/)
+- [Common problems](https://RandallLiuXin.github.io/GodotMaker/wiki/04-troubleshooting/common-problems/)
+- [Full docs](https://RandallLiuXin.github.io/GodotMaker/)
 
-## Roadmap
+## Status
 
-What's coming next:
+GodotMaker is preparing for a source-available public alpha. The CLI, Codex support, visual QA, and packaging are moving quickly.
 
-- **More high-quality plugin skills** — first-class support for popular Godot community addons (Phantom Camera, Dialogic, Beehave, GodotSteam, …).
-- **Richer asset generation workflows** — more pipelines for sprites, animations, tilesets, audio, and 3D models.
-- **Multi-platform publishing** — one-click export to Steam, iOS, Google Play, and Web.
-- **Graphical UI** — a visual front-end so you don't have to use the command line.
-
-Full backlog and shipped items: [`ROADMAP.md`](ROADMAP.md).
-
-## Contributing
-
-Contributions are welcome — bug fixes, new reviewer skills, addon integrations, translations, anything. Start with the [Development Setup](https://RandallLiuXin.github.io/GodotMaker/wiki/07-contributing/development-setup/) and the [Contributing Guide](CONTRIBUTING.md).
+If this direction is useful to you, star the repo, try the CLI, and open issues with the games you want it to build better.
 
 ## License
 

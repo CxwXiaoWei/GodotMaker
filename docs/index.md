@@ -1,33 +1,33 @@
 # GodotMaker
 
-**Turn a plain-English game description into a complete, playable Godot 4 project.**
+**Bring a game idea. Let GodotMaker turn it into a playable Godot project.**
 
-GodotMaker takes what you want — described in everyday language — and produces working game code, art, tests, and quality checks. You drive the process with nine slash commands; the framework keeps everything honest in between.
+GodotMaker turns a game idea into a playable Godot 4 project through a no-human-in-the-loop run driven by `godotmaker-cli`. It helps shape the idea into a GDD, then plans, builds, tests, runs, screenshots, evaluates, and fixes until the current design scope is complete. The result is a local Godot project rather than a hosted black box. The underlying `/gm-*` role commands remain available for advanced users.
 
-## What you get
+## What You Get
 
-- **Describe, don't configure** — write a plain-language brief; the framework plans, scaffolds, and codes the game for you
-- **Tested code by default** — unit tests (gdUnit4) and end-to-end tests are written alongside game code, not bolted on later
-- **Catches Godot-specific bugs early** — eight domain reviewers (physics, animation, UI, tilemap, navigation, shader, audio, particles) flag common Godot pitfalls before you see the build
-- **Visual quality checks included** — automated screenshots and AI-based visual assessment confirm the game looks right, not just that it compiles
-- **Consistent ECS structure** — all generated game logic follows Entity-Component-System via [gecs](https://github.com/csprance/gecs), so the code stays predictable as it grows
-- **You stay in control** — each step is one slash command; you decide when to start the next, can stop anytime, and resume cleanly
+- **Idea-to-GDD generation** - describe the game in natural language, then let the workflow turn it into tasks, structure, scenes, and assets.
+- **No-human-in-the-loop runs** - a typical small game takes about 3-5 hours of agent runtime while the CLI keeps the loop moving.
+- **Owned local output** - the result is a normal Godot project you can open, inspect, modify, and ship.
+- **No closed-platform resale** - GodotMaker is an open workflow layer, not a hosted editor that resells agent work and keeps the project locked away.
+- **Tested code by default** - unit tests and end-to-end gameplay tests are written alongside the game code.
+- **Visual QA included** - the evaluator runs the game, captures screenshots, compares the result to the design, and feeds issues back into the fix loop.
+- **Source-available workflow layer** - GodotMaker does not lock the project behind a hosted editor.
 
-## New here? Start with these three pages
+## Start Here
 
-1. [Installation](wiki/01-getting-started/installation.md) — what you need on your machine and how to set it up
-2. [Your first game](wiki/01-getting-started/first-game.md) — a walk-through that runs all nine commands end-to-end
-3. [How it works](wiki/02-concepts/how-it-works.md) — what the framework actually does behind those commands
+1. [Installation](wiki/01-getting-started/installation.md) - required tools, optional API keys, and environment checks.
+2. [Your first game](wiki/01-getting-started/first-game.md) - the CLI-driven idea-to-playable workflow.
+3. [How it works](wiki/02-concepts/how-it-works.md) - the roles, quality gates, and fix loops behind the CLI.
 
-## Other quick links
+## Other Links
 
-- [The 9 roles](wiki/02-concepts/the-9-roles.md) — what each `/gm-*` command does
-- [Troubleshooting](wiki/04-troubleshooting/common-problems.md) — fixes for common issues
+- [The 9 roles](wiki/02-concepts/the-9-roles.md) - the underlying role commands.
+- [Troubleshooting](wiki/04-troubleshooting/common-problems.md)
 - [FAQ](wiki/08-reference/faq.md)
 - [Contributing](wiki/07-contributing/development-setup.md)
 - [GitHub repository](https://github.com/RandallLiuXin/GodotMaker)
 
-## Project status
+## Project Status
 
-- Current release: see [`VERSION`](https://github.com/RandallLiuXin/GodotMaker/blob/main/VERSION) and [`CHANGELOG.md`](https://github.com/RandallLiuXin/GodotMaker/blob/main/CHANGELOG.md)
-- Roadmap: [`ROADMAP.md`](https://github.com/RandallLiuXin/GodotMaker/blob/main/ROADMAP.md)
+GodotMaker is preparing for a source-available public alpha. The CLI, visual QA, and packaging are moving quickly; expect the workflow and docs to keep changing.

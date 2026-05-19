@@ -22,7 +22,7 @@ Godot 4.5 or later. GodotMaker does not support Godot 3.x or Godot 4.3 and below
 
 ### How long does it take to make a game?
 
-For a small game, expect roughly 30 minutes of your own time spread across several `/gm-*` commands — reading the GDD, confirming the design, checking the evaluation report, and accepting the result. The AI runtime (building, testing, generating art) runs in the background during each command and may take longer depending on your machine and network speed. More ambitious games scale with the number of tasks in your `PLAN.md`.
+For a small game, expect roughly **3-5 hours of agent runtime**. Your own attention is usually front-loaded into clarifying the idea and later reviewing the result. After the design is clear, `godotmaker-cli` drives the same `/gm-*` roles through planning, build, verification, evaluation, screenshots, and fixes without you manually triggering every command. More ambitious games scale with the number of tasks in `PLAN.md`.
 
 ### Can I use C# instead of GDScript?
 
@@ -34,25 +34,25 @@ Yes. GodotMaker supports both GDScript and C#. ECS components and systems can be
 
 ### What is a tag?
 
-A **tag** is one complete pass through the pipeline: from `/gm-gdd` (write the design for this round) through `/gm-finalize` (archive the working docs and stamp `git tag <Tag>`). Tags are SemVer-named — the first tag is always `v0.1.0` and must deliver a playable closed loop; later tags add a feature set or rework existing systems. `ROADMAP.md` lists the planned tags; the earliest one without a `git tag` is the current tag. When you want to add a new feature or change direction, start the next tag by running `/gm-gdd` again. `/gm-scaffold` runs only once per project and is not repeated between tags.
+A **tag** is one complete pass through the pipeline: `/gm-gdd`, `/gm-asset`, `/gm-build`, `/gm-verify`, `/gm-evaluate`, `/gm-fixgap` as needed, `/gm-accept`, and `/gm-finalize`. Tags are SemVer-named — the first tag is always `v0.1.0` and must deliver a playable closed loop; later tags add a feature set or rework existing systems. `ROADMAP.md` lists the planned tags; the earliest one without a `git tag` is the current tag. The CLI drives this flow for normal runs. Advanced users can still start the next tag manually with `/gm-gdd`; `/gm-scaffold` runs only once per project and is not repeated between tags.
 
 ### What if I want to stop halfway through?
 
-You can stop at any point. The next time you open the project, the `session_start.py` hook reads `.godotmaker/stage.jsonl` to see where you left off, and the active role skill shows you a resume summary. Just run the same `/gm-*` command again to pick up where you stopped.
+You can stop at any point. The next time you open the project, GodotMaker reads `.godotmaker/stage.jsonl` to see where you left off. In the normal CLI path, run `godotmaker` again to resume. In manual role-command mode, run the same `/gm-*` role again to pick up where you stopped.
 
 For a full walkthrough of recovery scenarios, see [Recovery & Resume](../04-troubleshooting/recovery-and-resume.md).
 
-### Can I run two `/gm-*` commands at the same time?
+### Can I run two role commands at the same time?
 
-No. Each `/gm-*` skill writes its name to `.godotmaker/current_role` when it starts, and hook scripts use that file to enforce write permissions. If a second command tried to start while one was already running, the file-permission hook would immediately start blocking unexpected writes. Run one command at a time and wait for it to complete.
+No. Each role writes its name to `.godotmaker/current_role` when it starts, and hook scripts use that file to enforce write permissions. If a second role tried to start while one was already running, the file-permission hook would immediately start blocking unexpected writes. Let the CLI manage the sequence, or in manual mode run one role at a time and wait for it to complete.
 
 ### Why are some commands re-runnable and others are not?
 
-`/gm-scaffold` is a once-per-project command — re-running it on an existing project would overwrite the project setup. `/gm-asset` is re-runnable within a tag whenever new assets are needed. The roles from `/gm-build` onward follow the per-tag cycle: they should run in order, and re-running one re-does that phase of the current tag. `/gm-gdd` starts a new tag.
+`/gm-scaffold` is a once-per-project command — re-running it on an existing project would overwrite the project setup. `/gm-asset` is re-runnable within a tag whenever new assets are needed. The commands from `/gm-build` onward follow the per-tag cycle: they should run in order, and re-running one re-does that phase of the current tag. In manual mode, `/gm-gdd` starts a new tag.
 
 ### What happens inside `/gm-build`?
 
-`/gm-build` works through the task list in `PLAN.md` by dispatching **Workers** until every task is `completed`, then runs one verify+review pass — a **Verifier** builds the project headlessly and runs the tests, then a **Reviewer** checks for Godot-specific pitfalls. The main agent triages each finding into one of three options: ACCEPT (add as a new task in `PLAN.md`), REJECT (the finding is wrong — record in `MEMORY.md`'s **Reviewer Triage Log**), or SKIP (the finding is real but not worth fixing now — same MEMORY.md section). REJECT/SKIP for critical/major findings requires a citation; both are shown to you in `/gm-accept`. The cycle loops until no new findings are ACCEPTED. The `check_completion.py` hook refuses to let `/gm-build` end if workers ran but the verifier or reviewer never did.
+`/gm-build` works through the task list in `PLAN.md` by dispatching **Workers** until every task is `completed`, then runs one verify+review pass — a **Verifier** builds the project headlessly and runs the tests, then a **Reviewer** checks for Godot-specific pitfalls. The main agent triages each finding into one of three options: ACCEPT (add as a new task in `PLAN.md`), REJECT (the finding is wrong — record in `MEMORY.md`'s **Reviewer Triage Log**), or SKIP (the finding is real but not worth fixing now — same MEMORY.md section). REJECT/SKIP for critical/major findings requires a citation; both are shown in `/gm-accept` or final review summaries. The cycle loops until no new findings are ACCEPTED. The `check_completion.py` hook refuses to let `/gm-build` end if workers ran but the verifier or reviewer never did.
 
 ### Why does the AI need git worktrees?
 
@@ -86,7 +86,7 @@ For a longer explanation, see [ECS in plain English](../02-concepts/ecs-in-plain
 
 ### How do I know if the build succeeded?
 
-After `/gm-verify` completes, it prints a per-check pass/fail report to the chat and — on overall success — appends a `verify` event to `.godotmaker/stage.jsonl`. Each worker's report during `/gm-build` also records whether its tests passed. If the Godot headless build fails or unit tests fail, `/gm-verify` reports the failure and tells you to go back to `/gm-build` (or `/gm-fixgap` if you were in a gap-fix cycle).
+After `/gm-verify` completes, it prints a per-check pass/fail report and — on overall success — appends a `verify` event to `.godotmaker/stage.jsonl`. Each worker's report during `/gm-build` also records whether its tests passed. If the Godot headless build fails or unit tests fail, verification reports the failure and routes the workflow back to build or fixgap as appropriate.
 
 ---
 
@@ -112,11 +112,11 @@ For common hook errors and how to read them, see [Common problems](../04-trouble
 
 ### I get "fatal: not a valid object name: HEAD" when a worker starts.
 
-This means the project has no git commits yet. `/gm-scaffold` should have created one. Re-run `/gm-scaffold` or create an initial commit manually with `git commit --allow-empty -m "init"`.
+This means the project has no git commits yet. `/gm-scaffold` should have created one. Re-run setup/scaffold through the CLI or manual command, or create an initial commit manually with `git commit --allow-empty -m "init"`.
 
 ### My evaluation score is low but the game seems fine to me.
 
-The evaluator uses visual QA against per-scene reference images and the GDD description. If you skipped `/gm-asset`'s Step 3 (which generates `references/scene_*.png` files), the evaluator has no visual reference to compare against and will score conservatively. Run `/gm-asset` again to generate the missing references before re-evaluating.
+The evaluator uses visual QA against per-scene reference images and the GDD description. If `/gm-asset` did not generate `references/scene_*.png` files, the evaluator has no visual reference to compare against and will score conservatively. Run the asset command again to generate the missing references before re-evaluating.
 
 ### How do I roll back to a previous GodotMaker version?
 
@@ -129,6 +129,6 @@ python tools/publish.py --force /path/to/my-game
 
 The `--force` flag does a few things at once: it skips MINOR/MAJOR upgrade prompts, allows downgrades, and for Claude Code targets overwrites `.claude/settings.json`. The full clean re-initialisation (wiping the selected agent's skills, `.godotmaker/hooks/`, runtime state files, etc.) only happens on **MAJOR** upgrades — on PATCH/MINOR/SAME the existing framework files are simply overwritten in place. So in the downgrade example above, `--force` mainly serves to override the downgrade block.
 
-### The pipeline references "stages" but I only see `/gm-*` commands. What gives?
+### The pipeline references "stages" or "roles." What gives?
 
-"Stage" was the original GodotMaker term for a pipeline step. The framework has been redesigned around 9 role-based commands with no central orchestrator. Some file names (like `stage.jsonl` and `stage_schemas.json`) still use the old word for continuity. Treat "stage" and "role" as synonyms when you see them in tool output or older docs. See also: *Stage vs Role* in the Glossary.
+"Stage" was the original GodotMaker term for a pipeline step. The framework now exposes role-based commands such as `/gm-build`, and `godotmaker-cli` can drive those roles for normal runs. Some file names (like `stage.jsonl` and `stage_schemas.json`) still use the old word for continuity. Treat "stage" and "role" as synonyms when you see them in tool output or older docs. See also: *Stage vs Role* in the Glossary.
