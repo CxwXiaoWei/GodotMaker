@@ -52,6 +52,7 @@ Before invoking `game-planner` in initial mode, collect the user's rough idea in
 - If `$ARGUMENTS` is empty, ask the user for one open-ended paragraph: what they want to make, any references, mechanics, visual style, constraints, and anything they already decided. Make clear that rough notes are enough.
 - Pass this freeform intake verbatim into the `game-planner` brief as "Initial User Concept".
 - `game-planner` must skip questions that the freeform intake already answers and use those details to choose smarter defaults.
+- Any "your call" / "you decide" language in the intake is scoped to the named topic or the current intake round unless the user explicitly grants broader delegation.
 
 This intake is NOT a confirmation gate. Keep `AskUserQuestion` for explicit GDD and ROADMAP confirmations only.
 
@@ -94,6 +95,7 @@ This sub-stage exists in BOTH modes but does different work.
 2. Derive a tag list following the SemVer convention from `templates/ROADMAP.md`:
    - First tag is always `v0.1.0` and MUST deliver the first playable unit.
    - Every tag is a minimal playable unit: the player can experience a complete slice of gameplay with a completion, fail, or exit state.
+   - Every tag includes the player-facing information needed to understand and play that slice.
    - Subsequent tags add one playable unit at a time.
 3. Write a draft `ROADMAP.md` populated with this tag list.
 4. **MANDATORY gate:** Use `AskUserQuestion` to ask the user:
@@ -138,6 +140,7 @@ directly if needed. PLAN.md must be stable before Phase B starts:
 - [ ] Inherited Mechanics section is populated for subsequent mode, or omitted for v0.1.0
 - [ ] Playable Unit section is populated and references existing mechanic ids
 - [ ] Playable Unit describes player experience, unit outcome, scenes involved, and per-mechanic player operation / effect / visible evidence
+- [ ] PLAN covers the player-facing state, feedback, and presentation needed to play the current tag normally
 - [ ] Risk/Main tasks have stable task IDs and all Task Status rows start as `pending`
 - [ ] Tasks list affected systems/scenes/assets clearly enough for downstream artifacts
 
