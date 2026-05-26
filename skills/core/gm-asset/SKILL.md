@@ -3,7 +3,7 @@ name: gm-asset
 description: |
   Asset collection + generation. Reads ASSETS.md MISSING entries (rows
   whose Tag matches the current tag), dispatches an analyst subagent for
-  user-provided image inspection, generates AI images through the configured
+  image inspection, generates AI images through the configured
   asset_image_model path, updates ASSETS.md status. ASSETS.md is cross-tag — every
   row carries a Tag column marking the introducing tag. Re-runnable any
   time during a tag. Explicit invocation only — use /gm-asset.
@@ -43,14 +43,15 @@ Asset is re-runnable per tag, so the gate is the current state of `ASSETS.md` pl
 ## Hard Rules
 
 1. **Direct Write/Edit by you (main agent) is restricted to project-root `ASSETS.md` and files under `.godotmaker/`.** Files in `assets/` and `references/` reach disk only via:
-   - `tools/asset_gen.py` invoked through Bash for API-backed generation, OR
-   - the selected runtime-native image-generation provider/tool followed by `tools/asset_image_finalize.py`, OR
-   - the analyst subagent (Step 2).
+   - `tools/asset_gen.py` invoked through Bash for API-backed generation.
+   - `tools/codex_image_claim.py` followed by `tools/asset_image_finalize.py`.
+   - Runtime-native generation followed by `tools/asset_image_finalize.py`.
+   - The analyst subagent (Step 2).
    Do NOT write image files with direct Write/Edit calls.
-2. **Image analysis MUST go through the analyst subagent.** Do NOT Read image binaries from `assets/` yourself — they pollute context. Dispatch analyst when you need style/dimension/role extraction.
-3. **You CANNOT modify PLAN.md, GAP.md, STRUCTURE.md, SCENES.md, STYLE.md.** Asset work is isolated from gameplay planning. Code-art coupling issues surface in `/gm-evaluate` and are addressed in `/gm-fixgap` or the next tag.
-4. **You CANNOT write game code.** Code lives in `/gm-build` workers.
-5. **Audio MUST be user-provided** — AI audio generation is not supported. Mark audio as deferred and remind the user.
+2. **Image analysis MUST go through the analyst subagent.** Do NOT Read image binaries from `assets/` or `references/` yourself. Dispatch analyst when you need style/dimension/role extraction.
+3. **You CANNOT modify PLAN.md, GAP.md, STRUCTURE.md, SCENES.md, STYLE.md.**
+4. **You CANNOT write game code.**
+5. **Audio MUST be user-provided.** Mark audio as deferred and remind the user.
 
 ## Model Selection
 
@@ -84,28 +85,55 @@ Use `AskUserQuestion`:
 If user provides files:
 
 1. Wait for user confirmation that files are placed.
-2. Dispatch an **analyst subagent** (`subagent_type: "analyst"`, see `references/analyst-dispatch.md`) to inspect the files and generate/update `assets/manifest.json`.
+2. Dispatch an **analyst subagent** (`subagent_type: "analyst"`, see `references/analyst-dispatch.md`) to inspect image files and generate/update `assets/manifest.json`.
    - **Do NOT read image files yourself.** All image analysis goes through the analyst.
    - Analyst extracts: type, role, dimensions, palette, style characteristics.
 3. After analyst reports, update ASSETS.md: change matching `MISSING` rows to `provided`.
 
 ### Step 3 — Generate Scene Reference Images (if MISSING)
 
-For each scene in SCENES.md whose `references/scene_{name}.png` is missing:
+Build the missing scene-reference list from SCENES.md. For each missing scene,
+plan a fixed source path, final path, and report path:
 
-1. **Read `references/visual-target.md` first** — it has the prompt rules (enumerate every object, exclude effects you won't build, show HUD, etc.) and a prompt template. These reference images become the VQA contract that `gm-evaluate` enforces, so the rules matter.
-2. Build the prompt for this scene using inputs from `SCENES.md` (Elements + Mood) + `STYLE.md` + `GDD.md` §4. If the user provided art in `assets/`, also reference the analyst's style summary from `assets/manifest.json`.
-3. Generate the image using the selected `asset_image_model` path. For API-backed selectors, run via Bash:
-   ```bash
-   python tools/asset_gen.py image --model <asset_image_model> --prompt "..." \
-     --size 1K --aspect-ratio 16:9 -o references/scene_{name}.png
-   ```
-   For `native` or `codex`, use the selected runtime-native provider/tool, then run:
-   ```bash
-   python tools/asset_image_finalize.py --source <generated_image_path> \
-     --out references/scene_{name}.png --label scene_{name}
-   ```
-4. Show the result to the user. If rejected, regenerate with a tightened prompt (per `references/visual-target.md`).
+```json
+{
+  "group_id": "scene_refs_001",
+  "kind": "scene_reference",
+  "provider": "<asset_image_model>",
+  "anchor_item": {
+    "asset_id": "scene_main",
+    "prompt": "<prompt>",
+    "source_path": ".godotmaker/asset-generation/sources/scene_main_source.png",
+    "final_path": "references/scene_main.png"
+  },
+  "parallel_items": [
+    {
+      "asset_id": "scene_shop",
+      "prompt": "<prompt>",
+      "source_path": ".godotmaker/asset-generation/sources/scene_shop_source.png",
+      "final_path": "references/scene_shop.png"
+    }
+  ],
+  "report_path": ".godotmaker/asset-generation/reports/scene_refs_001.json"
+}
+```
+
+If one scene should anchor the visual style for the rest, generate that anchor
+scene first. Then generate the remaining missing scene references in parallel
+groups of up to 3. If isolated generation groups are unavailable, run
+sequentially and write the fallback reason in the report and summary.
+
+For each missing scene:
+
+1. Read `references/visual-target.md`.
+2. Build the prompt for this scene using inputs from `SCENES.md` (Elements + Mood) + `STYLE.md` + `GDD.md` section 4. If the user provided art in `assets/`, also reference the analyst's style summary from `assets/manifest.json`.
+3. Generate the scene image using the selected `asset_image_model` path:
+   - API-backed selector: run `python tools/asset_gen.py image --model <asset_image_model> --prompt "..." --size 1K --aspect-ratio 16:9 -o references/scene_{name}.png`.
+   - Active Codex runtime with `asset_image_model: native` or `asset_image_model: codex`: follow `references/asset-gen.md` Active Codex runtime batch for this scene.
+   - Claude Code with `asset_image_model: codex`: follow `references/asset-gen.md` Codex handoff from Claude Code for this scene.
+   - Other runtime-native provider: generate a source image path, then run `python tools/asset_image_finalize.py --source <generated_image_path> --out references/scene_{name}.png --label scene_{name}`.
+4. Write the scene's flat finalize JSON entry to the scene-reference generation report.
+5. Show the result to the user. If rejected, regenerate with a tightened prompt (per `references/visual-target.md`).
 
 ### Step 4 — Generate Remaining MISSING Art
 
@@ -118,31 +146,44 @@ Confirm with user:
 
 After confirmation, generate each asset through the selected `asset_image_model` path (per `asset-planner.md` + `asset-gen.md` for prompt construction).
 
-Run up to 3 generation groups in parallel. Each group owns one or more target image paths. If isolated generation groups are unavailable, run the batch sequentially and state the fallback.
+Run generation groups in batches of up to 3 art assets. Each group uses this
+input schema:
 
-- API-backed selectors: each group runs `python tools/asset_gen.py image --model <asset_image_model> ... -o <target.png>` for each target. The tool finalizes and validates the output.
-- `native` / `codex`: each group uses the selected runtime-native provider/tool,
-  records each generated image path, then runs:
-  ```bash
-  python tools/asset_image_finalize.py --source <generated_image_path> \
-    --out <target.png> --label <asset_id> [--resize WIDTHxHEIGHT]
-  ```
-- For `codex` under Claude Code, generate the whole batch in ONE `codex exec`
-  call (not one per image) and have Codex spawn one subagent per asset, run in
-  parallel, max 3 concurrent. The batch prompt lists each asset's id, prompt,
-  and exact target source path under `.godotmaker/asset-generation/codex/`, and
-  requires each subagent to copy the image it generated (the path `image_gen`
-  returned) to that asset's target path — never the newest file in
-  `generated_images`. See `references/asset-gen.md`. After `codex exec` returns,
-  verify each source path exists before finalizing.
-- Each group writes one JSON report under `.godotmaker/asset-generation/`: `{"ok": true, "provider": "<asset_image_model>", "assets": [<finalize result>, ...]}`.
-- Do not select images by scanning a global "latest generated image" list. Use the generated paths reported by the group.
+```json
+{
+  "group_id": "assets_001",
+  "kind": "art_asset",
+  "provider": "<asset_image_model>",
+  "items": [
+    {
+      "asset_id": "<asset_id>",
+      "prompt": "<prompt>",
+      "source_path": ".godotmaker/asset-generation/sources/<asset_id>_source.png",
+      "final_path": "assets/img/<asset_id>.png",
+      "resize": null
+    }
+  ],
+  "report_path": ".godotmaker/asset-generation/reports/assets_001.json"
+}
+```
 
-### Step 5 — Update ASSETS.md
+If isolated generation groups are unavailable, run the batch sequentially and
+write the fallback reason in the report and summary.
+
+Use the selected `asset_image_model` path:
+
+- API-backed selector: each group runs `python tools/asset_gen.py image --model <asset_image_model> ... -o <target.png>` for each target. The tool finalizes and validates the output.
+- Active Codex runtime with `asset_image_model: native` or `asset_image_model: codex`: follow `references/asset-gen.md` Active Codex runtime batch. Use one Codex subagent per asset when subagents are available.
+- Claude Code with `asset_image_model: codex`: follow `references/asset-gen.md` Codex handoff from Claude Code.
+- Other runtime-native provider: generate each source image path, then run `python tools/asset_image_finalize.py --source <generated_image_path> --out <target.png> --label <asset_id> [--resize WIDTHxHEIGHT]`.
+
+Each group writes one JSON report under `.godotmaker/asset-generation/reports/`: `{"ok": true, "provider": "<asset_image_model>", "assets": [<finalize JSON>, ...]}`. Each `assets[]` item is the flat JSON printed by `tools/asset_image_finalize.py`, so `tools/asset_image_report_check.py` can validate it.
+
+### Step 5 - Update ASSETS.md
 
 After all generation calls return:
-- Change generated rows from `MISSING` → `generated` with file path + generation params
-- Audio rows that user did not provide → mark `deferred` (with user acknowledgment)
+- Change generated rows from `MISSING` to `generated` with file path + generation params
+- Audio rows that user did not provide: mark `deferred` (with user acknowledgment)
 - Run `python tools/asset_image_report_check.py <report.json>...`
 - Re-dispatch one follow-up batch for missing or invalid generated images
 - Verify total MISSING count for the current tag is zero (or all remaining are deferred audio with user OK)
@@ -152,13 +193,13 @@ After all generation calls return:
 
 ASSETS.md is the only document you may modify. Status transitions are forward-only:
 
-```
-MISSING → provided | generated | N/A | deferred
+```text
+MISSING -> provided | generated | N/A | deferred
 ```
 
-Never revert a `provided`/`generated` row back to `MISSING` — if the user wants to regenerate, treat it as a NEW row (with the current tag in its `Tag` column) or note in MEMORY.md.
+Never revert a `provided`/`generated` row back to `MISSING`; if the user wants to regenerate, treat it as a NEW row (with the current tag in its `Tag` column) or note in MEMORY.md.
 
-**Tag scope:** Only modify rows whose `Tag` matches the current tag, and only add new rows tagged with the current tag. Prior tags' rows are immutable from this skill. If a prior-tag asset is broken, raise it as a fix task in `/gm-fixgap` — do not relabel the row's `Tag` column.
+**Tag scope:** Only modify rows whose `Tag` matches the current tag, and only add new rows tagged with the current tag. Prior tags' rows are immutable from this skill. If a prior-tag asset is broken, raise it as a fix task in `/gm-fixgap`; do not relabel the row's `Tag` column.
 
 ## Available Skills & Tools
 
@@ -172,6 +213,7 @@ Never revert a `provided`/`generated` row back to `MISSING` — if the user want
 | Tool | Purpose |
 |------|---------|
 | `tools/asset_gen.py` | API-backed image generation (Gemini / OpenAI / Grok) |
+| `tools/codex_image_claim.py` | Copy Codex saved_path into a project source path |
 | `tools/asset_image_finalize.py` | Copy, resize, and validate generated image assets |
 | `tools/asset_image_report_check.py` | Validate generation group reports and image files |
 
