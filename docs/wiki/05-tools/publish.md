@@ -31,13 +31,13 @@ The first time you run this, the script will ask you for the full path to your G
 | Location | What it is |
 |----------|------------|
 | `.claude/skills/` | All GodotMaker slash commands (the `/gm-*` commands and supporting skills) |
-| `.claude/agents/` | Definitions for the worker, verifier, reviewer, and analyst helpers |
+| `.claude/agents/` | Definitions for worker, verifier, reviewer, analyst, and asset-producer helpers |
 | `.claude/settings.json` | Tells Claude Code which hook scripts to run and when |
 | `.claude/godotmaker.yaml` | Your Godot executable path (specific to this machine) |
 | `.godotmaker/hooks/` | The enforcement scripts that keep the AI on track |
 | `.godotmaker/config.yaml` | Per-project settings (model choice, asset generation provider, etc.) |
 | `.godotmaker/version` | Records which GodotMaker version is installed here |
-| `tools/` | Utility scripts (`check_env.py`, `check_project.py`, `asset_gen.py`, etc.) |
+| `tools/` | Utility scripts (`check_env.py`, `check_project.py`, `asset_source_generate.py`, etc.) |
 | `.claude/templates/` | Document templates used by `/gm-gdd` and other commands |
 | `CLAUDE.md` | Per-project instructions that Claude Code reads at the start of every session |
 | `assets/sprites`, `assets/audio`, `assets/fonts`, `assets/ui`, `references/` | Standard asset folders |

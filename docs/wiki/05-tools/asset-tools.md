@@ -1,112 +1,224 @@
 # Asset tools
 
-GodotMaker generates art via small Python helper scripts. `/gm-asset` calls them automatically — but you can also run them by hand if you need to regenerate a specific file or experiment with different settings.
+GodotMaker generates and processes 2D art through small Python helper scripts.
+`/gm-asset` calls the primary tools automatically. Manual calls are for
+debugging one source, one action sheet, or one curation decision.
 
-## asset_gen.py
+Primary pipeline tools:
 
-`asset_gen.py` is the main API-backed image and 3D model generator. It supports Gemini, OpenAI, xAI Grok, and Tripo3D. Runtime-native `native` / `codex` image generation is selected by `/gm-asset`, not this script.
+1. `asset_source_generate.py`
+2. `asset_layout_guide.py`
+3. `asset_action_process.py`
+4. `asset_action_manifest_entry.py`
+5. `asset_sheet_process.py`
+6. `asset_curation_select.py`
+7. `asset_curation_manifest_entry.py`
 
-**Image providers:**
+Optional curation utility:
 
-| Provider | Cost per image | Best for |
-|----------|---------------|---------|
-| xAI Grok | 2 cents (1K or 2K only) | Fast, good for most sprites and UI elements |
-| Google Gemini | 5–15 cents (512 to 4K) | More precise prompt following, better for detailed or edited images |
-| OpenAI | 5–7 cents in the local budget model | OpenAI Images API generation/editing |
+1. `rembg_matting.py`
 
-Provider-prefixed selectors require the matching key: `GOOGLE_API_KEY` / `GEMINI_API_KEY` for Gemini, `OPENAI_API_KEY` for OpenAI, and `XAI_API_KEY` for Grok. To choose which provider `/gm-asset` uses, set `asset_image_model` in [`../06-configuration/project-config.md`](../06-configuration/project-config.md).
+## asset_source_generate.py
 
-### Generating an image
+`asset_source_generate.py` generates API-backed source images from a JSON spec.
+It supports Gemini, OpenAI, and xAI Grok selectors. Runtime-native `native` and
+`codex` image generation is selected by `/gm-asset`, not this script.
 
-```bash
-python tools/asset_gen.py image \
-  --prompt "top-down pixel art player character, blue outfit, 64x64, transparent background" \
-  -o assets/sprites/player.png
-```
+Provider-prefixed selectors require the matching key: `GOOGLE_API_KEY` /
+`GEMINI_API_KEY` for Gemini, `OPENAI_API_KEY` for OpenAI, and `XAI_API_KEY` for
+Grok. To choose which provider `/gm-asset` uses, set `asset_image_model` in
+[`../06-configuration/project-config.md`](../06-configuration/project-config.md).
 
-To use Grok instead:
-
-```bash
-python tools/asset_gen.py image \
-  --prompt "top-down pixel art player character, blue outfit, 64x64, transparent background" \
-  --model grok \
-  --size 1K \
-  -o assets/sprites/player.png
-```
-
-To edit an existing image (image-to-image):
+Manual entry point:
 
 ```bash
-python tools/asset_gen.py image \
-  --prompt "add a glowing aura around the character" \
-  --image assets/sprites/player.png \
-  -o assets/sprites/player_glow.png
+python tools/asset_source_generate.py --spec <spec.json>
 ```
 
-**Common options:**
+The spec contains the asset id, model selector, prompt, prompt path, source
+path, size, aspect ratio, reference images, and report path.
 
-| Option | Default | Notes |
-|--------|---------|-------|
-| `--prompt` | (required) | Describe what you want |
-| `--model` | project config | `gemini[:model]`, `openai[:model]`, or `grok[:model]`; overrides `asset_image_model` |
-| `--size` | `1K` | OpenAI: `1K`. Grok: `1K`, `2K`. Gemini: `512`, `1K`, `2K`, `4K` |
-| `--aspect-ratio` | `1:1` | Many options — run `--help` to see all |
-| `--image` | none | Provide a reference image to edit |
-| `-o` | (required) | Output file path |
+## asset_layout_guide.py
 
-### Setting a budget
+`asset_layout_guide.py` creates layout-only guides for fixed-grid source
+images. Use it for UI component sheets, icon packs, compact prop packs, and
+action sheets.
 
-You can cap total spending to avoid surprises:
+Manual entry point:
 
 ```bash
-python tools/asset_gen.py set_budget 500
+python tools/asset_layout_guide.py \
+  --out <guide.png> \
+  --rows <rows> \
+  --cols <cols> \
+  --labels <labels>
 ```
 
-This sets a 500-cent ($5.00) limit, tracked in `assets/budget.json`. Any generation command that would exceed the remaining budget exits with an error before making an API call.
-
-### Generating 3D models
-
-The `glb` subcommand converts a PNG image into a 3D model (`.glb` file) using Tripo3D. This requires `TRIPO3D_API_KEY` and is only relevant for 3D games.
-
-```bash
-python tools/asset_gen.py glb \
-  --image assets/sprites/tree.png \
-  -o assets/models/tree.glb
-```
-
-Cost is roughly 40–50 cents per model depending on the `--quality` preset (`default` or `high`).
+The guide controls slot count, centering, and safe padding for image
+generation. It is not runtime art.
 
 ## rembg_matting.py
 
-`rembg_matting.py` removes solid-color backgrounds from images, producing PNG files with transparent backgrounds. Use this when you have a sprite rendered on a plain background and need it cut out for use in a scene.
+`rembg_matting.py` is an optional curation utility for removing solid-color
+backgrounds before source-sheet processing.
+
+Manual entry points:
 
 ```bash
-# Single image, auto-detect the best approach
-python tools/rembg_matting.py assets/sprites/enemy_raw.png -o assets/sprites/enemy.png
-
-# Batch: process all PNGs in a folder
-python tools/rembg_matting.py --batch raw_frames/ -o clean_frames/
-
-# Generate a preview so you can check the result before using it
-python tools/rembg_matting.py assets/sprites/enemy_raw.png --preview
+python tools/rembg_matting.py <input.png> -o <output.png>
+python tools/rembg_matting.py --batch <input_dir> -o <output_dir>
+python tools/rembg_matting.py <input.png> --preview
 ```
 
-The tool uses a neural network (BiRefNet) to identify the subject and color matting to clean up the edges. It auto-selects the right approach for most images; you can force a mode with `-m trust`, `-m adapt`, or `-m color` if the automatic result is not clean enough.
+The tool uses a neural network (BiRefNet) to identify the subject and color
+matting to clean up the edges. You can force a mode with `-m trust`,
+`-m adapt`, or `-m color`.
 
-GPU acceleration is used automatically if an NVIDIA GPU with CUDA is available. On CPU it is slower but still works.
+GPU acceleration is used automatically if an NVIDIA GPU with CUDA is available.
+On CPU it is slower but still works.
 
-## tripo3d.py
+## asset_sheet_process.py
 
-`tripo3d.py` is the Tripo3D API client used by `asset_gen.py glb` internally. You do not normally call it directly — use the `glb` subcommand of `asset_gen.py` instead. It requires `TRIPO3D_API_KEY`.
+`asset_sheet_process.py` splits non-character 2D source sheets into cropped
+candidates and writes a curation report. It supports transparent sheets and
+solid magenta `#FF00FF` sheets through `--background magenta`.
+
+Use it for icon packs, compact prop packs, UI component sheets, and other
+non-character source sheets.
+
+Required decisions:
+
+1. `--grid <COLSxROWS>`
+2. `--names <comma-separated names>`
+3. `--snap-mode autoslice` for separated objects
+4. `--snap-mode grid` for strict cell grids
+5. `--component-mode largest` for compact UI/icon/prop cells with stray
+   fragments
+
+Manual entry point:
+
+```bash
+python tools/asset_sheet_process.py \
+  --source <source.png> \
+  --out-dir <curation_dir> \
+  --grid <COLSxROWS> \
+  --names <names> \
+  --snap-mode <autoslice|grid> \
+  --report <report.json>
+```
+
+## asset_action_process.py
+
+`asset_action_process.py` processes character, enemy, NPC, summon, and animated
+prop action sources. It writes normalized frame PNGs, `sheet-transparent.png`,
+`animation.gif`, `pipeline-meta.json`, and an intermediate curation report.
+
+Required decisions:
+
+1. `--kind body` for body-only character actions
+2. `--kind fx` for detached effects
+3. `--grid <COLSxROWS>`
+4. `--names <comma-separated frame names>`
+5. `--align feet` or `--align bottom` for grounded body actions
+6. `--align center` for floating actions and detached effects
+7. `--scale-reference-metadata <pipeline-meta.json>` for later body actions
+
+The tool rejects action frames that touch source cell edges. Its `--final-dir`
+and `--final-prefix` options only copy processed frames and the delivery grid
+sheet into runtime paths; they do not assemble mixed atlases or row strips.
+
+Manual entry point:
+
+```bash
+python tools/asset_action_process.py \
+  --source <action_source.png> \
+  --out-dir <processed_dir> \
+  --grid <COLSxROWS> \
+  --names <frame_names> \
+  --kind <body|fx> \
+  --final-dir <runtime_dir> \
+  --final-prefix <asset_id>
+```
+
+For later body actions, add:
+
+```bash
+--scale-reference-metadata <accepted_action_pipeline_meta.json>
+```
+
+## asset_action_manifest_entry.py
+
+`asset_action_manifest_entry.py` turns one processed action
+`pipeline-meta.json` plus its `character_action_source` entry into a
+`character_frame_output` manifest entry.
+
+Manual entry point:
+
+```bash
+python tools/asset_action_manifest_entry.py \
+  --metadata <processed_dir>/pipeline-meta.json \
+  --source-entry <character_action_source_entry.json> \
+  --asset-id <frame_output_asset_id> \
+  --project-root . \
+  --out <frame_output_entry.json>
+```
+
+Upsert the generated entry with `asset_generation_manifest_update.py`.
+
+## asset_curation_select.py
+
+`asset_curation_select.py` selects one candidate from a curation report and
+finalizes it into a runtime asset path.
+
+Manual entry point:
+
+```bash
+python tools/asset_curation_select.py \
+  --report <report.json> \
+  --candidate <candidate_id_or_name> \
+  --final-path <final_path> \
+  --asset-id <final_asset_id> \
+  --project-root .
+```
+
+The tool updates the report status to `selected`, stores the candidate's final
+path, and prints the same finalize metadata as `asset_image_finalize.py`.
+
+## asset_curation_manifest_entry.py
+
+`asset_curation_manifest_entry.py` turns one selected curation candidate plus
+its source-sheet manifest entry into a validated runtime manifest entry.
+
+Manual entry point:
+
+```bash
+python tools/asset_curation_manifest_entry.py \
+  --report <report.json> \
+  --source-entry <source_sheet_entry.json> \
+  --candidate <candidate_id_or_name> \
+  --asset-id <final_asset_id> \
+  --project-root . \
+  --out <final_asset_entry.json>
+```
+
+Upsert the generated entry with `asset_generation_manifest_update.py`.
 
 ## Calling these by hand
 
-You usually do not need to run these scripts directly. `/gm-asset` orchestrates them based on your `ASSETS.md` and calls them with the right prompts and output paths automatically.
+You usually do not need to run these scripts directly. `/gm-asset` orchestrates
+them based on `ASSETS.md` and the source-generation manifest.
 
-The main reasons to call them manually:
+Manual use cases:
 
-- You want to regenerate one specific asset with a tweaked prompt.
-- You are experimenting with different sizes, providers, or aspect ratios before committing to a full `/gm-asset` run.
-- You received art from an external source and want to remove its background with `rembg_matting.py`.
+1. Generate one source image from a tweaked spec.
+2. Create one layout guide for a fixed-grid source.
+3. Process one character action sheet while debugging animation output.
+4. Build one character frame-output manifest entry from action metadata.
+5. Test a provider, size, or aspect ratio before a full `/gm-asset` run.
+6. Remove a solid background before source-sheet curation.
+7. Process one source sheet while debugging extraction.
+8. Select one extracted candidate into a runtime asset path.
+9. Build one runtime manifest entry from a selected curation candidate.
 
-If you want to update the visual targets that `/gm-evaluate` checks against, re-run `/gm-asset` rather than editing the generated images directly. Editing them by hand will be overwritten the next time `/gm-asset` runs.
+If you want to update visual targets used by `/gm-evaluate`, re-run
+`/gm-asset` rather than editing generated images directly.

@@ -31,13 +31,13 @@ python tools\publish.py C:\Games\my-game
 | 位置 | 说明 |
 |----------|------------|
 | `.claude/skills/` | 所有 GodotMaker 斜杠命令（`/gm-*` 系列命令及配套技能） |
-| `.claude/agents/` | worker、verifier、reviewer、analyst 等 helper 的定义文件 |
+| `.claude/agents/` | worker、verifier、reviewer、analyst、asset-producer 等 helper 的定义文件 |
 | `.claude/settings.json` | 告知 Claude Code 要运行哪些 hook 脚本以及何时运行 |
 | `.claude/godotmaker.yaml` | 你的 Godot 可执行文件路径（仅对本机有效） |
 | `.godotmaker/hooks/` | 让 AI 保持正轨的约束脚本 |
 | `.godotmaker/config.yaml` | 项目级配置（模型选择、素材生成提供商等） |
 | `.godotmaker/version` | 记录当前项目安装的 GodotMaker 版本 |
-| `tools/` | 实用脚本（`check_env.py`、`check_project.py`、`asset_gen.py` 等） |
+| `tools/` | 实用脚本（`check_env.py`、`check_project.py`、`asset_source_generate.py` 等） |
 | `.claude/templates/` | `/gm-gdd` 等命令使用的文档模板 |
 | `CLAUDE.md` | 项目专属指令，Claude Code 每次会话开始时都会读取 |
 | `assets/sprites`、`assets/audio`、`assets/fonts`、`assets/ui`、`references/` | 标准素材文件夹 |

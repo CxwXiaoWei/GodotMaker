@@ -67,6 +67,9 @@ Round 8 is the user's final review (Ask Maker mode). Pass 1 is mandatory; do not
 Cover: Genre, perspective, core mechanic, win/lose conditions, session length,
 core gameplay loop (moment-to-moment, session arc, progression).
 
+GodotMaker currently targets 2D games. Choose the appropriate 2D perspective
+for the genre; do not ask the user to choose a project dimension.
+
 Before asking, load **smart defaults** for the genre:
 
 | Genre | Perspective | Camera | Input | Physics | Typical Scope |
@@ -79,8 +82,8 @@ Before asking, load **smart defaults** for the genre:
 | Bullet hell | 2D top-down | Fixed on player | Keyboard / Gamepad | Projectile collision, no gravity | Stage-based |
 | Endless runner | 2D side-view | Auto-scroll | One-button / Tap | Gravity, obstacle collision | Infinite, score-based |
 | Fighting game | 2D side-view | Fixed arena | Gamepad + Keyboard | Hitbox/hurtbox, gravity | Character roster |
-| RTS | 2D/3D top-down | Free pan + zoom | Mouse + Keyboard | Pathfinding, unit collision | Campaign or skirmish |
-| Survival | 2D/3D | Follow player | WASD + Mouse | World collision, resource interaction | Open-ended |
+| RTS | 2D top-down | Free pan + zoom | Mouse + Keyboard | Pathfinding, unit collision | Campaign or skirmish |
+| Survival | 2D top-down or side-view | Follow player | WASD + Mouse | World collision, resource interaction | Open-ended |
 
 **How to present Round 1:** State what you already know (from user's input + genre
 defaults), then ask only the gaps. Example:
@@ -106,17 +109,39 @@ Ask about the relationship between mechanics and entities:
 - "What enemies would challenge the wall-jump mechanic? Climbers? Flyers?"
 - "Should the dash be a dodge (invincible frames) or an attack (damage on contact)?"
 
+For gameplay actors, record target screen presence as viewport-height percent
+and target pixels at the chosen viewport:
+
+| Game shape | Default actor height |
+|------------|----------------------|
+| Top-down exploration / RPG | 8% viewport height |
+| Survivor / twin-stick / bullet hell | 6% viewport height |
+| Side-view platformer | 12% viewport height |
+| Action platformer / brawler | 16% viewport height |
+| Fighting / duel arena | 45% viewport height |
+
+For pixel art, snap target actor heights to common source sizes such as 16,
+24, 32, 48, 64, or 96 px.
+
 ### Round 3 — World, Levels & Feel (GDD §4, §6, §7)
 
 **Goal:** Define the visual/emotional identity and structural design.
 
-Cover: Theme/setting, art style, mood, level/scene design, difficulty progression,
-UI elements (HUD, menus), juice/feedback (particles, screen shake, hit flash).
+Cover: Theme/setting, art style, visual mode, target viewport, mood,
+level/scene design, difficulty progression, UI elements (HUD, menus),
+juice/feedback (particles, screen shake, hit flash).
+
+Record display specs in GDD §4:
+
+1. Visual mode: `pixel art` or `non-pixel 2D`.
+2. Target viewport: default to `1280x720` for non-pixel 2D when unspecified.
+3. Pixel base resolution: default to `480x270` for pixel art when unspecified.
 
 For games with environments/levels (platformer, tower defense, RPG, top-down):
-ask about terrain construction: "Should terrain use TileMap (tile-based grids,
-good for repeating patterns) or Sprite-based placement (unique hand-placed
-elements)?" Most platformers and tower defense games benefit from TileMap.
+ask what terrain, paths, blockers, hazards, exits, build pads, and landmarks
+the player should see and use. Plan current playable units with sprite-based
+placement, collision shapes, and scene-object metadata. Record TileMap requests
+as deferred scope.
 
 **Skip §4 (Game World)** for abstract games.
 **Skip §6 (Level Design)** for endless/procedural games — instead ask about generation rules.

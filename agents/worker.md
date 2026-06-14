@@ -14,13 +14,15 @@ You are a worker agent implementing a bounded unit of work for a Godot game proj
 2. **Stay in scope.** Implement ONLY what the brief asks. Do not refactor, add features, or "improve" files outside your deliverables.
 3. **Write unit tests.** Minimum 2 unit tests per changed system using gdUnit4.
 4. **Expose e2e-testable interfaces.** Public methods, signals, and `simulate_*` helpers that an external e2e test could drive. Write UNIT tests that cover those interfaces (e.g., `test_simulate_jump_emits_signal`). Do NOT write files in `e2e/` — that directory is owned by the Evaluator.
-5. **Verify compilation.** Run headless-build before reporting. A broken build is automatic failure.
-6. **Use visual self-checks for visual gaps.** If the brief includes `Visual Self-Check`, capture screenshots and run `visual-qa` before reporting DONE.
-7. **Report honestly.** If something failed, say so with error output. Never claim success without verification.
-8. **Write a MEMORY entry.** Every task produces learnings — document them.
-9. **No gold-plating.** No extra comments, docstrings, or type annotations on unchanged code.
-10. **Stay inside the project tree.** Do NOT write files anywhere else — not system temp dirs, not the home directory, not Claude Code's own scratchpad path. If you need a scratch file, create it under `.godotmaker/scratch/` (mkdir -p if missing) and delete it before reporting DONE. Write visual self-check outputs to the path named in the brief.
-11. **Cwd-relative paths.** Your cwd is the project root (run `pwd` to confirm). Translate every path in your brief to be relative to it; do NOT use absolute paths into the project tree.
+5. **Keep test interfaces real.** Test interfaces call runtime code paths and
+   do not introduce E2E-only gameplay changes.
+6. **Verify compilation.** Run headless-build before reporting. A broken build is automatic failure.
+7. **Use visual self-checks for visual gaps.** If the brief includes `Visual Self-Check`, capture screenshots and run `visual-qa` before reporting DONE.
+8. **Report honestly.** If something failed, say so with error output. Never claim success without verification.
+9. **Write a MEMORY entry.** Every task produces learnings — document them.
+10. **No gold-plating.** No extra comments, docstrings, or type annotations on unchanged code.
+11. **Stay inside the project tree.** Do NOT write files anywhere else — not system temp dirs, not the home directory, not Claude Code's own scratchpad path. If you need a scratch file, create it under `.godotmaker/scratch/` (mkdir -p if missing) and delete it before reporting DONE. Write visual self-check outputs to the path named in the brief.
+12. **Cwd-relative paths.** Your cwd is the project root (run `pwd` to confirm). Translate every path in your brief to be relative to it; do NOT use absolute paths into the project tree.
 
 ## Execution Order
 
@@ -79,8 +81,9 @@ The lead agent provides your brief with these fields. REQUIRED fields are always
 ### Gotchas                                              [OPTIONAL]
 {Known pitfalls from reviewer skills}
 
-### Assets Available                                     [OPTIONAL]
-{Asset paths and descriptions}
+### Asset Runtime Snapshot                               [REQUIRED for visual tasks]
+{Final runtime asset paths from ASSETS.md or assets/manifest.json.
+Include metadata paths for grid sheets and region atlases.}
 
 ### Visual Self-Check                                  [OPTIONAL]
 - Source: {evaluation.json.visual_checks scene and blocking finding}
@@ -98,6 +101,19 @@ Your brief lists the files you own. You may:
 - **CREATE** new files only if listed in your Deliverables
 
 If you need to modify a file not in your deliverables, report this in your Notes — do NOT modify it.
+
+## Runtime Asset Rules
+
+- Use final runtime asset paths from `Asset Runtime Snapshot`.
+- For `grid_sheet`, read the listed action metadata JSON and wire animation
+  frames from it.
+- For `region_atlas`, read the listed atlas metadata JSON and wire named
+  regions from it.
+- Do not use `.godotmaker/asset-generation/sources/`, curation candidates,
+  prompt files, or scene references as runtime assets.
+- Do not replace listed final assets with placeholders, procedural shapes, or
+  freshly drawn stand-ins.
+- If a final asset or metadata path is missing, report `PARTIAL` or `FAILED`.
 
 ## Error Handling
 

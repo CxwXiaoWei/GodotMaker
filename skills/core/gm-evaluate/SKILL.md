@@ -81,6 +81,24 @@ E2E tests live in a flat `e2e/` directory (no per-tag subdirectories). Each test
 8. Run the full suite: `godot-e2e e2e/ -v`
 9. Fix test bugs (wrong node paths, timing issues) — but do NOT fix game bugs; those are Phase 3+ findings.
 
+**E2E repair boundary:**
+- E2E tests verify observable gameplay requirements. Do NOT prescribe fixgap's
+  implementation strategy.
+- When a state cannot be reached reliably in E2E, record the observed gap and
+  request the deterministic test interface needed to exercise it.
+- Test interfaces include `simulate_*` methods, scene setup helpers, fixed
+  seeds, public state setup, or debug-safe setup paths that call real runtime
+  code.
+- Do NOT ask fixgap to change normal gameplay behavior, balance, progression,
+  content, or timing only to satisfy a test assertion.
+- If normal gameplay itself violates GDD/PLAN, cite the design source and
+  record the gameplay failure.
+
+When requesting a test interface, write both evidence entries:
+
+- `observed_gap: <observable state or behavior not proven by E2E>`
+- `requested_test_interface: <bounded setup or simulate interface needed>`
+
 After this phase the `e2e/` directory must contain exactly one test file per mechanic id in the expected-mechanics checklist (Phase 1), Playable Unit coverage for every Playable Unit table row, plus scene-transition tests. Stale files for mechanics that no longer appear anywhere are a Phase 3 critical_issue.
 
 Before completing `/gm-evaluate`, write one `playable_unit.rows` entry for
@@ -104,9 +122,9 @@ All of these must pass for `result == "approve"`. Failure of any is a `critical_
 
 **Visual cross-check (per scene listed in SCENES.md):**
 7. Capture screenshots under `e2e/screenshots/`. Use `game.screenshot("e2e/screenshots/scene_{name}.png")` for static scenes. For scenes with motion/animation, capture a frame sequence per `.claude/skills/screenshot/SKILL.md` § "Frame Sequence for VQA Dynamic Mode". Treat `e2e/screenshots/` as latest-run output only.
-8. Compare against the reference image in `references/scene_{name}.png` by dispatching a subagent to run the `visual-qa` skill.
-
-   **Precondition — reference must exist.** Before calling visual-qa, confirm `references/scene_{name}.png` exists. If missing → record `critical_issue: "missing reference for scene_{name}"` and skip the visual-qa call for this scene. Do NOT degrade to Question mode against the screenshot alone.
+8. Inspect the captured screenshots by dispatching a subagent to run the
+   `visual-qa` skill in Question mode. Do not compare screenshots against
+   `references/scene_{name}.png`.
 
    **Visual binding preflight.** Before calling visual-qa, check the scene's
    `Asset bindings` rows. Each non-`procedural` / non-`UI text` /
@@ -129,16 +147,23 @@ All of these must pass for `result == "approve"`. Failure of any is a `critical_
    or Readability Requirement text. Missing deferral reasons are incomplete
    bindings.
 
-   **Context construction.** Pull the `Acceptance criteria` block from SCENES.md for this scene; paste it verbatim into the `Verify:` field. Add the scene's `Asset bindings` rows and matching ASSETS.md Visual Asset Contract rows to `Requirements:`. If the block is absent, fall back to the mechanic ids from PLAN.md Tag Mechanics + Inherited Mechanics that this scene exercises, each with its one-line description. Never leave `Requirements:` or `Verify:` as a placeholder. For deterministic setup screenshots, add `Visible state only; do not infer prior play history.` to `Verify:`.
+   **Question construction.** Pull the `Acceptance criteria` block from
+   SCENES.md for this scene. Add the scene's `Asset bindings` rows and matching
+   ASSETS.md Visual Asset Contract rows. If the block is absent, fall back to
+   the mechanic ids from PLAN.md Tag Mechanics + Inherited Mechanics that this
+   scene exercises, each with its one-line description. Ask whether the
+   screenshot or frame sequence satisfies the required visible content,
+   readability, layout, and motion/animation requirements. For deterministic
+   setup screenshots, add `Visible state only; do not infer prior play history.`.
 
    **VQA log path.** Ask `visual-qa` to write its debug log to `e2e/screenshots/vqa.log`.
 
    ```
    # Static scene — dispatch a subagent to run visual-qa with:
-   "Check references/scene_{name}.png against e2e/screenshots/scene_{name}.png --log e2e/screenshots/vqa.log — Goal: {scene goal from SCENES.md}, Requirements: {SCENES.md Asset bindings + matching ASSETS.md Visual Asset Contract rows}, Verify: {acceptance criteria block, or mechanic-id list fallback}."
+   --question "Does this screenshot satisfy the scene contract? Goal: {scene goal from SCENES.md}. Requirements: {SCENES.md Asset bindings + matching ASSETS.md Visual Asset Contract rows}. Verify: {acceptance criteria block, or mechanic-id list fallback}." e2e/screenshots/scene_{name}.png --log e2e/screenshots/vqa.log
 
    # Dynamic scene (frame sequence in per-scene subdir) — dispatch a subagent to run visual-qa with:
-   "Check references/scene_{name}.png against e2e/screenshots/scene_{name}/frame_*.png --log e2e/screenshots/vqa.log — Goal: ..., Requirements: {SCENES.md Asset bindings + matching ASSETS.md Visual Asset Contract rows}, Verify: motion is fluid, no stuck entities, animation matches movement."
+   --question "Does this frame sequence satisfy the scene contract? Goal: ... Requirements: {SCENES.md Asset bindings + matching ASSETS.md Visual Asset Contract rows}. Verify: required content remains visible, motion is fluid, no stuck entities, and animation matches movement." e2e/screenshots/scene_{name}/frame_*.png --log e2e/screenshots/vqa.log
    ```
 
    **Audit trail.** Record every visual-qa call (verdict + context + mode + files + log path + output digest) in `visual_checks.{scene_name}.vqa_calls[]` (schema below). Also record the screenshot/frame paths used in `visual_checks.{scene_name}.captures[]`. If you override a recorded verdict for the final `result` — for instance you read the PNGs yourself and disagree — write the reason and what you saw into `visual_checks.{scene_name}.notes`. Either way, `result` reflects the chain transparently.
@@ -193,7 +218,11 @@ Write evaluation results to `.godotmaker/evaluation.json`:
       "<mechanic_id_or_row_name>": {
         "result": "pass | fail",
         "test": "e2e/test_<tag_slug>_playable_unit_<slug>.gd",
-        "evidence": ["<runtime behavior, assertion, screenshot, video frame, or log path>"]
+        "evidence": [
+          "<runtime behavior, assertion, screenshot, video frame, or log path>",
+          "observed_gap: <observable state or behavior not proven by E2E>",
+          "requested_test_interface: <bounded setup or simulate interface needed>"
+        ]
       }
     }
   },
@@ -209,17 +238,16 @@ Write evaluation results to `.godotmaker/evaluation.json`:
     "<scene_name>": {
       "screenshot": "e2e/screenshots/scene_<name>.png",
       "captures": ["e2e/screenshots/scene_<name>.png"],
-      "reference": "references/scene_<name>.png",
       "vqa_log": "e2e/screenshots/vqa.log",
       "result": "pass | fail | warning",
       "notes": "",
       "vqa_calls": [
         {
           "ts": "<UTC ISO 8601>",
-          "mode": "static | dynamic | question",
+          "mode": "question",
           "backend": "native | codex | gemini | openai",
           "model": "<vqa_model or fallback selector used>",
-          "files": ["references/scene_<name>.png", "e2e/screenshots/scene_<name>.png"],
+          "files": ["e2e/screenshots/scene_<name>.png"],
           "log": "e2e/screenshots/vqa.log",
           "context": "Goal: ... Requirements: ... Verify: ...",
           "verdict": "pass | fail | warning",

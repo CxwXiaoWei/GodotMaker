@@ -1,112 +1,194 @@
 # 素材工具
 
-GodotMaker 通过几个小型 Python 辅助脚本生成美术资源。`/gm-asset` 会自动调用它们——但如果你需要重新生成某个文件或试验不同参数，也可以手动运行。
+GodotMaker 通过几个小型 Python 辅助脚本生成和处理 2D 美术资源。`/gm-asset` 会自动调度主流程工具。手动调用只用于调试单个 source、单个动作 sheet 或单次 curation 决策。
 
-## asset_gen.py
+主流程工具：
 
-`asset_gen.py` 是主要的 API 后端图片和 3D 模型生成器，支持 Gemini、OpenAI、xAI Grok 和 Tripo3D。运行时原生的 `native` / `codex` 图片生成由 `/gm-asset` 选择，不由这个脚本调用。
+1. `asset_source_generate.py`
+2. `asset_layout_guide.py`
+3. `asset_action_process.py`
+4. `asset_action_manifest_entry.py`
+5. `asset_sheet_process.py`
+6. `asset_curation_select.py`
+7. `asset_curation_manifest_entry.py`
 
-**图片提供商：**
+可选 curation 工具：
 
-| 提供商 | 单张价格 | 适合场景 |
-|----------|---------------|---------|
-| xAI Grok | 2 美分（仅 1K 或 2K） | 速度快，适合大多数精灵和 UI 元素 |
-| Google Gemini | 5–15 美分（512 到 4K） | 提示词跟随更精确，适合细节丰富或需要编辑的图片 |
-| OpenAI | 本地预算模型中 5–7 美分 | OpenAI 图片 API 生成/编辑 |
+1. `rembg_matting.py`
 
-带提供方前缀的选择器需要对应 key：Gemini 需要 `GOOGLE_API_KEY` / `GEMINI_API_KEY`，OpenAI 需要 `OPENAI_API_KEY`，Grok 需要 `XAI_API_KEY`。要设置 `/gm-asset` 使用哪个提供方，请在 [`../06-configuration/project-config.md`](../06-configuration/project-config.md) 中配置 `asset_image_model`。
+## asset_source_generate.py
 
-### 生成图片
+`asset_source_generate.py` 会根据 JSON spec 生成 API 后端 source 图片，支持 Gemini、OpenAI 和 xAI Grok selector。运行时原生的 `native` 和 `codex` 图片生成由 `/gm-asset` 选择，不由这个脚本调用。
 
-```bash
-python tools/asset_gen.py image \
-  --prompt "top-down pixel art player character, blue outfit, 64x64, transparent background" \
-  -o assets/sprites/player.png
-```
+带提供方前缀的 selector 需要对应 key：Gemini 需要 `GOOGLE_API_KEY` / `GEMINI_API_KEY`，OpenAI 需要 `OPENAI_API_KEY`，Grok 需要 `XAI_API_KEY`。要设置 `/gm-asset` 使用哪个提供方，请在 [`../06-configuration/project-config.md`](../06-configuration/project-config.md) 中配置 `asset_image_model`。
 
-改用 Grok：
+手动入口：
 
 ```bash
-python tools/asset_gen.py image \
-  --prompt "top-down pixel art player character, blue outfit, 64x64, transparent background" \
-  --model grok \
-  --size 1K \
-  -o assets/sprites/player.png
+python tools/asset_source_generate.py --spec <spec.json>
 ```
 
-编辑现有图片（图生图）：
+spec 包含 asset id、model selector、prompt、prompt path、source path、尺寸、宽高比、reference images 和 report path。
+
+## asset_layout_guide.py
+
+`asset_layout_guide.py` 会为固定网格 source 图片创建 layout guide。适用于 UI component sheet、icon pack、compact prop pack 和 action sheet。
+
+手动入口：
 
 ```bash
-python tools/asset_gen.py image \
-  --prompt "add a glowing aura around the character" \
-  --image assets/sprites/player.png \
-  -o assets/sprites/player_glow.png
+python tools/asset_layout_guide.py \
+  --out <guide.png> \
+  --rows <rows> \
+  --cols <cols> \
+  --labels <labels>
 ```
 
-**常用选项：**
-
-| 选项 | 默认值 | 说明 |
-|--------|---------|-------|
-| `--prompt` | （必填） | 描述你想要的内容 |
-| `--model` | 项目配置 | `gemini[:model]`、`openai[:model]` 或 `grok[:model]`；覆盖 `asset_image_model` |
-| `--size` | `1K` | OpenAI：`1K`；Grok：`1K`、`2K`；Gemini：`512`、`1K`、`2K`、`4K` |
-| `--aspect-ratio` | `1:1` | 支持多种比例，运行 `--help` 查看全部选项 |
-| `--image` | 无 | 提供参考图片进行编辑 |
-| `-o` | （必填） | 输出文件路径 |
-
-### 设置预算上限
-
-你可以设置总消费上限，避免意外超支：
-
-```bash
-python tools/asset_gen.py set_budget 500
-```
-
-这会设置 500 美分（5.00 美元）的限额，记录在 `assets/budget.json` 中。任何生成命令在调用 API 之前，如果发现剩余预算不足，会直接报错退出。
-
-### 生成 3D 模型
-
-`glb` 子命令通过 Tripo3D 将 PNG 图片转换为 3D 模型（`.glb` 文件）。需要 `TRIPO3D_API_KEY`，仅适用于 3D 游戏。
-
-```bash
-python tools/asset_gen.py glb \
-  --image assets/sprites/tree.png \
-  -o assets/models/tree.glb
-```
-
-费用约为每个模型 40–50 美分，具体取决于 `--quality` 预设（`default` 或 `high`）。
+guide 用于约束 image generation 的 slot 数量、居中和安全边距。它不是运行时美术资源。
 
 ## rembg_matting.py
 
-`rembg_matting.py` 用于去除图片的纯色背景，输出带透明背景的 PNG 文件。当你有一张渲染在纯色背景上的精灵图，需要抠图后放入场景时，就用这个工具。
+`rembg_matting.py` 是可选 curation 工具，用于在 source sheet 处理前移除纯色背景。
+
+手动入口：
 
 ```bash
-# 单张图片，自动选择最佳处理方式
-python tools/rembg_matting.py assets/sprites/enemy_raw.png -o assets/sprites/enemy.png
-
-# 批量处理：处理文件夹中的所有 PNG
-python tools/rembg_matting.py --batch raw_frames/ -o clean_frames/
-
-# 生成预览图，方便使用前确认效果
-python tools/rembg_matting.py assets/sprites/enemy_raw.png --preview
+python tools/rembg_matting.py <input.png> -o <output.png>
+python tools/rembg_matting.py --batch <input_dir> -o <output_dir>
+python tools/rembg_matting.py <input.png> --preview
 ```
 
-工具使用神经网络（BiRefNet）识别主体，结合颜色抠图清理边缘。大多数图片能自动选择合适方案；如果自动结果不够干净，可以用 `-m trust`、`-m adapt` 或 `-m color` 强制指定模式。
+工具使用神经网络（BiRefNet）识别主体，并结合颜色 matting 清理边缘。可以用 `-m trust`、`-m adapt` 或 `-m color` 指定模式。
 
-如果有支持 CUDA 的 NVIDIA GPU，会自动启用 GPU 加速。在 CPU 上运行较慢，但同样可用。
+如果有支持 CUDA 的 NVIDIA GPU，会自动启用 GPU 加速。在 CPU 上会更慢，但仍可使用。
 
-## tripo3d.py
+## asset_sheet_process.py
 
-`tripo3d.py` 是 `asset_gen.py glb` 内部使用的 Tripo3D API 客户端。通常不需要直接调用它——请使用 `asset_gen.py` 的 `glb` 子命令。需要 `TRIPO3D_API_KEY`。
+`asset_sheet_process.py` 会把非角色 2D source sheet 拆成裁剪后的候选对象，并写出 curation report。它支持透明 sheet，也支持通过 `--background magenta` 处理纯 `#FF00FF` 背景 sheet。
 
-## 手动调用这些脚本的场景
+它适用于 icon pack、小型道具包、UI 组件 sheet 和其他非角色 source sheet。
 
-大多数情况下不需要直接运行这些脚本。`/gm-asset` 会根据你的 `ASSETS.md` 自动调度它们，并填入正确的提示词和输出路径。
+必须决定：
 
-需要手动调用的主要场景：
+1. `--grid <COLSxROWS>`
+2. `--names <comma-separated names>`
+3. 对象已经分离时使用 `--snap-mode autoslice`
+4. 严格 cell 网格使用 `--snap-mode grid`
+5. 紧凑 UI、icon、prop cell 中有零散碎片时使用 `--component-mode largest`
 
-- 你想用调整过的提示词重新生成某一个特定素材。
-- 在完整运行 `/gm-asset` 之前，你想先试验不同的尺寸、提供商或宽高比。
-- 你拿到了外部提供的美术素材，需要用 `rembg_matting.py` 去除背景。
+手动入口：
 
-如果你想更新 `/gm-evaluate` 用于对比的视觉目标，请重新运行 `/gm-asset`，而不是直接修改已生成的图片。手动编辑的图片在下次 `/gm-asset` 运行时会被覆盖。
+```bash
+python tools/asset_sheet_process.py \
+  --source <source.png> \
+  --out-dir <curation_dir> \
+  --grid <COLSxROWS> \
+  --names <names> \
+  --snap-mode <autoslice|grid> \
+  --report <report.json>
+```
+
+## asset_action_process.py
+
+`asset_action_process.py` 用于处理角色、敌人、NPC、召唤物和动画道具的动作 source。它会写出规范化 frame PNG、`sheet-transparent.png`、`animation.gif`、`pipeline-meta.json` 和中间 curation report。
+
+必须决定：
+
+1. body-only 角色动作使用 `--kind body`
+2. 分离式特效使用 `--kind fx`
+3. `--grid <COLSxROWS>`
+4. `--names <comma-separated frame names>`
+5. grounded body action 使用 `--align feet` 或 `--align bottom`
+6. floating action 和 detached effect 使用 `--align center`
+7. 后续 body action 使用 `--scale-reference-metadata <pipeline-meta.json>`
+
+这个工具会拒绝碰到 source cell 边缘的动作帧。`--final-dir` 和 `--final-prefix` 只会把处理后的 frames 和 delivery grid sheet 复制到运行时路径；它们不会组装 mixed atlas 或 row strip。
+
+手动入口：
+
+```bash
+python tools/asset_action_process.py \
+  --source <action_source.png> \
+  --out-dir <processed_dir> \
+  --grid <COLSxROWS> \
+  --names <frame_names> \
+  --kind <body|fx> \
+  --final-dir <runtime_dir> \
+  --final-prefix <asset_id>
+```
+
+后续 body action 追加：
+
+```bash
+--scale-reference-metadata <accepted_action_pipeline_meta.json>
+```
+
+## asset_action_manifest_entry.py
+
+`asset_action_manifest_entry.py` 会把一个已处理动作的 `pipeline-meta.json` 和对应的 `character_action_source` entry 转换成 `character_frame_output` manifest entry。
+
+手动入口：
+
+```bash
+python tools/asset_action_manifest_entry.py \
+  --metadata <processed_dir>/pipeline-meta.json \
+  --source-entry <character_action_source_entry.json> \
+  --asset-id <frame_output_asset_id> \
+  --project-root . \
+  --out <frame_output_entry.json>
+```
+
+生成的 entry 继续交给 `asset_generation_manifest_update.py` upsert。
+
+## asset_curation_select.py
+
+`asset_curation_select.py` 会从 curation report 中选择一个 candidate，并 finalize 到运行时素材路径。
+
+手动入口：
+
+```bash
+python tools/asset_curation_select.py \
+  --report <report.json> \
+  --candidate <candidate_id_or_name> \
+  --final-path <final_path> \
+  --asset-id <final_asset_id> \
+  --project-root .
+```
+
+工具会把 report 状态更新为 `selected`，记录 candidate 的 final path，并输出与 `asset_image_finalize.py` 相同的 finalize metadata。
+
+## asset_curation_manifest_entry.py
+
+`asset_curation_manifest_entry.py` 会把一个已选中的 curation candidate 和它对应的 source-sheet manifest entry 转换成已校验的运行时 manifest entry。
+
+手动入口：
+
+```bash
+python tools/asset_curation_manifest_entry.py \
+  --report <report.json> \
+  --source-entry <source_sheet_entry.json> \
+  --candidate <candidate_id_or_name> \
+  --asset-id <final_asset_id> \
+  --project-root . \
+  --out <final_asset_entry.json>
+```
+
+生成的 entry 继续交给 `asset_generation_manifest_update.py` upsert。
+
+## 手动调用这些脚本
+
+大多数情况下不需要直接运行这些脚本。`/gm-asset` 会根据 `ASSETS.md` 和 source-generation manifest 自动调度它们。
+
+主要手动场景：
+
+1. 用调整过的 spec 重新生成某一个 source 图片。
+2. 为固定网格 source 创建一个 layout guide。
+3. 调试动画输出时单独处理一个角色动作 sheet。
+4. 从 action metadata 生成一个 character frame-output manifest entry。
+5. 在完整运行 `/gm-asset` 前试验不同的提供商、尺寸或宽高比。
+6. 在 source sheet curation 前移除纯色背景。
+7. 调试 extraction 时单独处理一个 source sheet。
+8. 把某个 extracted candidate 选入运行时素材路径。
+9. 从已选中的 curation candidate 生成一个运行时 manifest entry。
+
+如果想更新 `/gm-evaluate` 用于对比的视觉目标，请重新运行 `/gm-asset`，不要直接编辑已生成的图片。

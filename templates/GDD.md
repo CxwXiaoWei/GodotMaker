@@ -9,7 +9,7 @@
 
 - **Title:** {working title}
 - **Genre:** {platformer, shooter, puzzle, RPG, tower defense, etc.}
-- **Perspective:** {2D side-view / 2D top-down / 2.5D / 3D}
+- **Perspective:** {2D side-view / 2D top-down / 2D fixed/grid}
 - **Platform:** Godot 4.x (Desktop)
 - **One-line pitch:** {one sentence that captures the core fantasy}
 - **Target session length:** {how long is one play session}
@@ -46,7 +46,10 @@
 
 - **Theme / Setting:** {fantasy forest, sci-fi space station, etc.}
 - **Mood / Atmosphere:** {dark and tense, bright and cheerful, etc.}
-- **Art style:** {pixel art / vector / hand-painted / low-poly / placeholder}
+- **Art style:** {pixel art / vector / hand-painted / cartoon / placeholder}
+- **Visual mode:** {pixel art / non-pixel 2D}
+- **Target viewport:** {e.g., 1280x720 for non-pixel 2D, 480x270 for pixel art}
+- **Gameplay actor screen presence:** {default actor height as % of viewport height and px at target viewport}
 - **Color palette:** {dominant colors, warm/cool}
 - **Visual references:** {description of intended look, or "see user-provided assets"}
 
@@ -58,14 +61,14 @@
 
 - **Abilities:** {what can the player do?}
 - **Constraints:** {what limits the player?}
-- **Visual:** {sprite description or reference}
+- **Visual:** {sprite description or reference; target gameplay height}
 
 ### Enemies / NPCs
 
-| Entity | Behavior | Visual |
-|--------|----------|--------|
-| {e.g., Slime} | {patrol, chase on sight} | {green blob, 16x16} |
-| ... | ... | ... |
+| Entity | Behavior | Visual | Target Gameplay Height |
+|--------|----------|--------|------------------------|
+| {e.g., Slime} | {patrol, chase on sight} | {green blob, readable silhouette} | {e.g., 7% viewport height / 50px at 720p} |
+| ... | ... | ... | ... |
 
 ### Interactive Objects
 

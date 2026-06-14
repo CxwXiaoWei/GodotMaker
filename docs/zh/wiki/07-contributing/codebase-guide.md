@@ -7,11 +7,11 @@
 ```
 GodotMaker/
 ├── hooks/                   8 个 hook 脚本 + hooks/metrics/ 子系统
-├── agents/                  5 个子 Agent 定义（worker、verifier、reviewer、analyst、gdd-auditor）
+├── agents/                  子 Agent 定义（worker、verifier、reviewer、analyst、asset-producer、gdd-auditor）
 ├── skills/
 │   ├── core/                角色技能 + 辅助技能 + _shared/
 │   └── reviewer/            8 个审查技能（各含 gotchas.md + checklist.md）
-├── tools/                   publish.py, check_env.py, check_project.py, asset_gen.py, migrate.py
+├── tools/                   publish.py, check_env.py, check_project.py, asset_*.py, migrate.py
 ├── config/                  config.yaml.default, stage_schemas.json, addon_versions.json
 ├── agent-runtimes/          runner 专属 reference、template 和 hook config
 ├── templates/               文档模板（GDD, PLAN, STRUCTURE, SCENES, ASSETS, GAP, MEMORY, TOC）
@@ -77,9 +77,10 @@ Hook 注册关系（哪个脚本响应哪个事件）存储在
 | `verifier.md` | 对 Worker 的产出进行机械校验（构建、测试、文件存在性） | `/gm-build`、`/gm-fixgap` |
 | `reviewer.md` | 对照 `skills/reviewer/<domain>` 的 checklist 审查代码并报告问题 | `/gm-build`、`/gm-fixgap` |
 | `analyst.md` | 分析用户提供的资源并输出 manifest | `/gm-asset` |
+| `asset-producer.md` | 生成一个视觉资源生产单元 | `/gm-asset` |
 | `gdd-auditor.md` | 独立审计 GDD 草稿，对照 9 类 checklist 每轮返回 5–8 个补问 | `game-planner`（Rounds 6 + 7） |
 
-派发协议（调用格式和 brief 模板）位于 `skills/core/_shared/{worker,verifier,reviewer,analyst}-dispatch.md`。`gdd-auditor` 直接由 `skills/core/game-planner/SKILL.md` 内联调用。
+派发协议（调用格式和 brief 模板）位于 `skills/core/_shared/{worker,verifier,reviewer,analyst}-dispatch.md` 或所属角色技能内。`gdd-auditor` 直接由 `skills/core/game-planner/SKILL.md` 内联调用。
 
 ### 两轮 GDD 审计
 
@@ -143,7 +144,13 @@ manifest 的 schema、添加/移除流程和调试技巧见 `docs/contributing/s
 | `publish.py` | 将 GodotMaker 部署到目标 Godot 项目 |
 | `check_env.py` | 验证 Godot、Python 和 API key 是否正确配置 |
 | `check_project.py` | 检验已生成项目中的缺失文件和损坏路径 |
-| `asset_gen.py` | 通过 Gemini / OpenAI / xAI 生成 API 后端美术资源（由 `/gm-asset` 调用，也可独立运行） |
+| `asset_source_generate.py` | 根据 `/gm-asset` spec 生成 API 后端 source 图片 |
+| `asset_layout_guide.py` | 为固定网格 source 图片创建 layout guide |
+| `asset_action_process.py` | 将角色动作 sheet 处理成规范化 frames 和 metadata |
+| `asset_action_manifest_entry.py` | 根据已处理动作 metadata 生成 frame-output manifest entry |
+| `asset_sheet_process.py` | 将生产形态的 2D source sheet 拆成 curation candidate |
+| `asset_curation_select.py` | 将选中的 curation candidate finalize 到运行时素材路径 |
+| `asset_curation_manifest_entry.py` | 根据已选中的 curation candidate 生成运行时 manifest entry |
 | `migrate.py` | 在任何非 MAJOR 升级时把未应用的迁移脚本应用到目标项目；也通过 `--new <slug>` 生成新脚本模板 |
 
 ### publish.py 如何串联一切

@@ -7,11 +7,11 @@ This page gives a folder-by-folder tour of the GodotMaker repository, with enoug
 ```
 GodotMaker/
 ├── hooks/                   8 hook scripts + hooks/metrics/ subsystem
-├── agents/                  5 sub-agent definitions (worker, verifier, reviewer, analyst, gdd-auditor)
+├── agents/                  sub-agent definitions (worker, verifier, reviewer, analyst, asset-producer, gdd-auditor)
 ├── skills/
 │   ├── core/                Role skills + supporting skills + _shared/
 │   └── reviewer/            8 reviewer skills (gotchas.md + checklist.md each)
-├── tools/                   publish.py, check_env.py, check_project.py, asset_gen.py, migrate.py
+├── tools/                   publish.py, check_env.py, check_project.py, asset_*.py, migrate.py
 ├── config/                  config.yaml.default, stage_schemas.json, addon_versions.json
 ├── agent-runtimes/          Runner-specific references, templates, and hook config
 ├── templates/               Document templates (GDD, PLAN, STRUCTURE, SCENES, ASSETS, GAP, MEMORY, TOC)
@@ -77,9 +77,10 @@ Sub-agent definitions, one Markdown file per agent. Each file has YAML front-mat
 | `verifier.md` | Mechanically checks a worker's output (build, tests, file presence) | `/gm-build`, `/gm-fixgap` |
 | `reviewer.md` | Reads code against `skills/reviewer/<domain>` checklists and reports issues | `/gm-build`, `/gm-fixgap` |
 | `analyst.md` | Analyses user-provided assets and produces a manifest | `/gm-asset` |
+| `asset-producer.md` | Produces one generated visual asset production unit | `/gm-asset` |
 | `gdd-auditor.md` | Independently audits a draft GDD against a 9-category checklist and returns 5–8 follow-up questions per pass | `game-planner` (Rounds 6 + 7) |
 
-The dispatch protocols (call format and brief templates) live in `skills/core/_shared/{worker,verifier,reviewer,analyst}-dispatch.md`. `gdd-auditor` is invoked inline from `skills/core/game-planner/SKILL.md`.
+The dispatch protocols (call format and brief templates) live in `skills/core/_shared/{worker,verifier,reviewer,analyst}-dispatch.md` or in the owning role skill. `gdd-auditor` is invoked inline from `skills/core/game-planner/SKILL.md`.
 
 ### The two-pass GDD audit
 
@@ -143,7 +144,13 @@ Python CLI scripts that contributors and users run directly.
 | `publish.py` | Deploy GodotMaker into a target Godot project |
 | `check_env.py` | Verify Godot, Python, API keys are set up correctly |
 | `check_project.py` | Validate a generated project for missing files and broken paths |
-| `asset_gen.py` | Generate API-backed art via Gemini / OpenAI / xAI (called by `/gm-asset`, can run standalone) |
+| `asset_source_generate.py` | Generate API-backed source images from `/gm-asset` specs |
+| `asset_layout_guide.py` | Create layout-only guides for fixed-grid source images |
+| `asset_action_process.py` | Process character action sheets into normalized frames and metadata |
+| `asset_action_manifest_entry.py` | Build frame-output manifest entries from processed action metadata |
+| `asset_sheet_process.py` | Split production-shaped 2D source sheets into curation candidates |
+| `asset_curation_select.py` | Finalize selected curation candidates into runtime asset paths |
+| `asset_curation_manifest_entry.py` | Build runtime manifest entries from selected curation candidates |
 | `migrate.py` | Apply pending migrations to a target on any non-MAJOR upgrade; also scaffolds new ones via `--new <slug>` |
 
 ### How publish.py wires everything together

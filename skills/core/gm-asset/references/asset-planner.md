@@ -1,251 +1,172 @@
 # Asset Planning Reference
 
-This file describes how `/gm-asset` plans the current tag's asset work before
-generation. Use `asset-gen.md` for provider commands, runtime claim protocol,
-finalization, and asset-type generation recipes.
-
-## Scope
-
-Use this file for:
-
-1. Reading current-tag asset requirements.
-2. Deriving missing visual assets from project documents and scene references.
-3. Choosing asset roles, anchors, derivatives, and provider paths.
-4. Building generation batches and ASSETS.md updates.
-
-Do not use this file to write PLAN.md, GDD.md, STRUCTURE.md, SCENES.md, or
-STYLE.md.
+Use this file when `/gm-asset` builds current-tag production units before
+dispatching `asset-producer`.
 
 ## Inputs
 
-Read these before planning:
-
-1. `ASSETS.md`: current tag rows and existing asset statuses.
-2. `PLAN.md`: current playable-unit tasks and declared asset needs.
-3. `STYLE.md`: visual prompt anchor, suffix, rules, and avoid list.
-4. `STRUCTURE.md`: architecture and asset hints.
-5. `SCENES.md`: scene element lists and gameplay screen descriptions.
-6. `references/scene_*.png`: visual targets generated from scene descriptions.
-
-If a scene reference is missing, use the SCENES.md text and STYLE.md instead.
-
-## Planning Workflow
-
-### 1. Determine current tag scope
-
-Read the current tag from `PLAN.md`'s `**Tag:**` header. If the header is
-missing, stop and report the missing tag. Only plan rows whose `Tag` matches
-the current tag. Prior-tag rows are not modified by `/gm-asset`.
-
-### 2. Analyze visible game content
-
-For each current-tag scene:
-
-1. Check whether `references/scene_{name}.png` exists.
-2. If image content must be analyzed, dispatch the analyst subagent. Do not read
-   image binaries in the main agent.
-3. Use the analyst summary to identify visible objects, scale, composition,
-   foreground/background layers, UI elements, and repeated visual motifs.
-4. Cross-check SCENES.md for elements that are required but not visible in the
-   analyst summary.
-5. Cross-check PLAN.md and STRUCTURE.md for assets required by gameplay logic.
-
-The final list is the union of scene-visible assets and gameplay-required
-assets.
-
-### 3. Classify assets
-
-Classify each planned asset into one role:
-
-1. `scene_reference`: full-scene target image.
-2. `background`: large scenic image, parallax layer, title screen, or arena.
-3. `texture`: tileable or repeated material.
-4. `sprite`: standalone 2D object, character, item, icon, or VFX frame.
-5. `ui_kit`: related UI panels, buttons, icons, and HUD elements.
-6. `item_kit`: several small objects generated as one source image.
-7. `model_reference`: 2D image intended for GLB conversion.
-8. `animated_sprite`: reference, poses, video, frames, and extracted animation.
-9. `audio`: user-provided only.
-
-### 4. Choose anchors and derivatives
-
-Identify which assets establish the style for later assets.
-
-1. Anchor assets are generated first and reviewed before derivatives.
-2. Derivative assets use anchors as image references when the provider supports
-   image input.
-3. Keep one canonical anchor per character, UI family, environment family, or
-   enemy/item family.
-4. If multiple references disagree, choose one canonical version and note it in
-   the asset row.
-
-Common anchor patterns:
-
-1. One hero character anchors all character variants.
-2. One UI kit anchors all HUD and menu elements.
-3. One environment image anchors vegetation, terrain, props, and background
-   details.
-4. One weapon/item family image anchors item variants.
-
-### 5. Select provider path
-
-Read `.godotmaker/config.yaml` and use `asset_image_model` as the default image
-path.
-
-1. `native`: use the active runtime-native image-generation path documented in
-   `asset-gen.md`.
-2. `codex`: use the Codex image generation path documented in `asset-gen.md`.
-3. `gemini:<model>`, `openai:<model>`, `grok:<model>`: use
-   `tools/asset_gen.py image --model <selector>` as documented in
-   `asset-gen.md`.
-
-Provider choice by asset role:
-
-1. Use precise providers for scene references, character designs, 3D model
-   references, animation references, and backgrounds with exact layout.
-2. Use simpler providers for textures, simple props, item kits, and simple
-   scenic backgrounds when exact prompt adherence is not critical.
-3. Use image references for derivatives when style consistency matters.
-4. Treat missing API keys or unavailable runtime-native generation as hard
-   failures.
-
-### 6. Build generation batches
-
-Plan batches that can run without conflicting outputs.
-
-1. Put anchors before derivatives.
-2. Group independent assets into parallel-ready batches, at most 3 concurrent
-   generation groups.
-3. Keep all outputs for one asset under known source and final target paths.
-4. Plan every generated source path under
-   `.godotmaker/asset-generation/sources/`.
-5. Plan every generation report under
-   `.godotmaker/asset-generation/reports/`.
-6. For generated project assets, plan final paths under `assets/` or
-   `references/` only through the approved tools in `/gm-asset` SKILL.md.
-
-If isolated generation groups may be unavailable, include a sequential fallback
-note for the executor to report in the generation summary.
-
-Scene reference planning uses the same batch rules:
-
-1. If one scene establishes the visual style, plan it as `anchor_item`.
-2. Put the remaining scene references in `parallel_items`.
-3. If no anchor scene is needed, put all missing scene references in
-   `parallel_items`.
-4. Plan fixed scene paths:
-   - source path: `.godotmaker/asset-generation/sources/scene_{name}_source.png`
-   - final path: `references/scene_{name}.png`
-   - report path: `.godotmaker/asset-generation/reports/scene_refs_<group_id>.json`
-5. Plan one flat finalize JSON report entry per scene reference.
-
-### 7. Prepare ASSETS.md updates
-
-For each generated or user-provided asset row, preserve the existing ASSETS.md
-table schema and include:
-
-1. `Tag`: current tag.
-2. `Status`: `generated`, `provided`, `deferred`, or `N/A`.
-3. `File Path`: final project path.
-4. `Generation Params`: provider, prompt source, anchor relationship,
-   derivative source, or curation status.
-5. `Size`: intended in-game display or world size when the table has a size
-   column.
-
-Audio rows remain `deferred` unless the user provides files.
-
-Update `ASSETS.md` Visual Asset Contract for each current-tag visual asset:
-
-1. `Scene / Mechanic`: every scene and mechanic that must show the asset.
-2. `Visible Object`: the object or UI element name used in SCENES.md.
-3. `Asset Row / Path`: `asset_name / assets/...` for a concrete ASSETS.md
-   row and final path, or `procedural`, `UI text`, or
-   `not required this tag` with a deferral reason.
-4. `Runtime Size`: the intended display size in pixels, viewport percentage,
-   or world units.
-5. `Visual Role`: player, enemy, projectile, pickup, prop, background, HUD,
-   overlay, VFX, or other concrete role.
-6. `Readability Requirement`: the screenshot or frame-sequence condition that
-   makes the asset acceptable in play.
-7. `Source`: `anchor`, `derivative of <asset>`, `scene reference`,
-   `user-provided`, or `procedural/UI`.
-
-For small sprites, write the minimum readable display size and the contrast or
-silhouette requirement. For derivative assets, name the anchor asset.
-
-## Asset Type Rules
-
-### Background
-
-Use for title screens, sky panoramas, arena backgrounds, parallax layers, and
-large scenic images. Specify viewport behavior and intended display size.
-
-### Texture
-
-Use for repeated terrain, floors, walls, UI materials, and tileable surfaces.
-Specify tile size in world units.
-
-### Sprite
-
-Use for characters, enemies, items, props, pickups, icons, and VFX images.
-Specify intended in-game pixel size.
-
-### UI kit
-
-Use for related interface elements. Prefer one coherent kit source when style
-consistency matters. Mark extraction or curation needs in ASSETS.md notes.
-
-### Item kit
-
-Use for multiple related small items. Plan the kit source image and the
-individual final item paths.
-
-### Model reference
-
-Use for GLB conversion. Specify the final GLB path and the reference image path.
-Use a clean presentation image with a solid background.
-
-### Animated sprite
-
-Plan one reference image per character or animated object. Then plan actions:
-
-1. Root actions from the reference.
-2. Optional chained actions from a previous action's last extracted frame.
-3. Frame output directories.
-4. Loop or one-shot playback type.
-5. Background removal needs.
-
-Keep animation chains short to limit visual drift.
-
-## Common Mistakes
-
-### Tiny generated images in-game
-
-Do not plan a highly detailed generated sprite for a tiny display size. Use a
-larger display size, a kit source, or a bold/simple prompt.
-
-### Texture used as a unique background
-
-Do not stretch a small tileable texture over a large scenic area. Plan a real
-background instead.
-
-### Procedural shapes as generated art
-
-Simple geometric UI elements can be drawn in code. Use generated art for
-characters, backgrounds, terrain, objects, icons, and visually important UI.
-
-### Missing asset assignment
-
-Every generated asset must be represented in ASSETS.md with a current-tag row.
-Do not rely on hidden memory or untracked notes for asset ownership.
-
-## Planning Output
-
-When planning is complete, identify:
-
-1. Current-tag ASSETS.md rows that need updates.
-2. Assets to generate, claim, provide, defer, or mark N/A.
-3. Planned source paths and final project paths.
-4. Provider path and generation batch membership.
-5. Scene reference anchor item and parallel items, when applicable.
-6. Source sheets or UI kits that will need curation.
+Read:
+
+1. `ASSETS.md`
+2. `PLAN.md`
+3. `STYLE.md` seed
+4. `STRUCTURE.md`
+5. `SCENES.md`
+6. `references/scene_*.png` summaries from analyst reports
+7. `references/asset-runtime-pipeline.md`
+
+Do not read image binaries in the manager context.
+
+## Planning Steps
+
+1. Read the current tag from `PLAN.md`.
+2. Filter `ASSETS.md` to current-tag `MISSING` rows.
+3. Add missing current-tag scene references from `SCENES.md`.
+4. Identify current-tag visual anchors.
+5. Apply the Visual Anchor Gate.
+6. Group generated visual work into production units.
+7. Choose one production-unit doc for each unit.
+8. Choose one provider doc for each unit.
+9. Reserve source, final, prompt, report, and manifest-entry paths.
+10. Record dependencies between units.
+11. Dispatch independent units in batches of up to 3.
+12. Keep bundle work in one production unit.
+
+## Visual Anchor Gate
+
+Current-tag visual anchors are:
+
+1. User-provided image assets accepted as `direct_runtime`.
+2. Current-tag `references/scene_*.png` files with matching reports.
+3. Current-tag generated `screen-reference` or `style_reference` manifest
+   entries whose files exist.
+4. Current-tag canonical character or UI reference images whose manifest entries
+   are `ready`.
+
+When no visual anchor exists:
+
+1. Plan only one foundation `screen-reference` production unit.
+2. Use the primary current-tag scene from `SCENES.md`.
+3. Do not dispatch `background-map`, `character-bundle`, `fx-bundle`,
+   `ui-kit`, `card-kit`, `compact-prop-pack`, `platform-strip`, or
+   `scene-prop-set`.
+4. Collect the foundation reference report.
+5. Rebuild the production plan.
+
+When at least one visual anchor exists:
+
+1. Put visible anchor paths in every production-unit brief.
+2. Dispatch independent units in batches of up to 3.
+
+## Production Unit Selection
+
+Choose the first matching unit.
+
+| Unit | Use when | Do not use for |
+| --- | --- | --- |
+| `screen-reference` | Missing `references/scene_*.png`, style anchor, or evaluation visual target. | Runtime backgrounds, map bases, parallax plates, final props, or playable scene objects. |
+| `character-bundle` | Player, enemy, NPC, summon, boss, character portrait, character bust, character card display image, or recurring creature identity. | Detached projectiles, impact bursts, UI pieces, props, or terrain. |
+| `fx-bundle` | Projectile, impact, pickup effect, slash, muzzle, aura, explosion, detached effect sequence, or foreground gameplay sprite with effect behavior. | Character body animation, UI icons, props, or map scenery. |
+| `ui-kit` | Buttons, panels, tabs, counters, HUD pieces, map markers, cursors, icons, progress bars, and scalable UI pieces that share one interface style. | Full composite screens, readable text, logos, fonts, card frames, portrait frames, scene backgrounds, or runtime props. |
+| `card-kit` | Card frames, portrait frames, rarity frames, card slots, deck slots, card markers, and card-game-specific UI pieces. | Generic HUD controls, character portraits, full composite screens, readable text, logos, fonts, scene backgrounds, or runtime props. |
+| `compact-prop-pack` | Small props, collectable pickups, crates, stones, bushes, pots, debris, lamps, and signs that can share one source sheet. | Wide, tall, collision-bearing, platform, floor, bridge, wall, ladder, gate, door, terrain, or tileset assets. |
+| `background-map` | Runtime background, map base, parallax plate, fixed battle background, title/splash illustration, or fixed-viewport scenic asset. | Scene references, extracted props, character actors, UI kits, or collision-bearing strips. |
+| `platform-strip` | Floors, bridges, platforms, rails, pipes, long hazards, terrain chunks, and collision-aligned horizontal pieces. | Compact props, characters, FX, UI pieces, or full backgrounds. |
+| `scene-prop-set` | Final runtime foreground objects derived from a scene, map, or stage reference. | Generic prop packs without a scene reference, backgrounds, UI, characters, FX, or uncut single-image foreground sprites. |
+
+Default font, logo, and wordmark rows to `provided` or `deferred` unless the
+user explicitly requested generated image assets.
+
+## Production Unit Entry Points
+
+| Unit | First entry document |
+| --- | --- |
+| `screen-reference` | `references/production-units/screen-reference.md` |
+| `character-bundle` | `references/production-units/character-bundle.md` |
+| `fx-bundle` | `references/production-units/fx-bundle.md` |
+| `ui-kit` | `references/production-units/ui-kit.md` |
+| `card-kit` | `references/production-units/card-kit.md` |
+| `compact-prop-pack` | `references/production-units/compact-prop-pack.md` |
+| `background-map` | `references/production-units/background-map.md` |
+| `platform-strip` | `references/production-units/platform-strip.md` |
+| `scene-prop-set` | `references/production-units/scene-prop-set.md` |
+
+## ASSETS Family Routing
+
+| Family | Production unit |
+|--------|-----------------|
+| `screen_reference` | `screen-reference` |
+| `style_reference` | `screen-reference` |
+| `character_canonical` | `character-bundle` |
+| `character_portrait` | `character-bundle` |
+| `character_action_source` | `character-bundle` |
+| `character_frame_output` | `character-bundle` |
+| `projectile_fx_source` | `fx-bundle` |
+| `impact_fx_source` | `fx-bundle` |
+| `compact_prop_pack` | `compact-prop-pack` |
+| `ui_component_sheet` | `ui-kit` |
+| `icon_pack` | `ui-kit` |
+| `panel_source` | `ui-kit` |
+| `card_component_sheet` | `card-kit` |
+| `card_frame_source` | `card-kit` |
+| `portrait_frame_source` | `card-kit` |
+| `background` | `background-map` |
+| `platform_strip` | `platform-strip` |
+| `scene_prop_set` | `scene-prop-set` |
+| `runtime_sprite` | `compact-prop-pack` |
+| `texture` | `background-map` |
+| `audio` | no generated production unit |
+
+## Plan Artifact Fields
+
+Record these fields for each generated visual production unit:
+
+1. `unit_id`
+2. `unit_doc`
+3. `provider`
+4. `input_rows`
+5. `dependencies`
+6. `source_paths`
+7. `final_paths`
+8. `prompt_paths`
+9. `report_path`
+10. `manifest_entry_paths`
+11. `runtime_artifacts`
+12. `metadata_paths`
+
+## Dependency Order
+
+Use this order when units depend on each other:
+
+1. `screen-reference` and style anchors.
+2. `background-map`.
+3. `character-bundle` canonicals, `ui-kit`, and `card-kit` source sheets.
+4. `character-bundle` actions, `fx-bundle`, `compact-prop-pack`,
+   `platform-strip`, and `scene-prop-set`.
+5. Curation and manifest update.
+
+## Batch Rules
+
+1. Run independent production units in batches of up to 3.
+2. Keep one production unit inside one asset-producer brief.
+3. Do not split a character bundle across unrelated producers.
+4. Do not merge unrelated production units into one brief.
+5. Record sequential fallback in the unit report when needed.
+
+## ASSETS.md Updates
+
+Update current-tag rows after producer reports:
+
+1. `generated`: final runtime asset exists and manifest validation passed.
+2. `provided`: user-provided file matched the row.
+3. `deferred`: unprovided audio or intentionally skipped asset.
+4. `MISSING`: source exists but final runtime asset or curation is incomplete.
+
+Update `Generation Params` with:
+
+1. manifest entry pointer
+
+Do not duplicate prompt paths, source paths, runtime artifact, metadata paths,
+or curation reports in `ASSETS.md`.
+
+Update the Visual Asset Contract for gameplay-visible final assets.
