@@ -16,6 +16,11 @@ claude
 python tools/publish.py --agent codex /path/to/my-game
 cd /path/to/my-game
 codex
+
+# OpenCode
+python tools/publish.py --agent opencode /path/to/my-game
+cd /path/to/my-game
+opencode
 ```
 
 Windows 上：
@@ -42,7 +47,7 @@ python tools\publish.py C:\Games\my-game
 | `CLAUDE.md` | 项目专属指令，Claude Code 每次会话开始时都会读取 |
 | `assets/sprites`、`assets/audio`、`assets/fonts`、`assets/ui`、`references/` | 标准素材文件夹 |
 
-脚本还会为所选 agent 注册 `godot-mcp` 服务器（Claude Code 走 `claude mcp`，Codex 走 `codex mcp`）、在项目中尚无 git 仓库时自动初始化，并创建包含正确条目的 `.gitignore`。Codex 发布必须完成 MCP 注册，因为后续 GodotMaker 运行时依赖 Godot MCP 工具。
+脚本还会为所选 agent 注册 `godot-mcp` 服务器（Claude Code 走 `claude mcp`，Codex 走 `codex mcp`，OpenCode 走 `opencode mcp`）、在项目中尚无 git 仓库时自动初始化，并创建包含正确条目的 `.gitignore`。MCP 注册是必需的，因为后续 GodotMaker 运行时依赖 Godot MCP 工具。
 
 使用 `--agent codex` 时，agent 相关文件会改用 Codex 的项目本地布局：
 技能写入 `.agents/skills/`，模板和配置写入 `.agents/`，`godotmaker.yaml`
@@ -50,6 +55,8 @@ python tools\publish.py C:\Games\my-game
 Codex hook 注册写入 `.codex/hooks.json`。共享框架状态仍然位于
 `.godotmaker/`。Codex 的 approval 与 sandbox 策略由 Codex 运行时处理；
 publish 不会创建 `.agents/settings.json` 等价文件。
+
+使用 `--agent opencode` 时，agent 相关文件会改用 OpenCode 的项目本地布局：技能写入 `.opencode/skills/`，agent 定义写入 `.opencode/agents/`，模板和配置写入 `.opencode/`，`godotmaker.yaml` 位于 `.opencode/godotmaker.yaml`，并创建指向 OpenCode runtime mapping 的 `AGENTS.md`。OpenCode hook adapter 会写入 `.opencode/plugins/godotmaker-hooks.js`，并调用 `.godotmaker/hooks/` 中的共享 GodotMaker hook 脚本。
 
 ### Codex 权限
 
@@ -94,12 +101,13 @@ codex.cmd remote-control -c sandbox_mode='"danger-full-access"' -c approval_poli
 ```bash
 python tools/publish.py --force /path/to/my-game
 python tools/publish.py --agent codex --force /path/to/my-game
+python tools/publish.py --agent opencode --force /path/to/my-game
 ```
 
 `--force` 同时做四件事：
 
 1. 重新部署前清空所选 agent 的技能目录，移除旧版本遗留的技能文件。
-2. 即使你已自定义过所选 runner 的 hook config（`.claude/settings.json` 或 `.codex/hooks.json`），也会强制覆盖。
+2. 即使你已自定义过所选 runner 的 hook config 或 adapter（`.claude/settings.json`、`.codex/hooks.json` 或 `.opencode/plugins/godotmaker-hooks.js`），也会强制覆盖。
 3. 跳过 minor 和 major 升级的确认提示。
 4. 允许降级。
 
@@ -112,8 +120,8 @@ python tools/publish.py --agent codex --force /path/to/my-game
 | 文件 | 保留原因 |
 |------|---------------|
 | `CLAUDE.md` / `AGENTS.md` | 你可能添加了项目专属指令 |
-| `.claude/settings.json` / `.codex/hooks.json` | 你可能调整过 hook 行为 |
-| `.claude/godotmaker.yaml` / `.agents/godotmaker.yaml` | 包含本机专属的 Godot 路径 |
+| `.claude/settings.json` / `.codex/hooks.json` / `.opencode/plugins/godotmaker-hooks.js` | 你可能调整过 hook 行为 |
+| `.claude/godotmaker.yaml` / `.agents/godotmaker.yaml` / `.opencode/godotmaker.yaml` | 包含本机专属的 Godot 路径 |
 | `.godotmaker/config.yaml` | 包含项目专属的偏好设置 |
 
 你的游戏代码、场景、素材以及规划文档（`GDD.md`、`PLAN.md` 等）不受 publish 影响——它只管理框架层。

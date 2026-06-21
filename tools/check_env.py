@@ -14,7 +14,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-from agent_runtime import AGENT_CLAUDE_CODE, AGENT_CODEX, detect_agent, read_godot_path
+from agent_runtime import (
+    AGENT_CLAUDE_CODE,
+    AGENT_CODEX,
+    AGENT_OPENCODE,
+    detect_agent,
+    read_godot_path,
+)
 
 
 class EnvCheck:
@@ -41,7 +47,8 @@ def get_version(cmd: str, pattern: str = r"(\d+(?:\.\d+)+)") -> str | None:
     try:
         result = subprocess.run(
             [cmd, "--version"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=10,
         )
         output = result.stdout + result.stderr
         match = re.search(pattern, output)
@@ -186,7 +193,8 @@ def _get_version_from_path(path: str, pattern: str = r"(\d+(?:\.\d+)+)") -> str 
     try:
         result = subprocess.run(
             [path, "--version"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=10,
         )
         output = result.stdout + result.stderr
         match = re.search(pattern, output)
@@ -267,7 +275,8 @@ def check_codex(r: EnvCheck, project_dir: Path):
         result = subprocess.run(
             [cmd, "mcp", "list"],
             cwd=str(project_dir),
-            capture_output=True, text=True, timeout=15,
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=15,
         )
         output = (result.stdout or "") + (result.stderr or "")
         if result.returncode == 0 and "godot" in output:
@@ -280,6 +289,54 @@ def check_codex(r: EnvCheck, project_dir: Path):
         r.fail("Could not list Codex MCP servers")
 
 
+def check_opencode(r: EnvCheck, project_dir: Path):
+    print("\n--- OpenCode ---")
+    cmd = (
+        shutil.which("opencode")
+        or shutil.which("opencode.cmd")
+        or shutil.which("opencode.exe")
+    )
+    if not cmd:
+        r.fail("OpenCode CLI not found. Install OpenCode before using agent: opencode.")
+        return
+    version = get_version(cmd, pattern=r"(\d+(?:\.\d+)+)")
+    r.ok(f"OpenCode CLI found: {cmd}" + (f" ({version})" if version else ""))
+
+    mapping = project_dir / ".opencode" / "references" / "runtime-mapping.md"
+    skills = project_dir / ".opencode" / "skills"
+    agents = project_dir / ".opencode" / "agents"
+    config = project_dir / ".opencode" / "godotmaker.yaml"
+    hook_adapter = project_dir / ".opencode" / "plugins" / "godotmaker-hooks.js"
+    for path, label in [
+        (skills, ".opencode/skills"),
+        (agents, ".opencode/agents"),
+        (mapping, ".opencode/references/runtime-mapping.md"),
+        (config, ".opencode/godotmaker.yaml"),
+        (hook_adapter, ".opencode/plugins/godotmaker-hooks.js"),
+    ]:
+        if path.exists():
+            r.ok(f"{label} present")
+        else:
+            r.fail(f"{label} missing; re-run publish with --agent opencode")
+
+    try:
+        result = subprocess.run(
+            [cmd, "mcp", "list"],
+            cwd=str(project_dir),
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=15,
+        )
+        output = (result.stdout or "") + (result.stderr or "")
+        if result.returncode == 0 and "godot" in output:
+            r.ok("OpenCode MCP server 'godot' configured")
+        elif result.returncode == 0:
+            r.fail("OpenCode MCP server 'godot' missing; re-run publish")
+        else:
+            r.fail("Could not list OpenCode MCP servers")
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        r.fail("Could not list OpenCode MCP servers")
+
+
 def check_selected_agent(r: EnvCheck, project_dir: Path):
     agent = detect_agent(project_dir)
     print(f"\n--- Selected Agent ({agent}) ---")
@@ -287,6 +344,8 @@ def check_selected_agent(r: EnvCheck, project_dir: Path):
         check_codex(r, project_dir)
     elif agent == AGENT_CLAUDE_CODE:
         check_claude(r)
+    elif agent == AGENT_OPENCODE:
+        check_opencode(r, project_dir)
     else:
         r.fail(f"Unsupported GodotMaker agent: {agent}")
 
@@ -299,6 +358,19 @@ def check_runtime_model_provider(
 ):
     print("\n--- Runtime Image Provider ---")
     if provider == "native":
+        if agent == AGENT_OPENCODE:
+            if capability == "image_generation":
+                r.fail(
+                    "native image generation is unsupported for OpenCode; "
+                    "set asset_image_model to codex, gemini:<model>, "
+                    "openai:<model>, or grok:<model>"
+                )
+            else:
+                r.fail(
+                    "native image inspection is unsupported for OpenCode; "
+                    "set vqa_model to codex, gemini:<model>, or openai:<model>"
+                )
+            return
         if capability == "image_inspection" and agent in {AGENT_CODEX, AGENT_CLAUDE_CODE}:
             r.ok("native image inspection uses the active agent runtime")
         elif capability == "image_generation" and agent == AGENT_CODEX:
@@ -345,8 +417,7 @@ def check_api_keys(
     if vqa_provider in {"native", "codex"}:
         required.discard("native")
         required.discard("codex")
-        if vqa_provider != image_provider:
-            check_runtime_model_provider(r, vqa_provider, agent, "image_inspection")
+        check_runtime_model_provider(r, vqa_provider, agent, "image_inspection")
 
     google_key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if "gemini" in required:

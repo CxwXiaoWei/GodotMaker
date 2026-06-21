@@ -1,11 +1,14 @@
 """Agent runtime helpers for project-local GodotMaker tools."""
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
+import sys
 
 
 AGENT_CLAUDE_CODE = "claude-code"
 AGENT_CODEX = "codex"
+AGENT_OPENCODE = "opencode"
 
 
 def _read_yaml_scalar(path: Path, key: str) -> str | None:
@@ -28,6 +31,8 @@ def normalize_agent(value: str | None) -> str | None:
     normalized = value.strip().lower().replace("_", "-")
     if normalized in {"codex", "openai-codex"}:
         return AGENT_CODEX
+    if normalized in {"opencode", "open-code"}:
+        return AGENT_OPENCODE
     if normalized in {"claude", "claude-code", "anthropic-claude-code"}:
         return AGENT_CLAUDE_CODE
     return None
@@ -44,6 +49,8 @@ def detect_agent(project_dir: Path) -> str:
     # Backward-compatible fallback for older projects without `agent`.
     if (project_dir / ".agents").exists():
         return AGENT_CODEX
+    if (project_dir / ".opencode").exists():
+        return AGENT_OPENCODE
     return AGENT_CLAUDE_CODE
 
 
@@ -51,6 +58,8 @@ def agent_config_root(project_dir: Path, agent: str | None = None) -> Path:
     selected = normalize_agent(agent) or detect_agent(project_dir)
     if selected == AGENT_CODEX:
         return project_dir / ".agents"
+    if selected == AGENT_OPENCODE:
+        return project_dir / ".opencode"
     return project_dir / ".claude"
 
 
@@ -62,6 +71,8 @@ def agent_runtime_mapping(project_dir: Path, agent: str | None = None) -> Path:
     selected = normalize_agent(agent) or detect_agent(project_dir)
     if selected == AGENT_CODEX:
         return project_dir / ".agents" / "references" / "runtime-mapping.md"
+    if selected == AGENT_OPENCODE:
+        return project_dir / ".opencode" / "references" / "runtime-mapping.md"
     return project_dir / ".claude" / "references" / "runtime-mapping.md"
 
 
@@ -69,9 +80,73 @@ def godotmaker_yaml(project_dir: Path, agent: str | None = None) -> Path:
     return agent_config_root(project_dir, agent) / "godotmaker.yaml"
 
 
-def read_godot_path(project_dir: Path, default: str | None = None) -> str | None:
-    value = _read_yaml_scalar(godotmaker_yaml(project_dir), "godot_path")
+def find_project_dir(start: Path | None = None) -> Path:
+    """Find the nearest Godot project root at or above `start`."""
+    current = (start or Path.cwd()).resolve()
+    if current.is_file():
+        current = current.parent
+
+    for candidate in (current, *current.parents):
+        if (candidate / "project.godot").exists():
+            return candidate
+    return current
+
+
+def read_config_value(
+    project_dir: Path,
+    key: str,
+    *,
+    agent: str | None = None,
+    default: str | None = None,
+) -> str | None:
+    value = _read_yaml_scalar(godotmaker_yaml(project_dir, agent), key)
     return value if value else default
+
+
+def read_godot_path(project_dir: Path, default: str | None = None) -> str | None:
+    return read_config_value(project_dir, "godot_path", default=default)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Read a value from the selected GodotMaker agent config."
+    )
+    parser.add_argument("key", help="Config key to read, for example godot_path")
+    parser.add_argument(
+        "--project",
+        default=".",
+        help="Project directory or a path inside the project (default: cwd)",
+    )
+    parser.add_argument(
+        "--agent",
+        choices=[AGENT_CLAUDE_CODE, AGENT_CODEX, AGENT_OPENCODE],
+        default=None,
+        help="Override selected agent runtime",
+    )
+    parser.add_argument(
+        "--default",
+        default=None,
+        help="Value to print when the key is absent",
+    )
+    args = parser.parse_args(argv)
+
+    project_dir = find_project_dir(Path(args.project))
+    value = read_config_value(
+        project_dir,
+        args.key,
+        agent=args.agent,
+        default=args.default,
+    )
+    if value:
+        print(value)
+        return 0
+
+    config_path = godotmaker_yaml(project_dir, args.agent)
+    print(
+        f"Error: key '{args.key}' not found in {config_path}",
+        file=sys.stderr,
+    )
+    return 1
 
 
 def prefer_console_godot_path(godot_path: str | None) -> str | None:
@@ -97,3 +172,7 @@ def prefer_console_godot_path(godot_path: str | None) -> str | None:
     except OSError:
         return godot_path
     return godot_path
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

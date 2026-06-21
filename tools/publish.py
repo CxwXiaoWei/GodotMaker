@@ -2,7 +2,8 @@
 """Publish GodotMaker skills into a target Godot project directory.
 
 Flattens skills/core/* and skills/reviewer/* into the selected agent-native
-skill location: .claude/skills/ for Claude Code or .agents/skills/ for Codex.
+skill location: .claude/skills/ for Claude Code, .agents/skills/ for Codex,
+or .opencode/skills/ for OpenCode.
 Also copies tools, config, hooks, templates, and sets up agent-specific files.
 
 Supports versioned upgrades: compares source VERSION against the
@@ -11,6 +12,7 @@ target's .godotmaker/version and prompts accordingly.
 Usage:
     python tools/publish.py <target_godot_project_dir>
     python tools/publish.py --agent codex <target_godot_project_dir>
+    python tools/publish.py --agent opencode <target_godot_project_dir>
     python tools/publish.py --force <target_godot_project_dir>
 """
 import argparse
@@ -25,7 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple
 
-from agent_runtime import AGENT_CLAUDE_CODE, AGENT_CODEX
+from agent_runtime import AGENT_CLAUDE_CODE, AGENT_CODEX, AGENT_OPENCODE
 from project_config import (
     ProjectConfigResult,
     create_project_config as create_project_config_file,
@@ -47,19 +49,24 @@ class VersionCheckResult(NamedTuple):
     source_ver: SemVer | None
 
 EXCLUDE_DIRS = {"__pycache__", "doc_source", ".workspace"}
-AGENT_CHOICES = (AGENT_CLAUDE_CODE, AGENT_CODEX)
+AGENT_CHOICES = (AGENT_CLAUDE_CODE, AGENT_CODEX, AGENT_OPENCODE)
 AGENT_RUNTIME_SOURCE_ROOTS = {
     AGENT_CLAUDE_CODE: Path("agent-runtimes") / "claude-code",
     AGENT_CODEX: Path("agent-runtimes") / "codex",
+    AGENT_OPENCODE: Path("agent-runtimes") / "opencode",
 }
 AGENT_RUNTIME_REFERENCES = {
     AGENT_CODEX: (
         Path("references") / "runtime-mapping.md",
         Path("references") / "delegation-worktree.md",
     ),
+    AGENT_OPENCODE: (
+        Path("references") / "runtime-mapping.md",
+    ),
 }
 AGENT_ROOT_BOOTSTRAP_TEMPLATES = {
     AGENT_CODEX: Path("templates") / "agents-bootstrap.md",
+    AGENT_OPENCODE: Path("templates") / "agents-bootstrap.md",
 }
 AGENT_HOOK_CONFIGS = {
     AGENT_CLAUDE_CODE: (
@@ -82,6 +89,7 @@ class AgentPublishAdapter:
     agents_root: str
     config_root: str
     templates_root: str
+    plugins_root: str | None
     runtime_references_root: str | None
     root_instruction_filename: str
     register_claude_mcp: bool
@@ -103,6 +111,11 @@ class AgentPublishAdapter:
     def templates_dir(self, target: Path) -> Path:
         return target / self.templates_root
 
+    def plugins_dir(self, target: Path) -> Path | None:
+        if self.plugins_root is None:
+            return None
+        return target / self.plugins_root
+
     def runtime_references_dir(self, target: Path) -> Path | None:
         if self.runtime_references_root is None:
             return None
@@ -117,6 +130,7 @@ AGENT_ADAPTERS = {
         agents_root=".claude/agents",
         config_root=".claude/config",
         templates_root=".claude/templates",
+        plugins_root=None,
         runtime_references_root=None,
         root_instruction_filename="CLAUDE.md",
         register_claude_mcp=True,
@@ -130,7 +144,22 @@ AGENT_ADAPTERS = {
         agents_root=".agents/agents",
         config_root=".agents/config",
         templates_root=".agents/templates",
+        plugins_root=None,
         runtime_references_root=".agents/references",
+        root_instruction_filename="AGENTS.md",
+        register_claude_mcp=False,
+        register_godot_permissions=False,
+        ensure_worktreeinclude=False,
+    ),
+    AGENT_OPENCODE: AgentPublishAdapter(
+        agent_id=AGENT_OPENCODE,
+        project_config_root=".opencode",
+        skill_root=".opencode/skills",
+        agents_root=".opencode/agents",
+        config_root=".opencode/config",
+        templates_root=".opencode/templates",
+        plugins_root=".opencode/plugins",
+        runtime_references_root=".opencode/references",
         root_instruction_filename="AGENTS.md",
         register_claude_mcp=False,
         register_godot_permissions=False,
@@ -534,6 +563,149 @@ def publish_directory(
     print(f"Published {label} ({count} files)")
 
 
+def _split_frontmatter(text: str) -> tuple[list[str] | None, str]:
+    """Return YAML frontmatter lines and markdown body."""
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None, text
+
+    end = None
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            end = i
+            break
+    if end is None:
+        return None, text
+
+    body = "\n".join(lines[end + 1:])
+    if text.endswith("\n"):
+        body += "\n"
+    return lines[1:end], body
+
+
+def _frontmatter_without_key(lines: list[str], key: str) -> list[str]:
+    """Remove a top-level scalar or simple block key from frontmatter."""
+    result: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+        if stripped and not line.startswith((" ", "\t")) and ":" in stripped:
+            current_key = stripped.split(":", 1)[0].strip()
+            if current_key == key:
+                i += 1
+                while i < len(lines) and lines[i].startswith((" ", "\t")):
+                    i += 1
+                continue
+        result.append(line)
+        i += 1
+    return result
+
+
+OPENCODE_BASE_AGENT_PERMISSION: dict[str, object] = {
+    "external_directory": "allow",
+}
+
+OPENCODE_AGENT_PERMISSION_POLICIES: dict[str, dict[str, object]] = {
+    # OpenCode uses one `edit` permission for write, edit, and apply_patch.
+    # These reviewer-style agents must not mutate project files.
+    "reviewer": {"edit": "deny"},
+    "verifier": {"edit": "deny"},
+    "gdd-auditor": {"edit": "deny"},
+}
+
+
+def _append_yaml_value(lines: list[str], key: str, value: object) -> None:
+    """Append a small YAML scalar or mapping value."""
+    if isinstance(value, dict):
+        lines.append(f"{key}:")
+        for child_key, child_value in value.items():
+            lines.append(f"  {child_key}: {child_value}")
+        return
+    lines.append(f"{key}: {value}")
+
+
+def render_opencode_agent_role_text(text: str, role_name: str) -> str:
+    """Render a shared role definition as an OpenCode native subagent."""
+    frontmatter, body = _split_frontmatter(text)
+    updated = list(frontmatter or [])
+    if frontmatter is None:
+        body = text
+    updated = _frontmatter_without_key(updated, "model")
+    updated = _frontmatter_without_key(updated, "mode")
+    updated = _frontmatter_without_key(updated, "permission")
+    _append_yaml_value(updated, "mode", "subagent")
+    permission = {
+        **OPENCODE_BASE_AGENT_PERMISSION,
+        **OPENCODE_AGENT_PERMISSION_POLICIES.get(role_name, {}),
+    }
+    _append_yaml_value(updated, "permission", permission)
+    rendered = "---\n" + "\n".join(updated) + "\n---\n" + body
+
+    replacements = {
+        ".claude/skills": ".opencode/skills",
+        ".claude/agents": ".opencode/agents",
+        ".claude/templates": ".opencode/templates",
+        ".claude/config": ".opencode/config",
+        ".claude/godotmaker.yaml": ".opencode/godotmaker.yaml",
+    }
+    for old, new in replacements.items():
+        rendered = rendered.replace(old, new)
+    return rendered
+
+
+def publish_agents(repo_root: Path, agents_target: Path,
+                   agent: str = AGENT_CLAUDE_CODE) -> int:
+    """Publish GodotMaker role definitions for the selected runtime."""
+    src = repo_root / "agents"
+    if not src.exists():
+        return 0
+
+    if agents_target.exists():
+        rmtree_force(agents_target)
+    agents_target.mkdir(parents=True, exist_ok=True)
+
+    count = 0
+    for file in sorted(src.glob("*.md")):
+        source = file.read_text(encoding="utf-8")
+        if agent == AGENT_OPENCODE:
+            rendered = render_opencode_agent_role_text(source, file.stem)
+        else:
+            rendered = source
+        (agents_target / file.name).write_text(rendered, encoding="utf-8")
+        count += 1
+
+    print(f"Published agents/ ({count} files)")
+    return count
+
+
+def publish_agent_plugins(repo_root: Path, target: Path,
+                          agent: str = AGENT_CLAUDE_CODE,
+                          force: bool = False) -> int:
+    """Publish selected-runtime plugin adapters, when the runtime uses them."""
+    adapter = get_agent_adapter(agent)
+    plugins_target = adapter.plugins_dir(target)
+    if plugins_target is None:
+        return 0
+
+    source_root = AGENT_RUNTIME_SOURCE_ROOTS.get(agent)
+    if source_root is None:
+        return 0
+    plugins_src = repo_root / source_root / "plugins"
+    if not plugins_src.exists():
+        return 0
+
+    if plugins_target.exists() and not force:
+        relative = plugins_target.relative_to(target)
+        print(f"{relative} already exists, skipping (use --force to overwrite)")
+        return 0
+
+    copy_tree(plugins_src, plugins_target)
+    count = len([p for p in plugins_target.rglob("*") if p.is_file()])
+    print(f"Published {agent} plugins/ ({count} files)")
+    return count
+
+
 def deploy_agent_hook_config(repo_root: Path, target: Path, agent: str, force: bool):
     """Deploy selected-agent hook config."""
     spec = AGENT_HOOK_CONFIGS.get(agent)
@@ -577,8 +749,7 @@ def render_agent_instructions(repo_root: Path, agent: str) -> str | None:
         return None
     content = template.read_text(encoding="utf-8")
     rendered = render_root_instruction_text(content, adapter)
-    if adapter.agent_id == AGENT_CODEX:
-        rendered = _inject_agent_root_bootstrap(repo_root, rendered, adapter)
+    rendered = _inject_agent_root_bootstrap(repo_root, rendered, adapter)
     return rendered
 
 
@@ -860,6 +1031,46 @@ def register_codex_mcp(target: Path, godot_path: str) -> bool:
             return False
     except (subprocess.TimeoutExpired, OSError):
         print("ERROR: Codex godot-mcp registration failed.")
+        return False
+
+
+def register_opencode_mcp(target: Path, godot_path: str) -> bool:
+    """Register godot-mcp for OpenCode via `opencode mcp`."""
+    opencode_cmd = (
+        shutil.which("opencode")
+        or shutil.which("opencode.cmd")
+        or shutil.which("opencode.exe")
+    )
+    if not opencode_cmd:
+        print("ERROR: OpenCode CLI not found. Cannot register godot-mcp.")
+        print("  Install OpenCode, then run manually:")
+        print(f'  opencode mcp add godot --env GODOT_PATH="{godot_path}" -- npx @coding-solo/godot-mcp')
+        return False
+
+    if not shutil.which("npx"):
+        print("ERROR: npx not found. Cannot register godot-mcp.")
+        print("  Install Node.js, then run manually:")
+        print(f'  opencode mcp add godot --env GODOT_PATH="{godot_path}" -- npx @coding-solo/godot-mcp')
+        return False
+
+    print("Registering godot-mcp MCP server for OpenCode...")
+    cmd = [opencode_cmd, "mcp", "add", "godot",
+           "--env", f"GODOT_PATH={godot_path}", "--"]
+
+    if sys.platform == "win32":
+        cmd.extend(["cmd", "/c", "npx", "@coding-solo/godot-mcp"])
+    else:
+        cmd.extend(["npx", "@coding-solo/godot-mcp"])
+
+    try:
+        result = subprocess.run(cmd, cwd=str(target), timeout=60)
+        if result.returncode == 0:
+            print("godot-mcp registered for OpenCode")
+            return True
+        print("ERROR: OpenCode godot-mcp registration failed.")
+        return False
+    except (subprocess.TimeoutExpired, OSError):
+        print("ERROR: OpenCode godot-mcp registration failed.")
         return False
 
 
@@ -1145,6 +1356,10 @@ def main():
             if d.exists():
                 print(f"  Cleaning {d}")
                 rmtree_force(d)
+        plugins_dir = adapter.plugins_dir(target)
+        if plugins_dir is not None and plugins_dir.exists():
+            print(f"  Cleaning {plugins_dir}")
+            rmtree_force(plugins_dir)
         runtime_refs_dir = adapter.runtime_references_dir(target)
         if runtime_refs_dir is not None and runtime_refs_dir.exists():
             print(f"  Cleaning {runtime_refs_dir}")
@@ -1173,8 +1388,8 @@ def main():
     publish_skills(repo_root, skills_target, agent)
     publish_shared_refs(repo_root, skills_target, agent)
     publish_runtime_references(repo_root, target, agent)
-    publish_directory(repo_root / "agents", adapter.agents_dir(target),
-                      "agents/", "*.md")
+    publish_agents(repo_root, adapter.agents_dir(target), agent)
+    publish_agent_plugins(repo_root, target, agent, args.force)
     publish_directory(repo_root / "tools", target / "tools", "tools/")
     publish_directory(repo_root / "config", adapter.config_dir(target),
                       "config/", "*")
@@ -1209,6 +1424,13 @@ def main():
                   "registration can run.")
             sys.exit(1)
         if not register_codex_mcp(target, godot_path):
+            sys.exit(1)
+    elif adapter.agent_id == AGENT_OPENCODE:
+        if not config_ready:
+            print("ERROR: OpenCode publish requires godotmaker.yaml before MCP "
+                  "registration can run.")
+            sys.exit(1)
+        if not register_opencode_mcp(target, godot_path):
             sys.exit(1)
     if adapter.register_godot_permissions:
         register_godot_permissions(config_dir / "settings.json", godot_path)
