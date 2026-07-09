@@ -28,5 +28,6 @@ If no category fits, add a new one following [Keep a Changelog](https://keepacha
 - Fixed atlas asset usage so a generated button, icon, prop, or effect is built and reviewed to show its own image instead of the whole packed sheet it was cut from.
 - Fixed agent tool-dispatch trace capture so prompts or responses containing invalid Unicode surrogates are recorded instead of being silently dropped.
 - Redirected headless Godot's log into `.godotmaker/logs/` (keeping the five most recent per check) so verify no longer fails when a sandbox cannot create Godot's default `user://logs` directory.
+- New and existing projects now disable Godot's default engine file log (existing projects are updated by an upgrade migration) so an unattended run that floods errors can no longer fill the system drive with an unbounded `user://logs/godot.log`.
 
 ## Removed
